@@ -3,7 +3,7 @@ from . import data
 from . import metrics
 from . import preprocessing
 from . import visualization
+from . import experiment
+from .experiment import Experiment, RandomSearchExperiment
 
-# from .experiment import Experiement
-
-__version__ = "0.3.0" 
+__version__ = "0.3.1"

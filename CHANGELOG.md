@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog,
 and this project adheres to Semantic Versioning.
 
+## [0.3.1] - 2026-03-09
+### Added
+- **8 new dataset loaders** in `pymv.data`, each with on-demand Zenodo download:
+  - `load_bdgp()` — BDGP multi-view dataset.
+  - `load_coco_all()` — COCO (all views) multi-view dataset.
+  - `load_coco_cross()` — COCO (cross-modal views) multi-view dataset.
+  - `load_dblp()` — DBLP attributed graph (3 meta-path adjacencies: APTPA, APCPA, APA).
+  - `load_imdb()` — IMDB attributed graph (2 meta-path adjacencies: MAM, MDM).
+  - `load_pascal()` — Pascal multi-view dataset.
+  - `load_prokaryotic()` — Prokaryotic multi-view dataset.
+  - `load_wiki()` — Wikipedia attributed graph (features + adjacency, with log-transformed second view).
+- All new loaders registered in `pymv.data.registry` and exposed via `pymv.data.__init__`.
+- All datasets accessible through the unified `load_dataset("name")` API.
+- **Experiment framework** (`pymv.experiment`) — Cornac-inspired evaluation harness:
+  - `Experiment(datasets, models, metrics)` — runs all (dataset × model) combinations, reports per-dataset result tables with timing; supports multiple independent runs with mean ± std.
+  - `RandomSearchExperiment(model_class, param_distributions, ...)` — random hyper-parameter search for a single model class, tracks best configuration by a chosen metric.
+  - `ExperimentResult`, `RandomSearchResult`, `Result` — structured result containers with pretty-printed ASCII tables.
+  - `setup_experiment_logger()` — timestamped dual-handler logging (file at DEBUG level + console at INFO level).
+  - All execution details (parameters, per-trial scores, timings, errors) saved to log files in a configurable directory.
+
 ## [0.3.0] - 2026-03-09
 ### Changed — Full library restructure
 - Renamed the package from `graph-lmgec` (`graphs.lmgec`) to **`pymv`** (`src/pymv/`).
@@ -16,7 +36,6 @@ and this project adheres to Semantic Versioning.
   - `pymv.visualization` — plotting utilities (`visualizer.py`).
   - `pymv.experiment` — (placeholder) experiment runner subpackage.
   - `pymv.utils` — (placeholder) general-purpose helpers.
-- Bundled `.mat` dataset files moved from `src/graphs/lmgec/datasets/` to `tests/datasets/`.
 
 ### Added
 - **`pymv.core.BaseModel`** — abstract base class enforcing a `fit(X)` interface for all models.

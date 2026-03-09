@@ -2,3 +2,4 @@ __pycache__/
 *.mat
 dist/*
 src/*.egg-info
+to_do_list.md
