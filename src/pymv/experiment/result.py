@@ -1,103 +1,166 @@
 """
 Result formatting utilities for pymv experiments.
 
-Provides table formatting and result containers inspired by
-Cornac's result module, adapted for multi-view clustering.
+Provides clean, well-aligned ASCII tables for experiment results.
+Highlights best values per metric, shows std in parentheses,
+and uses box-drawing characters for crisp output.
 """
 
 from __future__ import annotations
 
 from collections import OrderedDict
+from typing import List, Optional
+
 import numpy as np
 
 
 NUM_FMT = "{:.4f}"
-TIME_FMT = "{:.2f}"
+TIME_FMT = "{:.2f}s"
+MEAN_STD_FMT = "{:.4f} (±{:.4f})"
 
 
-def _table_format(data, headers, index, extra_spaces=0, h_bars=None):
+# =====================================================================
+# Table renderer
+# =====================================================================
+
+def _build_table(
+    rows: list[list[str]],
+    headers: list[str],
+    index: list[str],
+    title: str | None = None,
+    best_cols: dict[int, int] | None = None,
+    pad: int = 1,
+) -> str:
     """
-    Format a 2D list into a pretty ASCII table.
+    Render an ASCII table with box-drawing characters.
 
     Parameters
     ----------
-    data : list of list of str
-        Cell values (already formatted).
-    headers : list of str
-        Column headers.
-    index : list of str
-        Row labels.
-    extra_spaces : int
-        Padding per column.
-    h_bars : list of int or None
-        Row indices after which to draw a horizontal bar.
-
-    Returns
-    -------
-    str
+    rows : list[list[str]]
+        Pre-formatted cell values.
+    headers : list[str]
+        Column header labels.
+    index : list[str]
+        Row labels (first column).
+    title : str, optional
+        Title line printed above the table.
+    best_cols : dict[col_idx, row_idx], optional
+        Map of column index -> row index of the best value.
+        The best cell gets a ``*`` suffix.
+    pad : int
+        Extra spaces on each side of a cell.
     """
-    if h_bars is None:
-        h_bars = []
+    if best_cols is None:
+        best_cols = {}
+
+    n_cols = len(headers)
+    sp = " " * pad
+
+    # Mark best values with *
+    for col_i, row_i in best_cols.items():
+        if 0 <= row_i < len(rows) and 0 <= col_i < n_cols:
+            rows[row_i][col_i] = rows[row_i][col_i] + " *"
 
     # Compute column widths
-    col_widths = [max(len(str(h)), *(len(str(row[i])) for row in data))
-                  for i, h in enumerate(headers)]
-    idx_width = max(len(str(idx)) for idx in index) if index else 0
+    idx_w = max((len(s) for s in index), default=0)
+    idx_w = max(idx_w, len("Model"))
 
-    # Header line
-    header_line = " " * (idx_width + extra_spaces) + " | ".join(
-        str(h).rjust(w) for h, w in zip(headers, col_widths)
-    )
-    sep_line = "-" * (idx_width + extra_spaces) + " + ".join(
-        "-" * w for w in col_widths
-    )
+    col_ws = []
+    for c in range(n_cols):
+        w = len(headers[c])
+        for r in rows:
+            w = max(w, len(r[c]))
+        col_ws.append(w)
 
-    lines = [header_line, sep_line]
+    # Build lines
+    def _sep(left, mid, right, fill="─"):
+        parts = [fill * (idx_w + 2 * pad)]
+        for w in col_ws:
+            parts.append(fill * (w + 2 * pad))
+        return left + mid.join(parts) + right
 
-    for i, (idx, row) in enumerate(zip(index, data)):
-        row_str = str(idx).ljust(idx_width + extra_spaces) + " | ".join(
-            str(v).rjust(w) for v, w in zip(row, col_widths)
-        )
-        lines.append(row_str)
-        if (i + 1) in h_bars:
-            lines.append(sep_line)
+    top    = _sep("┌", "┬", "┐")
+    mid    = _sep("├", "┼", "┤")
+    bottom = _sep("└", "┴", "┘")
 
+    def _row(label, cells):
+        parts = [f"{sp}{label.ljust(idx_w)}{sp}"]
+        for c, w in zip(cells, col_ws):
+            parts.append(f"{sp}{c.rjust(w)}{sp}")
+        return "│" + "│".join(parts) + "│"
+
+    lines = []
+
+    if title:
+        lines.append("")
+        lines.append(f"  ◆ {title}")
+
+    lines.append(top)
+    lines.append(_row("Model", headers))
+    lines.append(mid)
+
+    for idx_label, row in zip(index, rows):
+        lines.append(_row(idx_label, row))
+
+    lines.append(bottom)
     return "\n".join(lines)
 
 
+# =====================================================================
+# Result containers
+# =====================================================================
+
 class Result:
     """
-    Stores metric results for a single (dataset, model) combination.
+    Stores metric results for a single (dataset, model) run.
 
     Attributes
     ----------
     dataset_name : str
     model_name : str
-    metric_values : OrderedDict
-        metric_name -> float
+    metric_avg : OrderedDict[str, float]
+        Metric name -> mean value.
+    metric_std : OrderedDict[str, float]
+        Metric name -> standard deviation (0.0 if single run).
     train_time : float
-        Seconds spent in fit().
+        Mean seconds spent in ``fit()``.
     """
 
-    def __init__(self, dataset_name, model_name, metric_values, train_time):
+    def __init__(
+        self,
+        dataset_name: str,
+        model_name: str,
+        metric_avg: dict,
+        metric_std: dict | None = None,
+        train_time: float = 0.0,
+    ):
         self.dataset_name = dataset_name
         self.model_name = model_name
-        self.metric_values = OrderedDict(metric_values)
+        self.metric_avg = OrderedDict(metric_avg)
+        self.metric_std = OrderedDict(metric_std) if metric_std else OrderedDict(
+            {k: 0.0 for k in metric_avg}
+        )
         self.train_time = train_time
 
-    def __str__(self):
-        headers = list(self.metric_values.keys()) + ["Time (s)"]
-        data = [[NUM_FMT.format(v) for v in self.metric_values.values()]
-                + [TIME_FMT.format(self.train_time)]]
-        label = f"{self.dataset_name}/{self.model_name}"
-        return _table_format(data, headers, index=[label], h_bars=[1])
+    def format_cell(self, metric_name: str, show_std: bool = False) -> str:
+        mean = self.metric_avg[metric_name]
+        if show_std and self.metric_std.get(metric_name, 0.0) > 0:
+            return MEAN_STD_FMT.format(mean, self.metric_std[metric_name])
+        return NUM_FMT.format(mean)
+
+    def __repr__(self):
+        return (
+            f"Result({self.dataset_name!r}, {self.model_name!r}, "
+            f"metrics={dict(self.metric_avg)}, time={self.train_time:.2f}s)"
+        )
 
 
 class ExperimentResult:
     """
     Collects results across multiple datasets and models.
 
-    Organized as results[dataset_name] = list of Result.
+    Provides a formatted multi-table string grouped by dataset,
+    with the best value per metric highlighted.
     """
 
     def __init__(self):
@@ -109,90 +172,138 @@ class ExperimentResult:
             self._results[ds] = []
         self._results[ds].append(result)
 
+    @property
+    def all_results(self) -> dict[str, list[Result]]:
+        return self._results
+
+    def _find_best(self, results: list[Result]) -> dict[int, int]:
+        """Return {col_idx: row_idx} for highest mean per metric."""
+        if not results:
+            return {}
+        metric_names = list(results[0].metric_avg.keys())
+        best: dict[int, int] = {}
+        for col_i, m in enumerate(metric_names):
+            best_val = -np.inf
+            best_row = 0
+            for row_i, r in enumerate(results):
+                v = r.metric_avg.get(m, -np.inf)
+                if not np.isnan(v) and v > best_val:
+                    best_val = v
+                    best_row = row_i
+            best[col_i] = best_row
+        return best
+
     def __str__(self):
-        parts = []
+        show_std = any(
+            any(v > 0 for v in r.metric_std.values())
+            for rs in self._results.values()
+            for r in rs
+        )
+
+        parts: list[str] = []
         for ds_name, results in self._results.items():
-            parts.append(f"\n--- {ds_name} ---")
             if not results:
                 continue
-            headers = list(results[0].metric_values.keys()) + ["Time (s)"]
-            data = []
+
+            metric_names = list(results[0].metric_avg.keys())
+            headers = metric_names + ["Time"]
+
+            rows = []
             index = []
             for r in results:
-                row = [NUM_FMT.format(v) for v in r.metric_values.values()]
+                row = [r.format_cell(m, show_std=show_std) for m in metric_names]
                 row.append(TIME_FMT.format(r.train_time))
-                data.append(row)
+                rows.append(row)
                 index.append(r.model_name)
-            parts.append(_table_format(data, headers, index, h_bars=[1]))
-        return "\n".join(parts)
 
-    @property
-    def all_results(self):
-        return self._results
+            best = self._find_best(results) if len(results) > 1 else {}
+            table = _build_table(
+                rows, headers, index,
+                title=f"Dataset: {ds_name}",
+                best_cols=best,
+            )
+            parts.append(table)
+
+        return "\n".join(parts)
 
 
 class RandomSearchResult:
     """
-    Stores results of a random hyperparameter search.
+    Stores results of a random hyper-parameter search.
 
-    Attributes
-    ----------
-    dataset_name : str
-    model_name : str
-    trials : list of dict
-        Each dict has 'params', 'metrics' (OrderedDict), 'time'.
-    best_idx : int
-        Index of the best trial.
-    best_metric_name : str
-        The metric used to select the best trial.
+    Tracks all trials and identifies the best configuration
+    by the chosen metric (higher is better).
     """
 
-    def __init__(self, dataset_name, model_name, best_metric_name):
+    def __init__(self, dataset_name: str, model_name: str, best_metric_name: str):
         self.dataset_name = dataset_name
         self.model_name = model_name
         self.best_metric_name = best_metric_name
-        self.trials = []
-        self.best_idx = 0
+        self.trials: list[dict] = []
+        self.best_idx: int = 0
 
-    def add_trial(self, params, metric_values, train_time):
+    def add_trial(self, params: dict, metric_values: dict, train_time: float):
         self.trials.append({
             "params": dict(params),
             "metrics": OrderedDict(metric_values),
             "time": train_time,
         })
         # Update best (higher is better)
-        best_val = self.trials[self.best_idx]["metrics"][self.best_metric_name]
-        curr_val = metric_values[self.best_metric_name]
-        if curr_val > best_val:
+        curr_val = metric_values.get(self.best_metric_name, -np.inf)
+        best_val = self.trials[self.best_idx]["metrics"].get(
+            self.best_metric_name, -np.inf
+        )
+        if not np.isnan(curr_val) and curr_val > best_val:
             self.best_idx = len(self.trials) - 1
 
     @property
-    def best_params(self):
+    def best_params(self) -> dict:
         return self.trials[self.best_idx]["params"]
 
     @property
-    def best_metrics(self):
+    def best_metrics(self) -> OrderedDict:
         return self.trials[self.best_idx]["metrics"]
 
     def __str__(self):
         if not self.trials:
             return "(no trials)"
 
-        sample_metrics = self.trials[0]["metrics"]
-        param_keys = sorted(self.trials[0]["params"].keys())
+        sample = self.trials[0]
+        param_keys = sorted(sample["params"].keys())
+        metric_names = list(sample["metrics"].keys())
 
-        headers = param_keys + list(sample_metrics.keys()) + ["Time (s)"]
-        data = []
+        headers = param_keys + metric_names + ["Time"]
+
+        rows = []
         index = []
         for i, t in enumerate(self.trials):
             row = [str(t["params"][k]) for k in param_keys]
-            row += [NUM_FMT.format(v) for v in t["metrics"].values()]
+            row += [NUM_FMT.format(t["metrics"][m]) for m in metric_names]
             row.append(TIME_FMT.format(t["time"]))
-            data.append(row)
-            marker = " *" if i == self.best_idx else ""
-            index.append(f"trial-{i}{marker}")
+            rows.append(row)
+            tag = "★ best" if i == self.best_idx else f"#{i + 1}"
+            index.append(tag)
 
-        title = f"\n--- Random Search: {self.dataset_name} / {self.model_name} ---"
-        table = _table_format(data, headers, index, h_bars=[1])
-        best_line = f"\nBest trial: {self.best_idx}  params={self.best_params}"
-        return title + "\n" + table + best_line
+        # Best column = the one for best_metric_name
+        bm_col = len(param_keys) + metric_names.index(self.best_metric_name)
+        best_cols = {bm_col: self.best_idx}
+
+        title = (
+            f"Random Search: {self.model_name} on {self.dataset_name}  "
+            f"({len(self.trials)} trials, best by {self.best_metric_name})"
+        )
+
+        table = _build_table(
+            rows, headers, index,
+            title=title,
+            best_cols=best_cols,
+        )
+
+        bp = self.best_params
+        bm = self.best_metrics
+        summary = (
+            f"\n  Best params  : {bp}\n"
+            f"  Best metrics : "
+            + ", ".join(f"{k}={v:.4f}" for k, v in bm.items())
+        )
+        return table + summary
