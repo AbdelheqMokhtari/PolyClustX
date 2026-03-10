@@ -5,29 +5,24 @@ Inspired by Cornac's Experiment class, adapted for multi-view
 clustering.  Accepts flexible input formats so you can pass
 datasets / models / metrics in whichever way is most convenient.
 
+Console output
+--------------
+Only **two clean tables** are printed:
+
+1. **Model Configuration** — one row per model, columns = params.
+2. **Results — <dataset>** — one table per dataset, rows = models,
+   columns = metrics + Time (best values marked with ``*``).
+
+Everything else (loading messages, per-run scores, timing, errors)
+goes exclusively to the **log file** in ``log_dir`` (default:
+``./logs``).
+
 Usage
 -----
-# ---- Minimal (just names) ----
 >>> Experiment(
 ...     datasets=["acm", "dblp"],
-...     models=[LMGEC(n_clusters=3)],
+...     models=[model_a, model_b],
 ...     metrics=[clustering_accuracy, nmi_score],
-... ).run()
-
-# ---- Pre-loaded data ----
->>> Xs, As, y = load_acm()
->>> Experiment(
-...     datasets={"acm": (Xs, As, y)},
-...     models=[LMGEC(n_clusters=3)],
-...     metrics={"ACC": clustering_accuracy, "NMI": nmi_score},
-... ).run()
-
-# ---- Mixed ----
->>> Experiment(
-...     datasets={"acm": load_acm, "dblp": (Xs2, As2, y2)},
-...     models=[LMGEC(n_clusters=3)],
-...     metrics=[clustering_accuracy, nmi_score],
-...     verbose=0,       # silent console
 ... ).run()
 """
 
@@ -63,8 +58,6 @@ def _normalize_datasets(datasets) -> OrderedDict:
     *   single callable              — treated as ``[callable]``
     *   single tuple ``(Xs, As, y)`` — treated as ``{"dataset": tuple}``
     """
-    # Import registry lazily so the experiment module can be imported
-    # even if some dataset loaders have missing deps.
     from pymv.data.registry import DATASETS, load_dataset
 
     if isinstance(datasets, str):
@@ -82,12 +75,10 @@ def _normalize_datasets(datasets) -> OrderedDict:
     elif isinstance(datasets, (list, tuple)):
         for item in datasets:
             if isinstance(item, str):
-                # Resolve name via registry
                 name = item
                 out[name] = DATASETS[name.lower()]
             elif callable(item):
                 name = getattr(item, "__name__", type(item).__name__)
-                # Strip common "load_" prefix for cleaner table headers
                 if name.startswith("load_"):
                     name = name[5:]
                 out[name] = item
@@ -166,12 +157,23 @@ def _normalize_metrics(metrics) -> OrderedDict:
 
 class Experiment:
     """
-    Run models × datasets × metrics and report a formatted table.
+    Run models × datasets × metrics and report formatted tables.
+
+    Console output (controlled by *verbose*):
+
+    *   **verbose=0** — nothing printed.
+    *   **verbose=1** — config table + result tables only (default).
+    *   **verbose=2** — one-liner progress per (dataset × model)
+        + tables.
+    *   **verbose=3** — full debug (every run, all params).
+
+    All details are always written to the log file regardless of
+    the verbose level.
 
     Parameters
     ----------
     datasets : str | list | dict | callable | tuple
-        Flexible.  See examples in module docstring.
+        Flexible.  See module docstring examples.
 
     models : BaseModel | list[BaseModel]
         Model instances to evaluate.  Each is deep-copied per
@@ -186,14 +188,10 @@ class Experiment:
         ``mean (±std)``.
 
     log_dir : str | None
-        Directory for log files.  ``None`` → ``~/pymv_logs``.
+        Directory for log files.  ``None`` → ``./logs`` (cwd).
 
     verbose : int
-        Console verbosity level:
-            - ``0`` — silent (nothing printed)
-            - ``1`` — final result table only
-            - ``2`` — progress messages + table  *(default)*
-            - ``3`` — full debug (every run, all params)
+        Console verbosity level (0–3).  Default is **1**.
     """
 
     def __init__(
@@ -203,7 +201,7 @@ class Experiment:
         metrics,
         runs: int = 1,
         log_dir: str | None = None,
-        verbose: int = 2,
+        verbose: int = 1,
     ):
         self.datasets = _normalize_datasets(datasets)
         self.models = _normalize_models(models)
@@ -245,41 +243,48 @@ class Experiment:
             verbose=self.verbose,
         )
 
-        logger.info("=" * 60)
-        logger.info("  pymv Experiment")
-        logger.info("=" * 60)
-        logger.info(f"  Datasets : {list(self.datasets.keys())}")
-        logger.info(
-            f"  Models   : {[self._model_name(m) for m in self.models]}"
+        # ---- Log header (file + verbose>=3) ----
+        logger.debug("=" * 60)
+        logger.debug("  pymv Experiment")
+        logger.debug("=" * 60)
+        logger.debug("  Datasets : %s", list(self.datasets.keys()))
+        logger.debug(
+            "  Models   : %s",
+            [self._model_name(m) for m in self.models],
         )
-        logger.info(f"  Metrics  : {list(self.metrics.keys())}")
-        logger.info(f"  Runs     : {self.runs}")
-        logger.info("")
+        logger.debug("  Metrics  : %s", list(self.metrics.keys()))
+        logger.debug("  Runs     : %d", self.runs)
+        logger.debug("")
 
+        # ---- Build result container with model info ----
+        model_names = [self._model_name(m) for m in self.models]
         self.result = ExperimentResult()
+        self.result.set_models(self.models, model_names)
 
         total_combos = len(self.datasets) * len(self.models)
         combo_i = 0
 
         for ds_name, ds_entry in self.datasets.items():
 
-            logger.info(f"  Loading dataset: {ds_name}")
+            logger.debug("Loading dataset: %s", ds_name)
             Xs, As, labels = _load_dataset(ds_entry)
             labels = np.asarray(labels).reshape(-1)
             n_clusters = len(np.unique(labels))
             logger.debug(
-                f"    samples={Xs[0].shape[0]}, views={len(Xs)}, "
-                f"k={n_clusters}"
+                "  samples=%d, views=%d, k=%d",
+                Xs[0].shape[0], len(Xs), n_clusters,
             )
 
             for model_template in self.models:
                 combo_i += 1
                 m_name = self._model_name(model_template)
+
+                # verbose>=2: one-liner progress on console
                 logger.info(
-                    f"  [{combo_i}/{total_combos}] "
-                    f"{ds_name} × {m_name}"
+                    "  [%d/%d] %s × %s …",
+                    combo_i, total_combos, ds_name, m_name,
                 )
-                logger.debug(f"    params: {model_template.__dict__}")
+                logger.debug("    params: %s", model_template.__dict__)
 
                 run_metrics: dict[str, list] = {k: [] for k in self.metrics}
                 run_times: list[float] = []
@@ -299,11 +304,10 @@ class Experiment:
                     run_times.append(elapsed)
 
                     logger.debug(
-                        f"    run {r + 1}/{self.runs}: "
-                        + ", ".join(
-                            f"{k}={v:.4f}" for k, v in scores.items()
-                        )
-                        + f"  ({elapsed:.2f}s)"
+                        "    run %d/%d: %s  (%.2fs)",
+                        r + 1, self.runs,
+                        ", ".join(f"{k}={v:.4f}" for k, v in scores.items()),
+                        elapsed,
                     )
 
                 # Aggregate
@@ -325,15 +329,19 @@ class Experiment:
                 )
                 self.result.add(result)
 
-                summary = ", ".join(f"{k}={v:.4f}" for k, v in avg.items())
-                logger.info(f"    → {summary}  ({avg_time:.2f}s)")
+                logger.debug(
+                    "    → %s  (%.2fs)",
+                    ", ".join(f"{k}={v:.4f}" for k, v in avg.items()),
+                    avg_time,
+                )
 
-        # Print final table — use WARNING so it appears at verbose>=1
+        # ==============================================================
+        # Print clean tables to console (WARNING level → verbose>=1)
+        # ==============================================================
         output = str(self.result)
-        logger.info("")
-        logger.warning("\n" + output)
+        logger.warning("\n%s", output)
 
-        # Always log to file
-        logger.debug("\n[RESULTS TABLE]\n" + output)
+        # Also write full tables to log file
+        logger.debug("\n[FULL RESULTS]\n%s", output)
 
         return self.result

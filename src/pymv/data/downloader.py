@@ -1,6 +1,10 @@
+import logging
 import os
+
 import requests
 from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
 
 
 def download_file(url, destination):
@@ -9,13 +13,13 @@ def download_file(url, destination):
 
     if os.path.exists(destination):
 
-        print(f"Dataset already downloaded.")
-        print(f"Using cached file: {destination}")
+        logger.debug("Dataset already downloaded.")
+        logger.debug("Using cached file: %s", destination)
 
         return destination
 
-    print("Downloading dataset...")
-    print(f"Saving to: {destination}")
+    logger.info("Downloading dataset...")
+    logger.info("Saving to: %s", destination)
 
     response = requests.get(url, stream=True)
 
@@ -34,6 +38,6 @@ def download_file(url, destination):
             f.write(data)
             progress.update(len(data))
 
-    print("Download completed.")
+    logger.info("Download completed.")
 
     return destination

@@ -1,9 +1,12 @@
 """
 Result formatting utilities for pymv experiments.
 
-Provides clean, well-aligned ASCII tables for experiment results.
-Highlights best values per metric, shows std in parentheses,
-and uses box-drawing characters for crisp output.
+Provides clean, well-aligned ASCII tables with box-drawing
+characters for experiment results.  Two table types:
+
+1. **Config table** — one row per model, shows hyper-parameters.
+2. **Results table** — one per dataset, shows metric scores with
+   best-value highlighting.
 """
 
 from __future__ import annotations
@@ -28,6 +31,7 @@ def _build_table(
     headers: list[str],
     index: list[str],
     title: str | None = None,
+    index_header: str = "Model",
     best_cols: dict[int, int] | None = None,
     pad: int = 1,
 ) -> str:
@@ -44,6 +48,8 @@ def _build_table(
         Row labels (first column).
     title : str, optional
         Title line printed above the table.
+    index_header : str
+        Label for the first (index) column.
     best_cols : dict[col_idx, row_idx], optional
         Map of column index -> row index of the best value.
         The best cell gets a ``*`` suffix.
@@ -63,7 +69,7 @@ def _build_table(
 
     # Compute column widths
     idx_w = max((len(s) for s in index), default=0)
-    idx_w = max(idx_w, len("Model"))
+    idx_w = max(idx_w, len(index_header))
 
     col_ws = []
     for c in range(n_cols):
@@ -93,10 +99,10 @@ def _build_table(
 
     if title:
         lines.append("")
-        lines.append(f"  ◆ {title}")
+        lines.append(f"  {title}")
 
     lines.append(top)
-    lines.append(_row("Model", headers))
+    lines.append(_row(index_header, headers))
     lines.append(mid)
 
     for idx_label, row in zip(index, rows):
@@ -104,6 +110,52 @@ def _build_table(
 
     lines.append(bottom)
     return "\n".join(lines)
+
+
+# =====================================================================
+# Config table builder
+# =====================================================================
+
+def _build_config_table(
+    models: list,
+    model_names: list[str],
+) -> str:
+    """
+    Build a table showing model hyper-parameters.
+
+    One row per model.  Columns = union of all parameter names
+    across models (excluding private attrs like ``labels_``).
+    """
+    # Collect all parameter keys across models
+    _SKIP = {
+        "labels_", "centroids_", "embedding_", "loss_history_",
+        "_name",
+    }
+
+    all_keys: list[str] = []
+    seen: set[str] = set()
+    for m in models:
+        for k in m.__dict__:
+            if k not in seen and k not in _SKIP and not k.endswith("_"):
+                all_keys.append(k)
+                seen.add(k)
+
+    headers = all_keys
+    index = model_names
+
+    rows = []
+    for m in models:
+        row = []
+        for k in all_keys:
+            val = getattr(m, k, "—")
+            row.append(str(val))
+        rows.append(row)
+
+    return _build_table(
+        rows, headers, index,
+        title="Model Configuration",
+        index_header="Model",
+    )
 
 
 # =====================================================================
@@ -165,6 +217,13 @@ class ExperimentResult:
 
     def __init__(self):
         self._results: dict[str, list[Result]] = OrderedDict()
+        self._models: list = []
+        self._model_names: list[str] = []
+
+    def set_models(self, models: list, model_names: list[str]):
+        """Store the model list for the config table."""
+        self._models = models
+        self._model_names = model_names
 
     def add(self, result: Result):
         ds = result.dataset_name
@@ -193,7 +252,14 @@ class ExperimentResult:
             best[col_i] = best_row
         return best
 
-    def __str__(self):
+    def config_table(self) -> str:
+        """Return the model-configuration table string."""
+        if not self._models:
+            return ""
+        return _build_config_table(self._models, self._model_names)
+
+    def results_tables(self) -> str:
+        """Return all per-dataset result tables as a single string."""
         show_std = any(
             any(v > 0 for v in r.metric_std.values())
             for rs in self._results.values()
@@ -219,12 +285,23 @@ class ExperimentResult:
             best = self._find_best(results) if len(results) > 1 else {}
             table = _build_table(
                 rows, headers, index,
-                title=f"Dataset: {ds_name}",
+                title=f"Results — {ds_name}",
+                index_header="Model",
                 best_cols=best,
             )
             parts.append(table)
 
         return "\n".join(parts)
+
+    def __str__(self):
+        sections = []
+        cfg = self.config_table()
+        if cfg:
+            sections.append(cfg)
+        res = self.results_tables()
+        if res:
+            sections.append(res)
+        return "\n".join(sections)
 
 
 class RandomSearchResult:
@@ -264,6 +341,11 @@ class RandomSearchResult:
     def best_metrics(self) -> OrderedDict:
         return self.trials[self.best_idx]["metrics"]
 
+    @property
+    def best_score(self) -> float:
+        """Best value of the target metric across all trials."""
+        return float(self.best_metrics.get(self.best_metric_name, float("nan")))
+
     def __str__(self):
         if not self.trials:
             return "(no trials)"
@@ -289,13 +371,14 @@ class RandomSearchResult:
         best_cols = {bm_col: self.best_idx}
 
         title = (
-            f"Random Search: {self.model_name} on {self.dataset_name}  "
+            f"Random Search — {self.model_name} on {self.dataset_name}  "
             f"({len(self.trials)} trials, best by {self.best_metric_name})"
         )
 
         table = _build_table(
             rows, headers, index,
             title=title,
+            index_header="Trial",
             best_cols=best_cols,
         )
 

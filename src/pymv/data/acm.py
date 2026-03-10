@@ -1,15 +1,18 @@
+import logging
+
 import scipy.io as io
 
 from .base import get_dataset_path
 from .downloader import download_file
 
+logger = logging.getLogger(__name__)
 
 ACM_URL = "https://zenodo.org/records/18923707/files/ACM.mat?download=1"
 
 
 def load_acm():
 
-    print("Loading ACM dataset...")
+    logger.info("Loading ACM dataset...")
 
     dataset_dir = get_dataset_path("acm")
 
@@ -17,7 +20,7 @@ def load_acm():
 
     download_file(ACM_URL, file_path)
 
-    print(f"Reading dataset from: {file_path}")
+    logger.debug("Reading dataset from: %s", file_path)
 
     data = io.loadmat(file_path)
 
@@ -30,9 +33,7 @@ def load_acm():
     As = [A.toarray(), B.toarray()]
     Xs = [X.toarray() for _ in As]
 
-    print("Dataset loaded successfully.")
-    print(f"Samples: {Xs[0].shape[0]}")
-    print(f"Views: {len(Xs)}")
+    logger.info("Dataset loaded: samples=%d, views=%d", Xs[0].shape[0], len(Xs))
 
     return Xs, As, labels
 

@@ -4,13 +4,16 @@ Random-search hyper-parameter tuning experiment.
 Accepts flexible input formats for dataset and metrics, matching
 the Experiment class API.
 
+Console output: a single clean table (params + metrics + time)
+with the best trial highlighted.  All noisy details (loading,
+per-trial logs, errors) go exclusively to the log file.
+
 Usage
 -----
 >>> from pymv.experiment import RandomSearchExperiment
 >>> from pymv.models import LMGEC
 >>> from pymv.metrics import clustering_accuracy, nmi_score
 >>>
->>> # --- dict metrics, loader function ---
 >>> rs = RandomSearchExperiment(
 ...     model_class=LMGEC,
 ...     param_distributions={
@@ -19,8 +22,8 @@ Usage
 ...         "temperature": [1.0, 5.0, 10.0],
 ...         "beta": [0.1, 0.5, 1.0, 2.0],
 ...     },
-...     dataset=load_acm,              # or "acm" or (Xs, As, y)
-...     metrics=[clustering_accuracy, nmi_score],  # or dict
+...     dataset="acm",
+...     metrics=[clustering_accuracy, nmi_score],
 ...     best_metric="clustering_accuracy",
 ...     n_iter=10,
 ... )
@@ -103,17 +106,18 @@ class RandomSearchExperiment:
     """
     Random-search over hyper-parameters for a single model class.
 
+    Console output: a single clean results table (best trial
+    marked with ``★``).  Everything else goes to the log file.
+
     Parameters
     ----------
     model_class : type
-        The model **class** (not an instance).  Must follow the
-        ``BaseModel`` interface.
+        The model **class** (not an instance).
 
     param_distributions : dict[str, list | callable]
         For each hyper-parameter, either:
         - a list of discrete values to sample from, or
-        - a callable() returning a single random value
-          (e.g. ``lambda: np.random.uniform(0.1, 10)``).
+        - a callable() returning a single random value.
 
     dataset : str | callable | tuple
         Flexible — see :func:`_resolve_dataset`.
@@ -123,7 +127,6 @@ class RandomSearchExperiment:
 
     best_metric : str
         The metric to optimise (highest wins).
-        Must be a key in *metrics* (after normalisation).
 
     n_iter : int
         Number of random configurations to try.
@@ -132,10 +135,10 @@ class RandomSearchExperiment:
         Seed for reproducibility.
 
     log_dir : str | None
-        Directory for log files.  ``None`` → ``~/pymv_logs``.
+        Directory for log files.  ``None`` → ``./logs`` (cwd).
 
     verbose : int
-        Console verbosity (0–3).
+        Console verbosity (0–3).  Default is **1** (table only).
     """
 
     def __init__(
@@ -148,7 +151,7 @@ class RandomSearchExperiment:
         n_iter: int = 20,
         seed: int | None = None,
         log_dir: str | None = None,
-        verbose: int = 2,
+        verbose: int = 1,
     ):
         self.model_class = model_class
         self.param_distributions = param_distributions
@@ -205,18 +208,19 @@ class RandomSearchExperiment:
 
         model_name = self.model_class.__name__
 
-        logger.info("=" * 60)
-        logger.info("  pymv Random Search")
-        logger.info("=" * 60)
-        logger.info(f"  Model     : {model_name}")
-        logger.info(f"  Dataset   : {self.dataset_name}")
-        logger.info(f"  Metrics   : {list(self.metrics.keys())}")
-        logger.info(f"  Best by   : {self.best_metric} (↑ higher is better)")
-        logger.info(f"  Trials    : {self.n_iter}")
-        logger.info(f"  Seed      : {self.seed}")
-        logger.info("")
+        # ---- Log header (file only unless verbose>=3) ----
+        logger.debug("=" * 60)
+        logger.debug("  pymv Random Search")
+        logger.debug("=" * 60)
+        logger.debug("  Model     : %s", model_name)
+        logger.debug("  Dataset   : %s", self.dataset_name)
+        logger.debug("  Metrics   : %s", list(self.metrics.keys()))
+        logger.debug("  Best by   : %s (↑ higher is better)", self.best_metric)
+        logger.debug("  Trials    : %d", self.n_iter)
+        logger.debug("  Seed      : %s", self.seed)
+        logger.debug("")
 
-        logger.info(f"  Loading dataset: {self.dataset_name}")
+        logger.debug("Loading dataset: %s", self.dataset_name)
         Xs, As, labels = _load(self._dataset_entry)
         labels = np.asarray(labels).reshape(-1)
 
@@ -228,9 +232,10 @@ class RandomSearchExperiment:
 
         for i in range(self.n_iter):
             params = self._sample_params(rng)
-            logger.info(
-                f"  [{i + 1}/{self.n_iter}] params={params}"
-            )
+
+            # verbose>=2: one-liner progress
+            logger.info("  [%d/%d] params=%s", i + 1, self.n_iter, params)
+            logger.debug("  [%d/%d] params=%s", i + 1, self.n_iter, params)
 
             try:
                 model = self.model_class(**params)
@@ -242,20 +247,22 @@ class RandomSearchExperiment:
                 scores = self._evaluate(labels, model.labels_)
                 self.result.add_trial(params, scores, elapsed)
 
-                summary = ", ".join(f"{k}={v:.4f}" for k, v in scores.items())
-                logger.info(f"    → {summary}  ({elapsed:.2f}s)")
+                logger.debug(
+                    "    → %s  (%.2fs)",
+                    ", ".join(f"{k}={v:.4f}" for k, v in scores.items()),
+                    elapsed,
+                )
 
             except Exception as exc:
-                logger.error(f"    ✗ Trial {i + 1} FAILED: {exc}")
+                logger.error("    ✗ Trial %d FAILED: %s", i + 1, exc)
                 nan_scores = OrderedDict(
                     (k, float("nan")) for k in self.metrics
                 )
                 self.result.add_trial(params, nan_scores, 0.0)
 
-        # Print results table — WARNING so it shows at verbose>=1
+        # ---- Print clean table to console (WARNING → verbose>=1) ----
         output = str(self.result)
-        logger.info("")
-        logger.warning("\n" + output)
-        logger.debug("\n[RANDOM SEARCH TABLE]\n" + output)
+        logger.warning("\n%s", output)
+        logger.debug("\n[RANDOM SEARCH TABLE]\n%s", output)
 
         return self.result
