@@ -1,313 +1,582 @@
-# graph-lmgec
+# pymv
 
-Multi-view graph clustering and representation learning in Python. This package provides a reference implementation of LMGEC (Linear Multi-view Graph Embedding Clustering) together with utilities for graph construction, preprocessing, embedding visualization, and clustering metrics.
+**A comparative framework for multi-view and multi-modal clustering in Python.**
 
-The code is organized as a regular Python package under `src/graphs/lmgec`.
+`pymv` makes it easy to **benchmark**, **compare**, and **develop** multi-view clustering algorithms.
+It provides a growing collection of models, **10 built-in dataset loaders** (auto-downloaded from Zenodo), a full **experiment / hyper-parameter-search harness**, and standard **clustering metrics** — all designed so you can go from idea to publishable results table in a few lines of code.
 
+> **Currently implemented:** LMGEC (Linear Multi-view Graph Embedding Clustering).
+> More algorithms are on the roadmap — the architecture is ready for drop-in additions.
 
-## Features
+---
 
-- LMGEC algorithm implemented with NumPy/Scikit-learn plus a small TensorFlow loop for the alternating updates.
-- Graph construction helpers and examples: build k-NN graphs from feature matrices or construct graphs from edge lists with NetworkX, then normalize for learning.
-- Preprocessing utilities: adjacency normalization and TF–IDF/ℓ2 feature normalization.
-- Embedding and graph visualization examples: plot low-dimensional embeddings colored by clusters; draw graphs with node colors.
-- Cluster evaluation utilities: Hungarian-aligned clustering accuracy and F1.
+## Quick start
 
+### 30-second example
+
+```python
+from pymv.data import load_acm
+from pymv.models import LMGEC
+from pymv.metrics import clustering_accuracy, nmi_score
+
+Xs, As, y = load_acm()                          # auto-downloads on first call
+
+labels = LMGEC(n_clusters=3, embedding_dim=16).fit_predict(Xs, As)
+
+print("ACC:", clustering_accuracy(y, labels))    # e.g. 0.91
+print("NMI:", nmi_score(y, labels))              # e.g. 0.68
+```
+
+### Compare configurations with one call
+
+```python
+from pymv.experiment import Experiment
+from pymv.models import LMGEC
+from pymv.metrics import clustering_accuracy, nmi_score
+
+Experiment(
+    datasets=["acm", "dblp", "imdb"],
+    models=[
+        LMGEC(n_clusters=3, embedding_dim=16, temperature=1.0),
+        LMGEC(n_clusters=3, embedding_dim=16, temperature=10.0),
+    ],
+    metrics=[clustering_accuracy, nmi_score],
+).run()
+```
+
+The console prints **two clean tables** — model configuration + per-dataset results.
+Everything else (loading, per-run scores, errors) is saved to a log file in `./logs/`.
+
+---
+
+## Table of contents
+
+1. [Installation](#installation)
+2. [Package structure](#package-structure)
+3. [Quickstart — in depth](#quickstart--in-depth)
+4. [Datasets](#datasets)
+5. [Models](#models)
+6. [Preprocessing](#preprocessing)
+7. [Metrics](#metrics)
+8. [Experiment framework](#experiment-framework)
+9. [Random search](#random-search)
+10. [Visualization](#visualization)
+11. [Algorithm — LMGEC intuition](#algorithm--lmgec-intuition)
+12. [Tips & troubleshooting](#tips--troubleshooting)
+13. [License](#license)
+
+---
 
 ## Installation
 
-Requires Python 3.8+.
-
-Install the package in editable mode:
+Requires **Python >= 3.8**.
 
 ```bash
-pip install -e .
+pip install -e .            # editable / development install
 ```
 
-Dependencies are declared in `pyproject.toml` and include NumPy, SciPy, scikit-learn, NetworkX, and pandas. The core LMGEC training loop currently uses TensorFlow; please install it explicitly if you plan to train the model:
+Core dependencies (`numpy`, `scipy`, `scikit-learn`, `networkx`, `pandas`, `tensorflow >= 2.10`) are declared in `pyproject.toml`.
 
 ```bash
-# CPU-only TensorFlow (example)
-pip install "tensorflow>=2.9"
+# CPU-only TensorFlow (if not already installed)
+pip install "tensorflow>=2.10"
+
+# Optional — for visualization
+pip install matplotlib seaborn
 ```
 
+---
 
 ## Package structure
 
 ```
-LICENSE                 # MIT license
-pyproject.toml          # Project metadata and dependencies
-README.md               # This file
-
-src/
-	graphs/
-		__init__.py         # Namespace package init
-		lmgec/
-			__init__.py       # Public exports
-			model.py          # LMGEC implementation (fit loop and updates)
-			metrics.py        # Clustering metrics (ACC, F1 via Hungarian alignment)
-			utils.py          # Preprocessing helpers (e.g., adjacency normalization)
-			graph_construction.py 
-            visualization.py
-tests/
-	__init__.py           # Marks tests as a package
-	run.py                # Example end-to-end run script
+pyproject.toml
+src/pymv/
+    __init__.py                     # top-level exports, __version__
+    core/
+        base_model.py               # BaseModel ABC (all models inherit this)
+    models/
+        lmgec/lmgec.py              # LMGEC (first algorithm — more coming)
+    data/
+        registry.py                 # load_dataset() / list_datasets()
+        downloader.py               # Zenodo auto-download helper
+        acm.py  amazon_photos.py    # -+
+        bdgp.py  coco_all.py        #  | 10 dataset loaders
+        coco_cross.py  dblp.py      #  | (one file each)
+        imdb.py  pascal.py          #  |
+        prokaryotic.py  wiki.py     # -+
+    preprocessing/
+        features.py                 # normalize, propagate, TF-IDF, center/scale
+    metrics/
+        clustering.py               # ACC, F1, NMI, ARI, Silhouette, CH, DB
+    experiment/
+        experiment.py               # Experiment runner
+        random_search.py            # RandomSearchExperiment
+        result.py                   # Result containers + table formatting
+        logger.py                   # dual file + console logging
+    visualization/
+        visualizer.py               # t-SNE / PCA cluster plots
 ```
 
+---
 
-## Quickstart
+## Quickstart — in depth
 
-Bring your own data: start from a feature matrix X (n_samples × d) and construct one or more graphs from it. Below we build two k-NN graphs with different k values to simulate two views, then run LMGEC.
+### Example 1 — Load, fit, evaluate (3 lines)
+
+The simplest workflow: load a dataset, fit a model, evaluate.
 
 ```python
-import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.neighbors import kneighbors_graph
-import scipy.sparse as sp
-import networkx as nx
+from pymv.data import load_acm
+from pymv.models import LMGEC
+from pymv.metrics import clustering_accuracy, nmi_score, ari_score
 
-from graphs.lmgec import preprocess_dataset  # from utils
-from graphs.lmgec import LMGEC
+# 1. Load data - returns (list[features], list[adjacencies], labels)
+Xs, As, y = load_acm()
 
-# 1) Feature matrix (example) — replace with your own
-n, d = 1000, 128
-X = np.random.RandomState(0).randn(n, d).astype(float)
+# 2. Fit and predict
+model = LMGEC(n_clusters=3, embedding_dim=16)
+labels = model.fit_predict(Xs, As)
 
-# 2) Build graphs (two views) from features
-A1 = kneighbors_graph(X, n_neighbors=10, metric="cosine")
-A2 = kneighbors_graph(X, n_neighbors=25, metric="cosine")
-As = [A1, A2]
-Xs = [X, X]  # same features for both views in this example
-
-# 3) Preprocess each view and build H_v = S_v @ X_v
-views = []
-for A, Xv in zip(As, Xs):
-  S, Xn = preprocess_dataset(A, Xv, tf_idf=False, beta=1.0)
-  if not isinstance(Xn, np.ndarray):
-    Xn = Xn.toarray()
-  if type(S) == np.matrix:
-    S = np.asarray(S)
-  H = S @ Xn
-  H = StandardScaler(with_std=False).fit_transform(H)
-  views.append(H)
-
-# 4) Fit LMGEC (choose k)
-k = 10
-Z, F, XW_consensus, losses = LMGEC(k, k+1, 10.0, 10).fit(views)
-
-print("labels shape:", Z.shape)
-print("final loss:", losses[-1])
+# 3. Evaluate
+print("ACC:", clustering_accuracy(y, labels))
+print("NMI:", nmi_score(y, labels))
+print("ARI:", ari_score(y, labels))
 ```
 
-You can also run the prebuilt script:
+### Example 2 — Per-view preprocessing options
 
-```bash
-python tests/run.py
-```
-
-
-## API overview
-
-Public objects are exported in `graphs.lmgec.__init__`. The package groups functionality into four areas: model, utils (preprocessing), metrics, and recipes for graph construction and visualization.
-
-### 1) Model
-
-- `LMGEC(n_clusters, n_components, temperature, max_iter)`
-	- Fit: `Z, F, XW_consensus, loss_history = LMGEC(...).fit(Hs)`
-	- Inputs:
-		- `Hs`: list of V arrays (each `(n_samples, d_v)`), typically built as `H_v = S_v @ X_v` per view.
-	- Outputs:
-		- `Z` (labels): `(n_samples,)` integers in `[0, n_clusters-1]`.
-		- `F` (centroids): `(n_clusters, n_components)`.
-		- `XW_consensus`: `(n_samples, n_components)` consensus embedding.
-		- `loss_history`: 1-D array of length `max_iter`.
-	- Note: a scikit-learn-style `fit_predict` is not yet exposed; use `fit(...)` and take `Z`.
-
-### 2) Utils (preprocessing)
-
-- `preprocess_dataset(adj, features, tf_idf=False, beta=1.0) -> (norm_adj, norm_features)`
-	- `adj`: `(n, n)` SciPy sparse or ndarray; `features`: `(n, d)` sparse or ndarray.
-	- Adds `beta * I` to `adj`, then row-normalizes it.
-	- If `tf_idf=True`, applies TF–IDF (with ℓ2 norm) to `features`; otherwise ℓ2-normalizes features.
-	- Returns: `norm_adj` (sparse or ndarray) and `norm_features` (sparse or ndarray). Convert to dense for TensorFlow if needed.
-
-- `lmgec_test()`
-	- Simple smoke helper that prints a message (useful during setup).
-
-### 3) Metrics
-
-Permutation-invariant clustering scores (internally align labels via the Hungarian algorithm):
-
-- `clustering_accuracy(y_true, y_pred) -> float`
-	- Accuracy computed from the reordered confusion matrix.
-- `clustering_f1_score(y_true, y_pred, **kwargs) -> float`
-	- F1 computed on a pseudo-expanded label sequence; accepts scikit-learn F1 kwargs (e.g., `average="macro"`).
-- `evaluate_clustering(y_true, y_pred, average="macro") -> dict`
-	- Returns `{"acc": acc, "f1": f1}` as floats.
-
-### 4) Graph construction (GraphBuilder)
-
-High-level helper to construct adjacency matrices from feature matrices using common similarity rules.
-
-Import:
+LMGEC can apply different preprocessing to each view. Pass lists to `beta` and `tf_idf`:
 
 ```python
-from graphs.lmgec.graph_construction import GraphBuilder
+model = LMGEC(
+    n_clusters=3,
+    embedding_dim=16,
+    tf_idf=[True, False],      # TF-IDF on view 0, plain L2 on view 1
+    beta=[1.0, 0.5],           # different self-loop weights per view
+    center=True,               # center features after propagation
+)
+labels = model.fit_predict(Xs, As)
 ```
 
-API:
-- `GraphBuilder.build(Xs, method='knn', **kwargs) -> list[sp.csr_matrix]`
-  - `Xs`: list of feature matrices `[X1, X2, ...]` each `(n, d_v)`.
-  - `method`: `'knn'`, `'rbf'` (alias `'gaussian'`), or `'cosine'`.
-  - returns a list of CSR sparse adjacency matrices `[A1, A2, ...]`.
+### Example 3 — Bring your own preprocessed views
 
-- `GraphBuilder.knn(X, k=10, metric='euclidean', mode='connectivity', include_self=False)`
-  - Builds a k-NN graph via scikit-learn. `mode='connectivity'` gives 0/1; `'distance'` yields weighted edges. Optionally include self-loops.
-
-- `GraphBuilder.rbf(X, sigma=1.0, threshold=None, k=None)`
-  - Dense RBF kernel `A_ij = exp(-||x_i-x_j||^2/(2 sigma^2))`, then sparsifies by `threshold` and/or keeps top-`k` per row. Returns CSR.
-
-- `GraphBuilder.cosine(X, k=None, threshold=None)`
-  - Dense cosine similarity (negatives zeroed), with optional threshold/top-`k` sparsification. Returns CSR.
-
-Example — two views from a single feature matrix:
+Set `preprocess=False` to skip all internal preprocessing and pass your own pre-computed feature matrices:
 
 ```python
-Xs = [X, X]
-As = GraphBuilder.build(Xs, method='knn', k=15, metric='cosine', mode='connectivity')
+from pymv.preprocessing import get_propagated_features, preprocess_features
+
+# Propagate manually
+H0 = get_propagated_features(X0, A0, beta=1.0, tf_idf=True)
+H1 = get_propagated_features(X1, A1, beta=0.5, tf_idf=False)
+
+# Optionally center / scale
+Hs = preprocess_features([H0, H1], center=True, scale=False)
+
+# Fit — no adjacency needed
+model = LMGEC(n_clusters=3, embedding_dim=16, preprocess=False)
+labels = model.fit_predict(Hs)
 ```
 
-Example — Gaussian kernels with sparsification:
+### Example 4 — Feature-only clustering (no graphs)
+
+If your data has no natural graph structure, just pass the raw feature matrices:
 
 ```python
-As = GraphBuilder.build([X1, X2], method='rbf', sigma=0.7, k=20)  # keep top-20 per row
+model = LMGEC(n_clusters=5, embedding_dim=32, preprocess=False)
+labels = model.fit_predict([X_view1, X_view2, X_view3])
 ```
 
-Then normalize and build `H_v = S_v @ X_v` per view:
+### Example 5 — Full comparative experiment
+
+Compare multiple model configurations across multiple datasets with automatic logging:
 
 ```python
-from graphs.lmgec import preprocess_dataset
-Hs = []
-for A, Xv in zip(As, Xs):
-  S, Xn = preprocess_dataset(A, Xv, tf_idf=False, beta=1.0)
-  if hasattr(Xn, 'toarray'):
-    Xn = Xn.toarray()
-  Hs.append(S @ Xn)
+from pymv.experiment import Experiment
+from pymv.models import LMGEC
+from pymv.metrics import clustering_accuracy, nmi_score, ari_score
+
+# Name your configs for clearer tables
+m1 = LMGEC(n_clusters=3, embedding_dim=16, temperature=1.0)
+m1.name = "LMGEC-T1"
+
+m2 = LMGEC(n_clusters=3, embedding_dim=16, temperature=10.0)
+m2.name = "LMGEC-T10"
+
+m3 = LMGEC(n_clusters=3, embedding_dim=32, temperature=5.0, tf_idf=True)
+m3.name = "LMGEC-d32-tfidf"
+
+result = Experiment(
+    datasets=["acm", "dblp", "imdb"],
+    models=[m1, m2, m3],
+    metrics=[clustering_accuracy, nmi_score, ari_score],
+    n_runs=10,        # 10 independent runs -> mean +/- std
+    verbose=1,        # tables only (default)
+).run()
+
+# Access results programmatically
+print(result.config_table())     # model hyper-parameters
+print(result.results_tables())   # per-dataset results
 ```
 
-Notes:
-- RBF and cosine first build a dense similarity matrix before sparsifying; prefer `knn` for large `n` to avoid `O(n^2)` memory.
-- Outputs are `scipy.sparse.csr_matrix`; symmetrize if required for your pipeline.
+**Console output** (verbose=1):
 
-Low-level recipes (alternative to GraphBuilder):
+| Table | Content |
+|---|---|
+| **Model Configuration** | One row per model, columns = hyper-parameters |
+| **Results — acm** | Rows = models, columns = metrics + Time, best marked with `*` |
+| **Results — dblp** | ... |
+| **Results — imdb** | ... |
 
-- k-NN graph from features:
-	```python
-	from sklearn.neighbors import kneighbors_graph
-	A = kneighbors_graph(X, n_neighbors=15, metric="cosine")  # (n, n) sparse
-	```
+### Example 6 — Hyper-parameter search
 
-- Edge list to adjacency with NetworkX:
-	```python
-	import pandas as pd, networkx as nx
-	df = pd.read_csv("edges.csv")  # columns: source, target
-	G = nx.from_pandas_edgelist(df, "source", "target")
-	A = nx.to_scipy_sparse_array(G, dtype=float)
-	```
-
-- Combine multiple graphs (views):
-	```python
-	A_comb = 0.5 * A_view1 + 0.5 * A_view2
-	# Optional: symmetrize if needed
-	# A_comb = 0.5 * (A_comb + A_comb.T)
-	```
-
-### 5) Visualization (Visualizer)
-
-High-level plotting utilities live in `graphs.lmgec.visualization.Visualizer`. They help you:
-
-- Align and visualize confusion matrices for clustering results.
-- Project embeddings to 2D with t-SNE or PCA and color by cluster labels.
-- Draw graph structures for inspection (small graphs recommended).
-
-Import:
+Find the best configuration for a single dataset:
 
 ```python
-from graphs.lmgec.visualization import Visualizer
+from pymv.experiment import RandomSearchExperiment
+from pymv.models import LMGEC
+from pymv.metrics import clustering_accuracy, nmi_score
+
+rs = RandomSearchExperiment(
+    model_class=LMGEC,
+    param_distributions={
+        "n_clusters": [3],
+        "embedding_dim": [4, 8, 16, 32, 64],
+        "temperature": [0.1, 0.5, 1.0, 5.0, 10.0],
+        "beta": [0.1, 0.5, 1.0, 2.0],
+        "max_iter": [30],
+    },
+    dataset="acm",
+    metrics=[clustering_accuracy, nmi_score],
+    best_metric="clustering_accuracy",
+    n_iter=30,
+)
+result = rs.run()
+
+print("Best params:", result.best_params)
+print("Best ACC:   ", result.best_score)
+print("All metrics:", result.best_metrics)
 ```
 
-APIs:
+### Example 7 — Using custom / pre-loaded data with the Experiment
 
-- `Visualizer.plot_confusion_matrix(y_true, y_pred, title="Confusion Matrix", save_path=None, match_labels=True)`
-	- Computes a confusion matrix and draws a Seaborn heatmap.
-	- If `match_labels=True` (default), internally aligns labels via Hungarian assignment for best class–cluster matching. It also fixes 1-based label indexing (1..C -> 0..C-1) when needed.
-	- `save_path`: optional file path to save the figure (PNG, etc.).
-	- Example:
-		```python
-		Visualizer.plot_confusion_matrix(labels_true, Z, title="LMGEC vs Ground Truth", match_labels=True)
-		```
+You don't have to use the built-in loaders. Pass your own data:
 
-- `Visualizer.plot_embedding(H, labels, method='tsne', title="Embedding Visualization", save_path=None)`
-	- Reduces an embedding `H` to 2D and scatters points colored by `labels`.
-	- `method`: `'tsne'` (default, TSNE with PCA init and auto LR) or `'pca'` (fast linear projection).
-	- `save_path`: optional path to save the figure.
-	- Example (use the model’s consensus embedding):
-		```python
-		Visualizer.plot_embedding(XW_consensus, Z, method='pca', title='Consensus (PCA)')
-		```
+```python
+from pymv.experiment import Experiment
+from pymv.models import LMGEC
+from pymv.metrics import clustering_accuracy
 
-- `Visualizer.plot_graph_structure(adj, labels=None, max_nodes=500, title="Graph Structure")`
-	- Draws a spring-layout visualization of a graph from an adjacency matrix `adj` (SciPy sparse or dense ndarray). Self-loops are removed for readability.
-	- If `adj` has more than `max_nodes` rows, only the top-left `max_nodes × max_nodes` block is plotted, and `labels` are truncated accordingly.
-	- Example:
-		```python
-		Visualizer.plot_graph_structure(As[0], labels=Z, max_nodes=400, title='View 1 (spring layout)')
-		```
+# Pre-loaded data as a tuple
+my_data = (Xs, As, y)
 
-Notes:
-- These utilities depend on `matplotlib` and `seaborn` (for the heatmap) and `networkx` for graph drawing. Install them if they’re not present: `pip install matplotlib seaborn networkx`.
-- t-SNE is stochastic and O(n²) in memory/time. For quick overviews, prefer `method='pca'` on large datasets.
+result = Experiment(
+    datasets={"my_dataset": my_data},      # dict with custom name
+    models=[LMGEC(n_clusters=5, embedding_dim=16)],
+    metrics=[clustering_accuracy],
+).run()
+```
 
+### Example 8 — Visualize the consensus embedding
 
-## Algorithm (LMGEC) — intuition and updates
+```python
+from pymv.data import load_acm
+from pymv.models import LMGEC
+from pymv.visualization.visualizer import plot_clusters
 
-LMGEC seeks a shared low-dimensional representation across multiple views and performs clustering jointly. At a high level, for each view v with features `X_v` we learn an orthonormal projection `W_v` into a common `m`-dimensional space, build a weighted consensus embedding, and alternate cluster assignment and centroid updates.
+Xs, As, y = load_acm()
+model = LMGEC(n_clusters=3, embedding_dim=16)
+model.fit(Xs, As)
 
-Let `k` be the number of clusters, `m` the embedding dimension, `F ∈ R^{k×m}` the centroids, `G ∈ {0..k-1}^n` the assignments, and `W_v ∈ R^{d_v×m}`. The per-view projected features are `X_v W_v`. The consensus is a weighted sum across views, with weights `α_v` reflecting view reliability:
+# t-SNE plot colored by predicted clusters
+plot_clusters(model.embedding_, model.labels_, method="tsne", title="LMGEC on ACM")
 
-$$XW_{consensus} = \sum_v \alpha_v (X_v W_v).$$
+# PCA (faster, deterministic)
+plot_clusters(model.embedding_, y, method="pca", title="Ground truth on ACM")
+```
 
-We alternate the following updates:
+---
 
-- Update `W_v` (orthogonal Procrustes via SVD):
-	$$W_v \leftarrow \operatorname*{argmin}_{W^T W = I} \|X_v - F_{G} W^T\|_F^2 \;\Rightarrow\; W_v = U V^T,$$
-	where `U Σ V^T` is the SVD of `X_v^T (F_G)` and `F_G` stacks the centroid of each sample according to its current label.
-- Update assignments `G` by nearest centroid in the consensus embedding:
-	$$G_i \leftarrow \arg\min_c \; \| (XW_{consensus})_i - F_c \|_2^2.$$
-- Update centroids `F` as cluster means:
-	$$F_c \leftarrow \frac{1}{|\{i:G_i=c\}|} \sum_{i:G_i=c} (XW_{consensus})_i.$$
+## Datasets
 
-View weights `α_v` are initialized from a soft evidence score using KMeans inertia on each view’s initial embedding and a temperature parameter `τ`:
+All loaders return `(Xs, As, y)` — a list of feature matrices, a list of adjacency matrices, and a ground-truth label vector. Datasets are downloaded automatically from Zenodo on first use.
 
-$$\alpha_v \propto \exp\Big(-\frac{\text{inertia}_v}{\tau}\Big).$$
+| Function | Dataset | Type |
+|---|---|---|
+| `load_acm()` | ACM | Attributed graph (2 meta-paths) |
+| `load_amazon_photos()` | Amazon Photos | Attributed graph |
+| `load_bdgp()` | BDGP | Multi-view features |
+| `load_coco_all()` | COCO (all views) | Multi-view features |
+| `load_coco_cross()` | COCO (cross-modal) | Multi-view features |
+| `load_dblp()` | DBLP | Attributed graph (3 meta-paths) |
+| `load_imdb()` | IMDB | Attributed graph (2 meta-paths) |
+| `load_pascal()` | Pascal | Multi-view features |
+| `load_prokaryotic()` | Prokaryotic | Multi-view features |
+| `load_wiki()` | Wikipedia | Attributed graph |
 
-Implementation details:
+**Unified access:**
 
-- Centroid update uses a segment-wise mean; assignment uses squared Euclidean distances.
-- `W_v` update uses SVD from TensorFlow linear algebra.
-- The outer loop runs for `max_iter` iterations and records a simple loss proxy per iteration.
+```python
+from pymv.data import load_dataset, list_datasets
 
+print(list_datasets())
+# ['acm', 'amazon_photos', 'bdgp', 'coco_all', 'coco_cross',
+#  'dblp', 'imdb', 'pascal', 'prokaryotic', 'wiki']
 
+Xs, As, y = load_dataset("acm")
+```
 
-## Tips and troubleshooting
+---
 
-- TensorFlow not installed: install `tensorflow>=2.9` for CPU or an appropriate GPU build.
-- Visualization: install `matplotlib` for plotting (`pip install matplotlib`).
+## Models
 
+All models inherit from `pymv.core.BaseModel` and expose `fit()` / `fit_predict()`.
+
+> The framework is designed to host many algorithms. Currently **LMGEC** is the first — contributions and new models are welcome.
+
+### LMGEC
+
+```python
+from pymv.models import LMGEC
+```
+
+**Constructor:**
+
+```python
+LMGEC(
+    n_clusters: int,
+    embedding_dim: int,
+    temperature: float = 1.0,
+    beta: float | list[float] = 1.0,
+    tf_idf: bool | list[bool] = False,
+    center: bool = False,
+    scale: bool = False,
+    preprocess: bool = True,
+    max_iter: int = 30,
+)
+```
+
+| Parameter | Description |
+|---|---|
+| `n_clusters` | Number of clusters *k*. |
+| `embedding_dim` | Latent dimension *m* for per-view projections. |
+| `temperature` | Softmax temperature for view-weight alpha. Lower = sharper weighting. |
+| `beta` | Self-loop weight for graph propagation. `float` (all views) or `list[float]` (per-view). |
+| `tf_idf` | Normalization mode. `True` = TF-IDF + L2; `False` = plain L2. `bool` or `list[bool]` (per-view). |
+| `center` / `scale` | Center / scale features after propagation. |
+| `preprocess` | `True` (default): internal preprocessing. `False`: user provides pre-processed views; `As`, `beta`, `tf_idf`, `center`, `scale` are all ignored. |
+| `max_iter` | Alternating-optimisation iterations. |
+
+**Methods:**
+
+| Method | Returns | Description |
+|---|---|---|
+| `fit(Xs, As=None)` | `self` | Fit the model. |
+| `fit_predict(Xs, As=None)` | `np.ndarray` | Fit and return cluster labels. |
+
+**Attributes (after fit):**
+
+| Attribute | Shape | Description |
+|---|---|---|
+| `labels_` | `(n,)` | Cluster assignments. |
+| `centroids_` | `(k, m)` | Cluster centroids in consensus space. |
+| `embedding_` | `(n, m)` | Consensus embedding. |
+| `loss_history_` | `(max_iter,)` | Loss per iteration. |
+| `name` | `str` | Display name (get/set), used in experiment tables. |
+
+---
+
+## Preprocessing
+
+```python
+from pymv.preprocessing import (
+    get_propagated_features,   # full pipeline: normalize -> propagate
+    preprocess_features,       # center / scale one or more views
+    preprocess_graph,          # build S = D^-1(A + beta*I)
+    normalize_features,        # TF-IDF or L2 normalization
+)
+```
+
+| Function | Description |
+|---|---|
+| `get_propagated_features(X, A, beta, tf_idf)` | Normalize features, build propagation matrix S, return H = S*X. |
+| `preprocess_features(Xs, center, scale)` | Center and/or scale features. Accepts a single matrix or a list. |
+| `preprocess_graph(A, beta)` | Row-normalized propagation matrix S = D^-1(A + beta*I). |
+| `normalize_features(X, tf_idf)` | TF-IDF + L2 or plain L2 normalization. |
+
+---
+
+## Metrics
+
+```python
+from pymv.metrics import (
+    # External (require ground truth)
+    clustering_accuracy,       # ACC — Hungarian alignment
+    clustering_f1_score,       # F1  — Hungarian alignment
+    nmi_score,                 # Normalized Mutual Information
+    ari_score,                 # Adjusted Rand Index
+    # Internal (no ground truth)
+    silhouette_score,          # Silhouette Coefficient  [-1, 1] higher is better
+    calinski_harabasz_score,   # Variance Ratio Criterion  higher is better
+    davies_bouldin_score,      # Davies-Bouldin Index  lower is better
+)
+```
+
+### External metrics
+
+| Function | Range | Notes |
+|---|---|---|
+| `clustering_accuracy(y_true, y_pred)` | [0, 1] | Label alignment via Hungarian algorithm. Higher is better. |
+| `clustering_f1_score(y_true, y_pred, average="macro")` | [0, 1] | F1 after alignment. Supports `macro`, `micro`, `weighted`. |
+| `nmi_score(y_true, y_pred)` | [0, 1] | Alignment-free; shared information. Higher is better. |
+| `ari_score(y_true, y_pred)` | [-1, 1] | Alignment-free; chance-corrected. Higher is better. |
+
+### Internal metrics
+
+| Function | Range | Notes |
+|---|---|---|
+| `silhouette_score(X, labels)` | [-1, 1] | Mean silhouette coefficient. Higher is better. |
+| `calinski_harabasz_score(X, labels)` | [0, inf) | Between / within dispersion ratio. Higher is better. |
+| `davies_bouldin_score(X, labels)` | [0, inf) | Average max cluster similarity. Lower is better. |
+
+---
+
+## Experiment framework
+
+```python
+from pymv.experiment import Experiment
+```
+
+```python
+Experiment(
+    datasets,          # str | list[str] | list[callable] | dict | tuple
+    models,            # BaseModel | list[BaseModel]
+    metrics,           # callable | list[callable] | dict[str, callable]
+    n_runs: int = 1,
+    verbose: int = 1,  # 0=silent  1=tables  2=progress+tables  3=debug
+    log_dir: str = "./logs",
+)
+```
+
+### Flexible inputs
+
+```python
+# Datasets — any of these work
+datasets = ["acm", "dblp"]                         # names
+datasets = [load_acm, load_dblp]                   # callables
+datasets = {"acm": load_acm, "mine": (Xs, As, y)}  # dict mix
+datasets = "acm"                                   # single string
+datasets = (Xs, As, y)                             # single tuple
+
+# Models
+models = model                         # single
+models = [model_a, model_b]            # list
+
+# Metrics
+metrics = clustering_accuracy          # single
+metrics = [clustering_accuracy, nmi_score]
+metrics = {"ACC": clustering_accuracy} # dict with custom names
+```
+
+### Verbose levels
+
+| Level | Console output |
+|---|---|
+| `0` | Silent |
+| `1` | Config table + result tables only **(default)** |
+| `2` | One-liner progress per (dataset x model) + tables |
+| `3` | Full debug (same detail as the log file) |
+
+### Logging
+
+- All execution details go to timestamped log files in `log_dir` (default `./logs/`).
+- Data-loader messages (downloading, loading, sample counts) are **log-file only** — they never clutter the console.
+
+### Result object
+
+```python
+result = exp.run()
+
+print(result)                    # config table + all result tables
+print(result.config_table())     # model hyper-parameters only
+print(result.results_tables())   # per-dataset results only
+```
+
+---
+
+## Random search
+
+```python
+from pymv.experiment import RandomSearchExperiment
+
+result = RandomSearchExperiment(
+    model_class=LMGEC,
+    param_distributions={...},
+    dataset="acm",
+    metrics=[clustering_accuracy, nmi_score],
+    best_metric="clustering_accuracy",
+    n_iter=30,
+).run()
+
+print(result.best_params)     # best hyper-parameter dict
+print(result.best_score)      # best value of the target metric
+print(result.best_metrics)    # all metrics for the best trial
+```
+
+---
+
+## Visualization
+
+```python
+from pymv.visualization.visualizer import plot_clusters
+
+plot_clusters(model.embedding_, model.labels_, method="tsne", title="LMGEC clusters")
+plot_clusters(model.embedding_, model.labels_, method="pca",  title="LMGEC clusters (PCA)")
+```
+
+Requires `matplotlib` (`pip install matplotlib`).
+
+---
+
+## Algorithm — LMGEC intuition
+
+LMGEC (Linear Multi-view Graph Embedding Clustering) jointly learns a shared low-dimensional representation and cluster assignments across multiple views.
+
+**Pipeline.** Given *V* views with features X_v and adjacencies A_v:
+
+1. **Propagate** — build S_v = D_v^{-1}(A_v + beta * I), compute H_v = S_v * X_v.
+2. **Project** — learn orthonormal W_v via SVD (Procrustes).
+3. **Consensus** — weighted combination: XW = sum_v alpha_v * (H_v * W_v), where alpha_v is proportional to exp(-inertia_v / tau).
+4. **Cluster** — assign by nearest centroid in the consensus space.
+5. **Alternate** — repeat projection, assignment, centroid updates for `max_iter` iterations.
+
+---
+
+## Tips & troubleshooting
+
+| Issue | Solution |
+|---|---|
+| `ModuleNotFoundError: tensorflow` | `pip install "tensorflow>=2.10"` |
+| Slow on large datasets | Reduce `max_iter`; use `preprocess=False` with pre-computed views |
+| GPU acceleration | Install `tensorflow[and-cuda]` |
+| Visualization missing | `pip install matplotlib seaborn` |
+| Log files filling up | Change `log_dir` or set `verbose=0` |
+| Data download fails | Check internet; files are on Zenodo |
+
+---
+
+## Roadmap
+
+- [ ] More multi-view clustering algorithms (spectral, deep, contrastive, ...)
+- [ ] Multi-modal support (text + image, graph + tabular, ...)
+- [ ] Benchmark tables on all built-in datasets
+- [ ] Pre-built configurations for reproducible paper comparisons
+- [ ] PyPI release
+
+Contributions are welcome! See [issues](https://github.com/AbdelheqMokhtari/graph-lmgec/issues).
+
+---
 
 ## License
 
-MIT License — see `LICENSE`.
-
-
-
+MIT License — see [LICENSE](LICENSE).
