@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog,
 and this project adheres to Semantic Versioning.
 
+## [0.3.2] - 2026-03-10
+### Changed
+- **LMGEC: per-view preprocessing parameters.**
+  - `beta` now accepts `float` (same for all views) **or** `list[float]` (one per view).
+  - `tf_idf` now accepts `bool` (same for all views) **or** `list[bool]` (one per view).
+  - Renamed `center_data` → `center` and added `scale` for consistency.
+- **LMGEC: `preprocess` master switch** (`bool`, default `True`).
+  When `False`, all internal preprocessing (normalization, graph propagation, centering, scaling) is skipped — the user passes already-prepared views directly into the optimisation loop.
+- **LMGEC: `As` is now optional** (`None` by default). When `preprocess=True` and `As=None`, features are normalized but not propagated (no graph).
+- **LMGEC: TensorFlow training loop rewritten** — factory `_make_train_loop(n_views)` unrolls the view loop at trace time (`range()` instead of `tf.range()`), fixing the `ValueError` crash caused by symbolic indexing into Python lists.
+- **Experiment: clean console output.** Console now shows only two tables:
+  1. **Model Configuration** — one row per model, columns = hyper-parameters.
+  2. **Results — \<dataset\>** — one table per dataset, rows = models, columns = metrics + Time (best values marked with `*`).
+  All noisy progress messages (loading, per-run scores, timing) go exclusively to the **log file**.
+- **Experiment: flexible input API.** `datasets`, `models`, and `metrics` parameters now accept multiple formats:
+  - `datasets`: `str`, `list[str]`, `list[callable]`, `dict[str, callable | tuple]`, single `callable`, single `(Xs, As, y)` tuple.
+  - `models`: single `BaseModel` instance or a list.
+  - `metrics`: single `callable`, `list[callable]`, or `dict[str, callable]`.
+- **Experiment: verbose levels 0–3** (default now **1** instead of 2):
+  - `0` — silent (nothing printed).
+  - `1` — config table + result tables only.
+  - `2` — one-liner progress per (dataset × model) + tables.
+  - `3` — full debug (every run, all params, same as log file).
+- **RandomSearchExperiment: verbose default changed to 1** (table only).
+- **Logger: default log directory** changed from `~/pymv_logs` to `./logs` (relative to current working directory, so logs live next to your project).
+- **Data loaders: all `print()` statements replaced with `logging`** (11 files: `downloader.py`, `acm.py`, `dblp.py`, `imdb.py`, `wiki.py`, `bdgp.py`, `pascal.py`, `prokaryotic.py`, `coco_all.py`, `coco_cross.py`, `amazon_photos.py`). When called from an `Experiment`, dataset loading messages go only to the log file. When called standalone, they go through Python's default logging.
+
+### Added
+- `LMGEC.fit_predict(Xs, As)` — convenience method returning labels directly.
+- `LMGEC.name` property (get/set) — used by `Experiment` tables to distinguish model configurations.
+- `preprocess_features()` now accepts a single matrix (not just a list) and returns a single matrix in that case.
+- `ExperimentResult.config_table()` — renders a model-configuration table (one row per model, columns = hyper-parameters).
+- `ExperimentResult.results_tables()` — renders per-dataset result tables.
+- `ExperimentResult.set_models()` — stores model list for the config table.
+- `RandomSearchResult.best_score` property — best value of the target metric across all trials.
+- Comprehensive NumPy-style docstrings with `.. math::`, `Examples`, and `See Also` sections for all functions in `pymv.preprocessing.features`:
+  - Public API functions marked with **Public API** tag.
+  - Internal helpers marked with `.. note:: **Internal helper**` tag pointing to the parent function.
+- Module-level docstring for `pymv.preprocessing.features` listing the public/internal API split.
+- Comprehensive NumPy-style docstrings for all functions in `pymv.metrics.clustering`:
+  - External metrics (`clustering_accuracy`, `clustering_f1_score`, `nmi_score`, `ari_score`) with mathematical formulas and Hungarian alignment explanation.
+  - Internal metrics (`silhouette_score`, `davies_bouldin_score`, `calinski_harabasz_score`) with formulas and higher/lower-is-better guidance.
+  - Internal helpers (`ordered_confusion_matrix`, `cmat_to_pseudo_labels`) marked with **Internal helper** tag.
+- Module-level docstring for `pymv.metrics.clustering` listing the external/internal/helper API split.
+
+### Fixed
+- **Data loader console noise during experiments** — dataset loaders printed verbose messages (`Loading ACM dataset...`, `Dataset already downloaded.`, sample/view counts) directly to stdout via `print()`. These now use the `logging` module and are silenced on the console when run inside an `Experiment` (captured in the log file instead).
+
 ## [0.3.1] - 2026-03-09
 ### Added
 - **8 new dataset loaders** in `pymv.data`, each with on-demand Zenodo download:
