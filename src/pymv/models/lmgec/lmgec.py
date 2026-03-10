@@ -1,283 +1,402 @@
-
 """
-LMGEC: Linear Multi-view Graph Embedding Clustering
+LMGEC — Linear Multi-view Graph Embedding Clustering.
 
-Implementation of the LMGEC algorithm for multi-view clustering
-with optional graph-based feature propagation.
+Alternating optimisation over cluster assignments *G*, centroids *F*
+and per-view orthogonal projections *W*.
 """
 
-import warnings
+from __future__ import annotations
+
 import numpy as np
 import tensorflow as tf
-
 from sklearn.cluster import KMeans
 from sklearn.decomposition import TruncatedSVD
 
+from pymv.core import BaseModel
 from pymv.preprocessing import (
     get_propagated_features,
-    preprocess_features
+    preprocess_features,
 )
-from pymv.core import BaseModel
 
 
-# ================================================================
-# Update rules
-# ================================================================
+# =================================================================
+# TensorFlow update rules  (pure functions — no side effects)
+# =================================================================
 
 def _update_rule_F(XW, G, K):
-    """Update cluster centroids."""
     return tf.math.unsorted_segment_mean(XW, G, num_segments=K)
 
 
 def _update_rule_W(X, F, G):
-    """Update projection matrix."""
-    _, U, V = tf.linalg.svd(
-        tf.transpose(X) @ tf.gather(F, G),
-        full_matrices=False
-    )
-    return U @ tf.transpose(V)
+    F_g = tf.gather(F, G)
+    M = tf.linalg.matmul(X, F_g, transpose_a=True)
+    s, u, v = tf.linalg.svd(M)
+    W = tf.linalg.matmul(u, v, adjoint_b=True)
+    return W
 
 
 def _update_rule_G(XW, F):
-    """Assign cluster labels."""
-    centroids_expanded = F[:, None, ...]
-    distances = tf.reduce_mean(
-        tf.math.squared_difference(XW, centroids_expanded),
-        axis=2
-    )
-
-    return tf.math.argmin(
-        distances,
-        axis=0,
-        output_type=tf.int32
-    )
+    diff = tf.expand_dims(XW, 1) - tf.expand_dims(F, 0)
+    dists = tf.reduce_sum(tf.square(diff), axis=-1)
+    return tf.cast(tf.argmin(dists, axis=1), tf.int32)
 
 
-# ================================================================
-# Training loop
-# ================================================================
+# =================================================================
+# Init helpers
+# =================================================================
 
-@tf.function
-def _train_loop(Xs, F, G, alphas, k, max_iter):
-
-    n_views = len(Xs)
-
-    losses = tf.TensorArray(
-        tf.float32,
-        size=0,
-        dynamic_size=True
-    )
-
-    XW_consensus = tf.zeros(
-        (tf.shape(Xs[0])[0], tf.shape(F)[1]),
-        dtype=tf.float32
-    )
-
-    for i in tf.range(max_iter):
-
-        loss = tf.constant(0.0, dtype=tf.float32)
-
-        XW_consensus = tf.zeros_like(XW_consensus)
-
-        for v in range(n_views):
-
-            Wv = _update_rule_W(Xs[v], F, G)
-
-            XWv = tf.linalg.matmul(Xs[v], Wv)
-
-            XW_consensus += alphas[v] * XWv
-
-            loss_v = tf.linalg.norm(
-                Xs[v] - tf.gather(F @ tf.transpose(Wv), G)
-            )
-
-            loss += alphas[v] * loss_v
-
-        G = _update_rule_G(XW_consensus, F)
-
-        F = _update_rule_F(XW_consensus, G, k)
-
-        losses = losses.write(i, loss)
-
-    return G, F, XW_consensus, losses.stack()
+def _init_W(X, n_components):
+    n_components = min(n_components, min(X.shape) - 1)
+    svd = TruncatedSVD(n_components=n_components)
+    svd.fit(X)
+    return svd.components_.T
 
 
-# ================================================================
-# LMGEC model
-# ================================================================
+def _init_G_F(XW, k):
+    km = KMeans(n_clusters=k, n_init=10)
+    km.fit(XW)
+    return km.labels_.astype(np.int32), km.cluster_centers_
+
+
+# =================================================================
+# Training loop (one per number of views — traced separately)
+# =================================================================
+
+def _make_train_loop(n_views):
+    """
+    Build a tf.function-traced training loop for exactly *n_views*
+    views.  Python-level indexing (``Xs[0]``, ``Xs[1]``, …) is
+    unrolled at trace time so TensorFlow never sees a Python list
+    indexed by a symbolic tensor.
+    """
+
+    @tf.function
+    def _train_loop(Xs, F, G, alphas, k, max_iter):
+        m = tf.shape(F)[1]
+        n = tf.shape(Xs[0])[0]
+        losses = tf.TensorArray(dtype=tf.float64, size=max_iter)
+
+        for t in tf.range(max_iter):
+            XW_consensus = tf.zeros((n, m), dtype=tf.float64)
+            loss_total = tf.constant(0.0, dtype=tf.float64)
+
+            # --- unrolled at trace time (Python for over a fixed range) ---
+            for v in range(n_views):
+                Wv = _update_rule_W(Xs[v], F, G)
+                XWv = tf.linalg.matmul(Xs[v], Wv)
+                XW_consensus = XW_consensus + alphas[v] * XWv
+
+                recon = tf.gather(
+                    tf.linalg.matmul(F, Wv, transpose_b=True), G
+                )
+                loss_total = loss_total + tf.linalg.norm(Xs[v] - recon)
+
+            G = _update_rule_G(XW_consensus, F)
+            F = _update_rule_F(XW_consensus, G, k)
+            losses = losses.write(t, loss_total)
+
+        return G, F, XW_consensus, losses.stack()
+
+    return _train_loop
+
+
+# Cache so we don't re-trace for the same view count
+_train_loop_cache: dict[int, callable] = {}
+
+
+def _get_train_loop(n_views):
+    if n_views not in _train_loop_cache:
+        _train_loop_cache[n_views] = _make_train_loop(n_views)
+    return _train_loop_cache[n_views]
+
+
+# =================================================================
+# Public model class
+# =================================================================
 
 class LMGEC(BaseModel):
-    """
-    Linear Multi-view Graph Embedding Clustering (LMGEC).
+    """Linear Multi-view Graph Embedding Clustering.
+
+    Parameters
+    ----------
+    n_clusters : int
+        Number of clusters *k*.
+
+    embedding_dim : int
+        Latent dimension *m* for the per-view projections W.
+
+    temperature : float, default=1.0
+        Softmax temperature for computing per-view weights α.
+        Lower → sharper weighting; higher → more uniform.
+
+    beta : float or list[float], default=1.0
+        Self-loop weight for graph propagation.  A single float
+        applies the same value to every view.  A list sets a
+        per-view value.  **Ignored when ``preprocess=False``.**
+
+    tf_idf : bool or list[bool], default=False
+        Feature normalization mode.  ``True`` → TF-IDF + L2;
+        ``False`` → plain L2.  A list sets a per-view choice.
+        **Ignored when ``preprocess=False``.**
+
+    center : bool, default=False
+        Center features (subtract column mean) after propagation.
+        **Ignored when ``preprocess=False``.**
+
+    scale : bool, default=False
+        Scale features (unit variance) after propagation.
+        **Ignored when ``preprocess=False``.**
+
+    preprocess : bool, default=True
+        Master switch for internal preprocessing.
+
+        * ``True``  — the model normalizes features, builds the
+          propagation matrix, computes H = S·X, and optionally
+          centers/scales.  This is the default and matches the
+          original LMGEC paper.
+        * ``False`` — **all** internal preprocessing is skipped.
+          The model treats each element of *Xs* as an
+          already-prepared view and feeds it directly into the
+          optimisation loop.  In this mode *As* is ignored even
+          if provided, and *beta*, *tf_idf*, *center*, *scale*
+          have no effect.
+
+    max_iter : int, default=30
+        Maximum number of alternating-optimisation iterations.
+
+    Examples
+    --------
+    **Let the model preprocess (default):**
+
+    >>> model = LMGEC(n_clusters=3, embedding_dim=4)
+    >>> model.fit(Xs, As)          # raw features + adjacencies
+    >>> model.labels_
+    array([0, 2, 1, ...])
+
+    **Per-view preprocessing options:**
+
+    >>> model = LMGEC(
+    ...     n_clusters=3,
+    ...     embedding_dim=4,
+    ...     tf_idf=[True, False],  # TF-IDF on view 0, L2 on view 1
+    ...     beta=[1.0, 0.5],       # different self-loop weights
+    ... )
+    >>> model.fit(Xs, As)
+
+    **User handles preprocessing externally:**
+
+    >>> from pymv.preprocessing import get_propagated_features
+    >>> H0 = get_propagated_features(X0, A0, beta=1.0, tf_idf=True)
+    >>> H1 = get_propagated_features(X1, A1, beta=0.5, tf_idf=False)
+    >>> model = LMGEC(n_clusters=3, embedding_dim=4, preprocess=False)
+    >>> model.fit([H0, H1])        # As not needed
+
+    **No graph at all (feature-only views):**
+
+    >>> model = LMGEC(n_clusters=3, embedding_dim=4, preprocess=False)
+    >>> model.fit([X1, X2])        # just feature matrices
     """
 
     def __init__(
         self,
-        n_clusters,
-        embedding_dim,
-        temperature=10.0,
-        max_iter=30,
-        tol=1e-4,
-        beta=1.0,
-        center_data=True,
-        tf_idf=False,
-        scale=False,
+        n_clusters: int,
+        embedding_dim: int,
+        temperature: float = 1.0,
+        beta: float | list[float] = 1.0,
+        tf_idf: bool | list[bool] = False,
+        center: bool = False,
+        scale: bool = False,
+        preprocess: bool = True,
+        max_iter: int = 30,
     ):
-
         self.n_clusters = n_clusters
         self.embedding_dim = embedding_dim
         self.temperature = temperature
-        self.max_iter = max_iter
-        self.tol = tol
         self.beta = beta
-        self.center_data = center_data
         self.tf_idf = tf_idf
+        self.center = center
         self.scale = scale
+        self.preprocess = preprocess
+        self.max_iter = max_iter
 
-        # learned attributes
+        # Filled after fit()
         self.labels_ = None
-        self.embedding_ = None
         self.centroids_ = None
-        self.alphas_ = None
+        self.embedding_ = None
         self.loss_history_ = None
 
-    # ------------------------------------------------------------
-    # Initialization helpers
-    # ------------------------------------------------------------
+    # ---- helpers ----
 
-    def _init_W(self, X):
+    @property
+    def name(self) -> str:
+        return getattr(self, "_name", self.__class__.__name__)
 
-        n_features = X.shape[1]
+    @name.setter
+    def name(self, value: str):
+        self._name = value
 
-        if self.embedding_dim >= n_features:
+    def _resolve_per_view(self, param, n_views, param_name: str):
+        """Broadcast a scalar parameter to a per-view list."""
+        if isinstance(param, list):
+            if len(param) != n_views:
+                raise ValueError(
+                    f"len({param_name})={len(param)} but got "
+                    f"{n_views} views."
+                )
+            return param
+        return [param] * n_views
 
-            warnings.warn(
-                f"View has {n_features} features but embedding_dim "
-                f"is {self.embedding_dim}. Skipping SVD reduction.",
-                UserWarning
-            )
+    # ---- main entry point ----
 
-            return np.eye(n_features)
+    def fit(self, Xs, As=None):
+        """Fit the model.
 
-        svd = TruncatedSVD(
-            n_components=self.embedding_dim
-        ).fit(X)
+        Parameters
+        ----------
+        Xs : list[np.ndarray]
+            Feature matrices — one per view.
 
-        return svd.components_.T
+            * When ``preprocess=True``: raw features; each will be
+              normalized and (if *As* is given) propagated through
+              its adjacency.
+            * When ``preprocess=False``: already-prepared views
+              that go directly into the optimisation loop.
 
-    def _init_G_F(self, XW):
+        As : list[np.ndarray | sp.spmatrix] or None, default=None
+            Adjacency matrices — one per view (or one shared).
 
-        km = KMeans(
-            n_clusters=self.n_clusters,
-            n_init=10
-        ).fit(XW)
+            * Ignored entirely when ``preprocess=False``.
+            * When ``preprocess=True`` and ``As is None``: features
+              are normalized but **not** propagated (no graph).
+            * When ``preprocess=True`` and ``As`` has fewer entries
+              than ``Xs``: the last adjacency is reused for the
+              remaining views.
 
-        G = km.labels_.astype(np.int32)
-        F = km.cluster_centers_
-
-        return G, F
-
-    # ------------------------------------------------------------
-    # Training
-    # ------------------------------------------------------------
-
-    def fit(self, Xs, adjs=None):
-
-        if adjs is None:
-            adjs = [None] * len(Xs)
-
-        if len(Xs) != len(adjs):
-            raise ValueError(
-                "Number of feature matrices must match adjacency matrices."
-            )
-
-        # --------------------------------------------------------
-        # Graph propagation
-        # --------------------------------------------------------
-
-        propagated_views = []
-
-        for X, A in zip(Xs, adjs):
-
-            H = get_propagated_features(
-                features=X,
-                adj=A,
-                beta=self.beta,
-                tf_idf=self.tf_idf,
-            )
-
-            propagated_views.append(H)
-
-        Xs = preprocess_features(
-            propagated_views,
-            center=self.center_data,
-            scale=self.scale
-        )
+        Returns
+        -------
+        self
+            The fitted model with ``labels_``, ``centroids_``,
+            ``embedding_``, and ``loss_history_`` attributes set.
+        """
 
         n_views = len(Xs)
 
-        # --------------------------------------------------------
-        # Initialization
-        # --------------------------------------------------------
+        # ==============================================================
+        # Step 1 — Prepare H views
+        # ==============================================================
 
-        alphas = np.zeros(n_views)
+        if self.preprocess:
+            betas = self._resolve_per_view(self.beta, n_views, "beta")
+            tf_idfs = self._resolve_per_view(self.tf_idf, n_views, "tf_idf")
 
-        XW_consensus = 0
+            # Build adjacency list (broadcast if needed)
+            if As is None:
+                adj_list = [None] * n_views
+            else:
+                adj_list = list(As)
+                # Reuse last adjacency if fewer were provided
+                while len(adj_list) < n_views:
+                    adj_list.append(adj_list[-1])
+
+            Hs = []
+            for v in range(n_views):
+                H = get_propagated_features(
+                    Xs[v],
+                    adj=adj_list[v],
+                    beta=betas[v],
+                    tf_idf=tf_idfs[v],
+                )
+                Hs.append(H)
+
+            # Optional centering / scaling
+            if self.center or self.scale:
+                Hs = preprocess_features(
+                    Hs, center=self.center, scale=self.scale
+                )
+
+        else:
+            # User already prepared the views — use as-is
+            Hs = list(Xs)
+
+        # ==============================================================
+        # Step 2 — Ensure dense float64 arrays
+        # ==============================================================
+
+        import scipy.sparse as sp
+
+        for i in range(len(Hs)):
+            if sp.issparse(Hs[i]):
+                Hs[i] = Hs[i].toarray()
+            Hs[i] = np.asarray(Hs[i], dtype=np.float64)
+
+        # ==============================================================
+        # Step 3 — Initialisation (NumPy)
+        # ==============================================================
+
+        m = self.embedding_dim
+        k = self.n_clusters
+
+        alphas = np.zeros(n_views, dtype=np.float64)
+        XW_consensus = np.zeros((Hs[0].shape[0], m), dtype=np.float64)
 
         for v in range(n_views):
-
-            Wv = self._init_W(Xs[v])
-
-            XWv = Xs[v] @ Wv
-
-            Gv, Fv = self._init_G_F(XWv)
-
+            Wv = _init_W(Hs[v], m)
+            XWv = Hs[v] @ Wv
+            Gv, Fv = _init_G_F(XWv, k)
             inertia = np.linalg.norm(XWv - Fv[Gv])
-
             alphas[v] = np.exp(-inertia / self.temperature)
-
             XW_consensus += alphas[v] * XWv
 
         alpha_sum = alphas.sum()
+        if alpha_sum > 0:
+            XW_consensus /= alpha_sum
+        else:
+            XW_consensus /= n_views
 
-        if alpha_sum == 0:
-            alphas[:] = 1.0 / n_views
-            alpha_sum = 1.0
+        G_init, F_init = _init_G_F(XW_consensus, k)
 
-        XW_consensus /= alpha_sum
+        # ==============================================================
+        # Step 4 — Convert to TensorFlow tensors & run training loop
+        # ==============================================================
 
-        G, F = self._init_G_F(XW_consensus)
-
-        # --------------------------------------------------------
-        # TensorFlow training
-        # --------------------------------------------------------
-
-        Xs_tf = [
-            tf.convert_to_tensor(X, dtype=tf.float32)
-            for X in Xs
-        ]
-
-        F_tf = tf.convert_to_tensor(F, dtype=tf.float32)
-        G_tf = tf.convert_to_tensor(G, dtype=tf.int32)
-        alphas_tf = tf.convert_to_tensor(alphas, dtype=tf.float32)
-
-        G, F, XW_consensus, loss_history = _train_loop(
-            Xs_tf,
-            F_tf,
-            G_tf,
-            alphas_tf,
-            self.n_clusters,
-            self.max_iter
+        Hs_tf = tuple(tf.constant(H, dtype=tf.float64) for H in Hs)
+        F_tf = tf.constant(F_init, dtype=tf.float64)
+        G_tf = tf.constant(G_init, dtype=tf.int32)
+        alphas_tf = tf.constant(
+            alphas / (alpha_sum if alpha_sum > 0 else n_views),
+            dtype=tf.float64,
         )
 
-        # --------------------------------------------------------
-        # Store results
-        # --------------------------------------------------------
+        train_loop = _get_train_loop(n_views)
+        G_out, F_out, XW_out, losses = train_loop(
+            Hs_tf, F_tf, G_tf, alphas_tf, k, self.max_iter
+        )
 
-        self.labels_ = G.numpy()
-        self.embedding_ = XW_consensus.numpy()
-        self.centroids_ = F.numpy()
-        self.alphas_ = alphas
-        self.loss_history_ = loss_history.numpy()
+        # ==============================================================
+        # Step 5 — Store results
+        # ==============================================================
+
+        self.labels_ = G_out.numpy()
+        self.centroids_ = F_out.numpy()
+        self.embedding_ = XW_out.numpy()
+        self.loss_history_ = losses.numpy()
 
         return self
+
+    def fit_predict(self, Xs, As=None):
+        """Fit the model and return cluster labels.
+
+        Parameters
+        ----------
+        Xs : list[np.ndarray]
+            Feature matrices (see :meth:`fit`).
+
+        As : list or None, default=None
+            Adjacency matrices (see :meth:`fit`).
+
+        Returns
+        -------
+        np.ndarray of shape (n_samples,)
+            Cluster label for each sample.
+        """
+        return self.fit(Xs, As).labels_

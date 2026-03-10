@@ -1,14 +1,23 @@
 """
-Feature preprocessing utilities for Pymv.
+Feature preprocessing utilities for pymv.
 
-This module contains functions for preparing multi-view feature
-matrices before they are passed to clustering models.
+This module provides functions for preparing single-view and
+multi-view feature matrices before they are fed to clustering
+models.
 
-It includes:
+Public API (intended for direct use by end-users)
+-------------------------------------------------
+- :func:`get_propagated_features` — full per-view pipeline:
+  normalize → (optionally) propagate through graph.
+- :func:`preprocess_features` — centering / scaling across one
+  or more feature views.
 
-- Feature normalization
-- Graph propagation
-- Multi-view preprocessing
+Internal helpers (used by the public API; usable but rarely needed)
+------------------------------------------------------------------
+- :func:`preprocess_graph` — builds the row-normalized
+  propagation matrix  S = D⁻¹(A + βI).
+- :func:`normalize_features` — TF-IDF or L2 normalization on a
+  single feature matrix.
 """
 
 from __future__ import annotations
@@ -27,23 +36,48 @@ from sklearn.feature_extraction.text import TfidfTransformer
 # ------------------------------------------------------------------
 
 def preprocess_graph(adj: Union[np.ndarray, sp.spmatrix], beta: float = 1.0):
-    """
-    Compute the linear propagation matrix S.
+    r"""Build the row-normalized propagation matrix.
 
-    S = D^{-1}(A + beta * I)
+    .. note:: **Internal helper** — called by
+       :func:`get_propagated_features`.  You normally do not need
+       to call this directly.
+
+    Computes
+
+    .. math::
+        S = D^{-1}(A + \beta\,I)
+
+    where *D* is the diagonal degree matrix of :math:`A + \beta I`.
 
     Parameters
     ----------
-    adj : ndarray or sparse matrix
-        Adjacency matrix.
+    adj : np.ndarray or scipy.sparse matrix of shape (n, n)
+        Adjacency matrix (binary or weighted).  Converted to
+        CSR sparse format internally if dense.
 
-    beta : float
-        Self-loop weight.
+    beta : float, default=1.0
+        Self-loop weight.  A value of 0 means no self-loops are
+        added; 1.0 is the standard choice.
 
     Returns
     -------
-    sparse matrix
-        Row-normalized propagation matrix.
+    scipy.sparse.csr_matrix of shape (n, n)
+        Row-normalized propagation matrix *S*.  Each row sums
+        to 1 (or 0 for isolated nodes after adding self-loops,
+        which is extremely rare when ``beta > 0``).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from pymv.preprocessing import preprocess_graph
+    >>> A = np.array([[0, 1, 0],
+    ...               [1, 0, 1],
+    ...               [0, 1, 0]])
+    >>> S = preprocess_graph(A, beta=1.0)
+    >>> S.toarray().round(3)
+    array([[0.5  , 0.5  , 0.   ],
+           [0.333, 0.333, 0.333],
+           [0.   , 0.5  , 0.5  ]])
     """
 
     if not sp.issparse(adj):
@@ -72,23 +106,51 @@ def normalize_features(
     features: Union[np.ndarray, sp.spmatrix],
     tf_idf: bool = False
 ):
-    """
-    Normalize feature vectors.
+    r"""Normalize a single feature matrix with L2 or TF-IDF + L2.
 
-    Optionally applies TF-IDF transformation before L2 normalization.
+    .. note:: **Internal helper** — called by
+       :func:`get_propagated_features`.  You normally do not need
+       to call this directly unless you want fine-grained control
+       over the normalization of an individual view.
+
+    When ``tf_idf=False`` (default), each row is L2-normalized:
+
+    .. math::
+        \mathbf{x}_i \leftarrow
+        \frac{\mathbf{x}_i}{\|\mathbf{x}_i\|_2}
+
+    When ``tf_idf=True``, a TF-IDF transformation is applied first
+    (via :class:`~sklearn.feature_extraction.text.TfidfTransformer`
+    with ``norm='l2'``), which inherently includes L2 normalization.
 
     Parameters
     ----------
-    features : ndarray or sparse matrix
-        Feature matrix (n_samples, n_features).
+    features : np.ndarray or scipy.sparse matrix of shape (n_samples, n_features)
+        Raw feature matrix for **one** view.
 
-    tf_idf : bool
-        Whether to apply TF-IDF transformation.
+    tf_idf : bool, default=False
+        If ``True``, apply TF-IDF weighting before L2 normalization.
+        Useful when the feature matrix contains raw term-frequency
+        counts (e.g. bag-of-words).
 
     Returns
     -------
-    ndarray
-        Normalized dense feature matrix.
+    np.ndarray of shape (n_samples, n_features)
+        Dense, row-normalized feature matrix.
+
+    See Also
+    --------
+    get_propagated_features : High-level function that calls this
+        internally then optionally propagates through a graph.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from pymv.preprocessing import normalize_features
+    >>> X = np.array([[3.0, 4.0], [0.0, 1.0]])
+    >>> normalize_features(X).round(3)
+    array([[0.6, 0.8],
+           [0. , 1. ]])
     """
 
     if tf_idf:
@@ -107,29 +169,78 @@ def normalize_features(
 # ------------------------------------------------------------------
 
 def preprocess_features(
-    features: List[Union[np.ndarray, sp.spmatrix]],
+    features: Union[np.ndarray, sp.spmatrix, List[Union[np.ndarray, sp.spmatrix]]],
     center: bool = False,
     scale: bool = False
 ):
-    """
-    Apply optional centering and scaling to multiple feature views.
+    """Apply optional centering and/or scaling to feature views.
+
+    **Public API** — use this when you want to standardize one or
+    more feature matrices *before* passing them to a model (or
+    independently of any model).
+
+    Each view is processed with a **separate**
+    :class:`~sklearn.preprocessing.StandardScaler`, so centering
+    and scaling statistics are computed per-view.
 
     Parameters
     ----------
-    features : list
-        List of feature matrices.
+    features : np.ndarray, scipy.sparse matrix, or list thereof
+        A single feature matrix or a list of feature matrices.
+        If a single matrix is passed, a single matrix is returned
+        (not wrapped in a list).
 
-    center : bool
-        Whether to center features.
+    center : bool, default=False
+        Subtract the column mean from each feature.
 
-    scale : bool
-        Whether to scale features.
+        .. warning::
+           Centering destroys sparsity.  If a sparse matrix is
+           passed and ``center=True``, centering is **silently
+           skipped** for that view to avoid a dense conversion.
+           Convert to dense first if centering is required.
+
+    scale : bool, default=False
+        Divide each feature by its standard deviation (unit
+        variance scaling).
 
     Returns
     -------
-    list
-        List of processed feature matrices.
+    np.ndarray or list[np.ndarray]
+        Processed features.  Returns the same type that was
+        passed in: a single array if a single array was given,
+        a list if a list was given.
+
+    Examples
+    --------
+    Single view:
+
+    >>> import numpy as np
+    >>> from pymv.preprocessing import preprocess_features
+    >>> X = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
+    >>> preprocess_features(X, center=True).round(3)
+    array([[-1.225, -1.225],
+           [ 0.   ,  0.   ],
+           [ 1.225,  1.225]])
+
+    Multiple views:
+
+    >>> X1 = np.random.randn(100, 10)
+    >>> X2 = np.random.randn(100, 20)
+    >>> Xs = preprocess_features([X1, X2], center=True, scale=True)
+    >>> len(Xs)
+    2
+
+    See Also
+    --------
+    get_propagated_features : Full per-view pipeline (normalize →
+        graph propagation) that should be called **before** this
+        function if graph structure is available.
     """
+    
+    single_input = not isinstance(features, list)
+
+    if single_input:
+        features = [features]
 
     if not (center or scale):
         return features
@@ -153,7 +264,7 @@ def preprocess_features(
 
         processed.append(X_proc)
 
-    return processed
+    return processed[0] if single_input else processed
 
 
 # ------------------------------------------------------------------
@@ -166,34 +277,71 @@ def get_propagated_features(
     beta: float = 1.0,
     tf_idf: bool = False
 ):
-    """
-    Apply graph-based feature propagation.
+    r"""Normalize and (optionally) propagate features through a graph.
 
-    H = S X
+    **Public API** — this is the recommended entry point for
+    preparing a **single view** before clustering.
 
-    where S = D^{-1}(A + beta I)
+    The pipeline is:
 
-    If no adjacency matrix is provided, the normalized features
-    are returned unchanged.
+    1. **Normalize** the feature matrix via
+       :func:`normalize_features` (L2 or TF-IDF + L2).
+    2. **Propagate** through the graph (if an adjacency matrix is
+       provided):
+
+       .. math::
+           H = S\,X, \quad S = D^{-1}(A + \beta\,I)
+
+       If ``adj`` is ``None``, propagation is skipped and the
+       normalized features are returned directly.
 
     Parameters
     ----------
-    features : ndarray or sparse matrix
-        Feature matrix.
+    features : np.ndarray or scipy.sparse matrix of shape (n_samples, n_features)
+        Raw feature matrix for **one** view.
 
-    adj : ndarray or sparse matrix or None
-        Adjacency matrix.
+    adj : np.ndarray, scipy.sparse matrix, or None, default=None
+        Adjacency matrix of shape ``(n_samples, n_samples)``.
+        Pass ``None`` when there is no graph structure for this
+        view (the normalization step is still applied).
 
-    beta : float
-        Self-loop weight.
+    beta : float, default=1.0
+        Self-loop weight used by :func:`preprocess_graph`.
 
-    tf_idf : bool
-        Apply TF-IDF normalization.
+    tf_idf : bool, default=False
+        If ``True``, apply TF-IDF + L2 normalization instead of
+        plain L2 normalization.  See :func:`normalize_features`.
 
     Returns
     -------
-    ndarray
-        Propagated feature matrix.
+    np.ndarray of shape (n_samples, n_features)
+        Dense feature matrix — normalized and (if ``adj`` was
+        provided) propagated.
+
+    See Also
+    --------
+    preprocess_features : Apply centering / scaling **after**
+        propagation (call on the output of this function).
+    normalize_features : Internal — normalization only.
+    preprocess_graph : Internal — builds the propagation matrix.
+
+    Examples
+    --------
+    Without graph (pure normalization):
+
+    >>> import numpy as np
+    >>> from pymv.preprocessing import get_propagated_features
+    >>> X = np.array([[3.0, 4.0], [0.0, 1.0]])
+    >>> get_propagated_features(X).round(3)
+    array([[0.6, 0.8],
+           [0. , 1. ]])
+
+    With graph propagation:
+
+    >>> A = np.array([[0, 1], [1, 0]])
+    >>> H = get_propagated_features(X, adj=A, beta=1.0)
+    >>> H.shape
+    (2, 2)
     """
 
     X = normalize_features(features, tf_idf)
