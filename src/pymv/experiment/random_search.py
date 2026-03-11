@@ -139,6 +139,15 @@ class RandomSearchExperiment:
 
     verbose : int
         Console verbosity (0–3).  Default is **1** (table only).
+
+    save_markdown : bool
+        If ``True``, save a well-organized Markdown report to
+        ``experiments/<experiment_name>/results.md``.
+        Default is ``False``.
+
+    experiment_name : str or None
+        Folder name under ``experiments/``.
+        ``None`` → auto-increment ``experiment#1``, ``#2``, …
     """
 
     def __init__(
@@ -152,6 +161,8 @@ class RandomSearchExperiment:
         seed: int | None = None,
         log_dir: str | None = None,
         verbose: int = 1,
+        save_markdown: bool = False,
+        experiment_name: str | None = None,
     ):
         self.model_class = model_class
         self.param_distributions = param_distributions
@@ -161,6 +172,8 @@ class RandomSearchExperiment:
         self.seed = seed
         self.log_dir = log_dir
         self.verbose = verbose
+        self.save_markdown = save_markdown
+        self.experiment_name = experiment_name
 
         # Validate best_metric after normalisation
         if best_metric not in self.metrics:
@@ -200,10 +213,19 @@ class RandomSearchExperiment:
     def run(self) -> RandomSearchResult:
         rng = np.random.RandomState(self.seed)
 
+        # ==============================================================
+        # Resolve experiment folder first so the log goes inside it
+        # ==============================================================
+        experiment_dir: str | None = None
+        if self.save_markdown:
+            from .markdown_export import _resolve_experiment_dir
+            experiment_dir = _resolve_experiment_dir(self.experiment_name)
+
         logger = setup_experiment_logger(
             log_dir=self.log_dir,
             prefix="pymv_random_search",
             verbose=self.verbose,
+            experiment_dir=experiment_dir,
         )
 
         model_name = self.model_class.__name__
@@ -218,11 +240,28 @@ class RandomSearchExperiment:
         logger.debug("  Best by   : %s (↑ higher is better)", self.best_metric)
         logger.debug("  Trials    : %d", self.n_iter)
         logger.debug("  Seed      : %s", self.seed)
+        if experiment_dir:
+            logger.debug("  Output    : %s", experiment_dir)
         logger.debug("")
 
         logger.debug("Loading dataset: %s", self.dataset_name)
         Xs, As, labels = _load(self._dataset_entry)
         labels = np.asarray(labels).reshape(-1)
+        n_clusters = len(np.unique(labels))
+
+        # Collect dataset info for metadata
+        datasets_info = {
+            self.dataset_name: {
+                "n_samples": int(Xs[0].shape[0]),
+                "n_views": len(Xs),
+                "n_clusters": n_clusters,
+                "feature_dims": [list(X.shape) for X in Xs],
+                "adjacency_shapes": [
+                    list(A.shape) if A is not None else None
+                    for A in As
+                ] if As is not None else None,
+            }
+        }
 
         self.result = RandomSearchResult(
             dataset_name=self.dataset_name,
@@ -264,5 +303,30 @@ class RandomSearchExperiment:
         output = str(self.result)
         logger.warning("\n%s", output)
         logger.debug("\n[RANDOM SEARCH TABLE]\n%s", output)
+
+        # ---- Export full experiment folder ----
+        if self.save_markdown and experiment_dir:
+            from .markdown_export import export_random_search
+
+            config = {
+                "model_class": model_name,
+                "param_distributions": {
+                    k: str(v) for k, v in self.param_distributions.items()
+                },
+                "best_metric": self.best_metric,
+                "n_iter": self.n_iter,
+                "seed": self.seed,
+                "metrics": list(self.metrics.keys()),
+            }
+
+            folder = export_random_search(
+                result=self.result,
+                name=self.experiment_name,
+                log_file=None,  # log is already in experiment_dir
+                datasets_info=datasets_info,
+                experiment_config=config,
+                experiment_dir=experiment_dir,
+            )
+            logger.warning("  � Experiment saved to: %s", folder)
 
         return self.result

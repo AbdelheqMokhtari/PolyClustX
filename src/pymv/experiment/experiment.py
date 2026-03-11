@@ -41,9 +41,7 @@ from .result import ExperimentResult, Result
 from .logger import setup_experiment_logger
 
 
-# =====================================================================
 # Normalizers — accept many input shapes, return canonical form
-# =====================================================================
 
 def _normalize_datasets(datasets) -> OrderedDict:
     """
@@ -151,9 +149,7 @@ def _normalize_metrics(metrics) -> OrderedDict:
     )
 
 
-# =====================================================================
-# Experiment
-# =====================================================================
+# Experiment Class
 
 class Experiment:
     """
@@ -192,6 +188,22 @@ class Experiment:
 
     verbose : int
         Console verbosity level (0–3).  Default is **1**.
+
+    save_markdown : bool
+        If ``True``, save a well-organized Markdown report of
+        the results to ``experiments/<experiment_name>/results.md``
+        (relative to the current working directory).
+        Default is ``False``.
+
+    experiment_name : str or None
+        Name of the folder under ``experiments/`` where the
+        Markdown report is saved.  Only used when
+        ``save_markdown=True``.
+
+        * If a string is given, the folder is
+          ``experiments/<experiment_name>``.
+        * If ``None`` (default), the folder is auto-incremented:
+          ``experiments/experiment#1``, ``experiment#2``, etc.
     """
 
     def __init__(
@@ -202,6 +214,8 @@ class Experiment:
         runs: int = 1,
         log_dir: str | None = None,
         verbose: int = 1,
+        save_markdown: bool = False,
+        experiment_name: str | None = None,
     ):
         self.datasets = _normalize_datasets(datasets)
         self.models = _normalize_models(models)
@@ -209,13 +223,13 @@ class Experiment:
         self.runs = max(1, int(runs))
         self.log_dir = log_dir
         self.verbose = verbose
+        self.save_markdown = save_markdown
+        self.experiment_name = experiment_name
 
         # Filled after run()
         self.result: ExperimentResult | None = None
 
-    # ------------------------------------------------------------------
     # helpers
-    # ------------------------------------------------------------------
 
     @staticmethod
     def _model_name(model) -> str:
@@ -230,17 +244,23 @@ class Experiment:
             values[name] = float(fn(y_true, y_pred))
         return values
 
-    # ------------------------------------------------------------------
     # main loop
-    # ------------------------------------------------------------------
 
     def run(self) -> ExperimentResult:
         """Execute the experiment and return an :class:`ExperimentResult`."""
+
+        # Resolve experiment folder first (if saving), so the log goes
+        # inside it from the very beginning.
+        experiment_dir: str | None = None
+        if self.save_markdown:
+            from .markdown_export import _resolve_experiment_dir
+            experiment_dir = _resolve_experiment_dir(self.experiment_name)
 
         logger = setup_experiment_logger(
             log_dir=self.log_dir,
             prefix="pymv_experiment",
             verbose=self.verbose,
+            experiment_dir=experiment_dir,
         )
 
         # ---- Log header (file + verbose>=3) ----
@@ -254,15 +274,21 @@ class Experiment:
         )
         logger.debug("  Metrics  : %s", list(self.metrics.keys()))
         logger.debug("  Runs     : %d", self.runs)
+        if experiment_dir:
+            logger.debug("  Output   : %s", experiment_dir)
         logger.debug("")
 
-        # ---- Build result container with model info ----
+        # Build result container with model info ----
         model_names = [self._model_name(m) for m in self.models]
         self.result = ExperimentResult()
         self.result.set_models(self.models, model_names)
 
         total_combos = len(self.datasets) * len(self.models)
         combo_i = 0
+
+        # Metadata accumulators
+        datasets_info: dict = {}
+        raw_scores: dict = {}
 
         for ds_name, ds_entry in self.datasets.items():
 
@@ -274,6 +300,20 @@ class Experiment:
                 "  samples=%d, views=%d, k=%d",
                 Xs[0].shape[0], len(Xs), n_clusters,
             )
+
+            # Collect dataset info for metadata
+            datasets_info[ds_name] = {
+                "n_samples": int(Xs[0].shape[0]),
+                "n_views": len(Xs),
+                "n_clusters": n_clusters,
+                "feature_dims": [
+                    list(X.shape) for X in Xs
+                ],
+                "adjacency_shapes": [
+                    list(A.shape) if A is not None else None
+                    for A in As
+                ] if As is not None else None,
+            }
 
             for model_template in self.models:
                 combo_i += 1
@@ -329,19 +369,62 @@ class Experiment:
                 )
                 self.result.add(result)
 
+                # Store raw per-run scores
+                raw_key = f"{ds_name}/{m_name}"
+                raw_scores[raw_key] = {
+                    "runs": self.runs,
+                    "metrics": {
+                        k: [round(v, 6) for v in run_metrics[k]]
+                        for k in self.metrics
+                    },
+                    "times": [round(t, 4) for t in run_times],
+                }
+
                 logger.debug(
                     "    → %s  (%.2fs)",
                     ", ".join(f"{k}={v:.4f}" for k, v in avg.items()),
                     avg_time,
                 )
 
-        # ==============================================================
         # Print clean tables to console (WARNING level → verbose>=1)
-        # ==============================================================
         output = str(self.result)
         logger.warning("\n%s", output)
 
         # Also write full tables to log file
         logger.debug("\n[FULL RESULTS]\n%s", output)
+
+        # Export full experiment folder
+        
+        if self.save_markdown and experiment_dir:
+            from .markdown_export import export_experiment
+
+            # Build config metadata
+            _SKIP = {
+                "labels_", "centroids_", "embedding_",
+                "loss_history_", "_name",
+            }
+            config = {
+                "datasets": list(self.datasets.keys()),
+                "models": {
+                    self._model_name(m): {
+                        k: str(v) for k, v in m.__dict__.items()
+                        if k not in _SKIP and not k.endswith("_")
+                    }
+                    for m in self.models
+                },
+                "metrics": list(self.metrics.keys()),
+                "runs": self.runs,
+            }
+
+            folder = export_experiment(
+                result=self.result,
+                name=self.experiment_name,
+                log_file=None,  # log is already in experiment_dir
+                datasets_info=datasets_info,
+                experiment_config=config,
+                raw_scores=raw_scores,
+                experiment_dir=experiment_dir,
+            )
+            logger.warning("  � Experiment saved to: %s", folder)
 
         return self.result

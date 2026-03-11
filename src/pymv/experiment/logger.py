@@ -10,8 +10,9 @@ Design
     results).  All noisy progress messages go exclusively to
     the log file.
 
-The ``log_dir`` parameter defaults to ``"./logs"`` (relative to
-the current working directory) so logs live next to your project.
+When ``experiment_dir`` is provided the log file is written
+directly inside that directory as ``experiment.log``.  Otherwise
+it falls back to ``log_dir`` (default ``./logs``).
 
 Verbose levels (console only):
     0 — silent   (nothing printed, not even tables)
@@ -41,6 +42,7 @@ def setup_experiment_logger(
     log_dir: str | None = None,
     prefix: str = "pymv_experiment",
     verbose: int = 1,
+    experiment_dir: str | None = None,
 ) -> logging.Logger:
     """
     Create and return a logger with a file handler (everything)
@@ -49,24 +51,32 @@ def setup_experiment_logger(
     Parameters
     ----------
     log_dir : str or None
-        Directory where log files are saved.
-        ``None`` → ``"./logs"`` (current working directory).
+        Directory where log files are saved when *experiment_dir*
+        is ``None``.  Defaults to ``"./logs"``.
     prefix : str
-        Filename prefix for the log file.
+        Filename prefix (used only when *experiment_dir* is None).
     verbose : int
         Console verbosity level (0–3).  Default is **1** (tables
         only).
+    experiment_dir : str or None
+        If provided, the log file is written as
+        ``<experiment_dir>/experiment.log`` and *log_dir* / *prefix*
+        are ignored.
 
     Returns
     -------
     logging.Logger
     """
-    if log_dir is None:
-        log_dir = os.path.join(os.getcwd(), "logs")
-    os.makedirs(log_dir, exist_ok=True)
-
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_file = os.path.join(log_dir, f"{prefix}_{timestamp}.log")
+
+    if experiment_dir is not None:
+        os.makedirs(experiment_dir, exist_ok=True)
+        log_file = os.path.join(experiment_dir, "experiment.log")
+    else:
+        if log_dir is None:
+            log_dir = os.path.join(os.getcwd(), "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, f"{prefix}_{timestamp}.log")
 
     logger = logging.getLogger(f"pymv.experiment.{timestamp}")
     logger.setLevel(logging.DEBUG)
@@ -90,15 +100,15 @@ def setup_experiment_logger(
     logger.addHandler(ch)
 
     # ---- Silence pymv.data loggers on console ----
-    # Their file output is still captured because we attach the
-    # experiment file handler to the 'pymv.data' parent logger.
     data_logger = logging.getLogger("pymv.data")
     data_logger.setLevel(logging.DEBUG)
     data_logger.handlers.clear()
     data_logger.propagate = False
-    # Only send to the file — never to the console
     data_logger.addHandler(fh)
 
     logger.debug("Log file: %s", log_file)
+
+    # Store the log file path on the logger for later retrieval
+    logger.log_file_path = log_file  # type: ignore[attr-defined]
 
     return logger
