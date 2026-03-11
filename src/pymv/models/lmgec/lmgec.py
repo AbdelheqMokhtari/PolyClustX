@@ -1,13 +1,14 @@
 """
-LMGEC — Linear Multi-view Graph Embedding Clustering.
+LMGEC — Linear Multi-view Graph Embedding and Clustering.
 
-Alternating optimisation over cluster assignments *G*, centroids *F*
-and per-view orthogonal projections *W*.
 """
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
+import scipy.sparse as sp
 import tensorflow as tf
 from sklearn.cluster import KMeans
 from sklearn.decomposition import TruncatedSVD
@@ -18,10 +19,28 @@ from pymv.preprocessing import (
     preprocess_features,
 )
 
+logger = logging.getLogger(__name__)
 
-# =================================================================
-# TensorFlow update rules  (pure functions — no side effects)
-# =================================================================
+
+# GPU memory configuration — runs once at import time
+
+def _configure_gpu():
+    """Enable memory growth on all visible GPUs.
+
+    Prevents TensorFlow from pre-allocating the entire GPU memory,
+    which causes OOM on devices with limited VRAM (e.g. laptops).
+    Must run before any TF operation.
+    """
+    try:
+        for gpu in tf.config.list_physical_devices("GPU"):
+            tf.config.experimental.set_memory_growth(gpu, True)
+    except RuntimeError:
+        pass  # already initialized skip silently
+
+
+_configure_gpu()
+
+# update rules  F, W, And G
 
 def _update_rule_F(XW, G, K):
     return tf.math.unsorted_segment_mean(XW, G, num_segments=K)
@@ -41,9 +60,7 @@ def _update_rule_G(XW, F):
     return tf.cast(tf.argmin(dists, axis=1), tf.int32)
 
 
-# =================================================================
-# Init helpers
-# =================================================================
+# method to initialise W, G, and F
 
 def _init_W(X, n_components):
     n_components = min(n_components, min(X.shape) - 1)
@@ -58,9 +75,7 @@ def _init_G_F(XW, k):
     return km.labels_.astype(np.int32), km.cluster_centers_
 
 
-# =================================================================
 # Training loop (one per number of views — traced separately)
-# =================================================================
 
 def _make_train_loop(n_views):
     """
@@ -110,9 +125,7 @@ def _get_train_loop(n_views):
     return _train_loop_cache[n_views]
 
 
-# =================================================================
 # Public model class
-# =================================================================
 
 class LMGEC(BaseModel):
     """Linear Multi-view Graph Embedding Clustering.
@@ -225,7 +238,7 @@ class LMGEC(BaseModel):
         self.embedding_ = None
         self.loss_history_ = None
 
-    # ---- helpers ----
+    # helpers
 
     @property
     def name(self) -> str:
@@ -246,7 +259,7 @@ class LMGEC(BaseModel):
             return param
         return [param] * n_views
 
-    # ---- main entry point ----
+    # main entry point
 
     def fit(self, Xs, As=None):
         """Fit the model.
@@ -281,15 +294,13 @@ class LMGEC(BaseModel):
 
         n_views = len(Xs)
 
-        # ==============================================================
-        # Step 1 — Prepare H views
-        # ==============================================================
+        # Prepare H views
 
         if self.preprocess:
             betas = self._resolve_per_view(self.beta, n_views, "beta")
             tf_idfs = self._resolve_per_view(self.tf_idf, n_views, "tf_idf")
 
-            # Build adjacency list (broadcast if needed)
+            # Build adjacency list 
             if As is None:
                 adj_list = [None] * n_views
             else:
@@ -308,7 +319,7 @@ class LMGEC(BaseModel):
                 )
                 Hs.append(H)
 
-            # Optional centering / scaling
+            # centering / scaling
             if self.center or self.scale:
                 Hs = preprocess_features(
                     Hs, center=self.center, scale=self.scale
@@ -318,20 +329,14 @@ class LMGEC(BaseModel):
             # User already prepared the views — use as-is
             Hs = list(Xs)
 
-        # ==============================================================
-        # Step 2 — Ensure dense float64 arrays
-        # ==============================================================
-
-        import scipy.sparse as sp
+        # Ensure dense float64 arrays
 
         for i in range(len(Hs)):
             if sp.issparse(Hs[i]):
                 Hs[i] = Hs[i].toarray()
             Hs[i] = np.asarray(Hs[i], dtype=np.float64)
 
-        # ==============================================================
-        # Step 3 — Initialisation (NumPy)
-        # ==============================================================
+        # Initialisation
 
         m = self.embedding_dim
         k = self.n_clusters
@@ -355,31 +360,46 @@ class LMGEC(BaseModel):
 
         G_init, F_init = _init_G_F(XW_consensus, k)
 
-        # ==============================================================
-        # Step 4 — Convert to TensorFlow tensors & run training loop
-        # ==============================================================
+        # run training loop (with automatic GPU → CPU fallback on OOM)
 
-        Hs_tf = tuple(tf.constant(H, dtype=tf.float64) for H in Hs)
-        F_tf = tf.constant(F_init, dtype=tf.float64)
-        G_tf = tf.constant(G_init, dtype=tf.int32)
-        alphas_tf = tf.constant(
-            alphas / (alpha_sum if alpha_sum > 0 else n_views),
-            dtype=tf.float64,
-        )
-
+        alphas_norm = alphas / (alpha_sum if alpha_sum > 0 else n_views)
         train_loop = _get_train_loop(n_views)
-        G_out, F_out, XW_out, losses = train_loop(
-            Hs_tf, F_tf, G_tf, alphas_tf, k, self.max_iter
-        )
 
-        # ==============================================================
-        # Step 5 — Store results
-        # ==============================================================
+        def _run_on_device(device: str):
+            """Create tensors and run the loop on the given device."""
+            with tf.device(device):
+                _Hs = tuple(tf.constant(H, dtype=tf.float64) for H in Hs)
+                _F = tf.constant(F_init, dtype=tf.float64)
+                _G = tf.constant(G_init, dtype=tf.int32)
+                _a = tf.constant(alphas_norm, dtype=tf.float64)
+                return train_loop(_Hs, _F, _G, _a, k, self.max_iter)
+
+        has_gpu = bool(tf.config.list_physical_devices("GPU"))
+
+        if has_gpu:
+            try:
+                G_out, F_out, XW_out, losses = _run_on_device("/GPU:0")
+            except (tf.errors.ResourceExhaustedError,
+                    tf.errors.InternalError):
+                logger.warning(
+                    "GPU out of memory — falling back to CPU. "
+                    "This run will be slower but will complete."
+                )
+                tf.keras.backend.clear_session()
+                G_out, F_out, XW_out, losses = _run_on_device("/CPU:0")
+        else:
+            G_out, F_out, XW_out, losses = _run_on_device("/CPU:0")
+
+        # Store results & free GPU memory
 
         self.labels_ = G_out.numpy()
         self.centroids_ = F_out.numpy()
         self.embedding_ = XW_out.numpy()
         self.loss_history_ = losses.numpy()
+
+        # Release all TF tensors so GPU VRAM is freed for the next call
+        del G_out, F_out, XW_out, losses
+        tf.keras.backend.clear_session()
 
         return self
 
