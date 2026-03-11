@@ -30,11 +30,13 @@ from __future__ import annotations
 
 import copy
 import os
+import sys
 import time
 from collections import OrderedDict
 from typing import Any, Callable, Dict, List, Sequence, Tuple, Union
 
 import numpy as np
+from tqdm import tqdm
 
 from pymv.core import BaseModel
 from .result import ExperimentResult, Result
@@ -204,6 +206,13 @@ class Experiment:
           ``experiments/<experiment_name>``.
         * If ``None`` (default), the folder is auto-incremented:
           ``experiments/experiment#1``, ``experiment#2``, etc.
+
+    log : bool
+        If ``True``, a log file is created (either
+        inside the experiment folder when ``save_markdown=True``,
+        or in ``log_dir``).
+        If ``False`` (default), **no log file is written** — only
+        console output is produced.
     """
 
     def __init__(
@@ -216,6 +225,7 @@ class Experiment:
         verbose: int = 1,
         save_markdown: bool = False,
         experiment_name: str | None = None,
+        log: bool = False,
     ):
         self.datasets = _normalize_datasets(datasets)
         self.models = _normalize_models(models)
@@ -225,6 +235,7 @@ class Experiment:
         self.verbose = verbose
         self.save_markdown = save_markdown
         self.experiment_name = experiment_name
+        self.log = log
 
         # Filled after run()
         self.result: ExperimentResult | None = None
@@ -256,11 +267,16 @@ class Experiment:
             from .markdown_export import _resolve_experiment_dir
             experiment_dir = _resolve_experiment_dir(self.experiment_name)
 
+        # When save_markdown=True, log is always enabled inside the
+        # experiment folder regardless of the log parameter.
+        use_log = self.log or self.save_markdown
+
         logger = setup_experiment_logger(
             log_dir=self.log_dir,
             prefix="pymv_experiment",
             verbose=self.verbose,
             experiment_dir=experiment_dir,
+            log=use_log,
         )
 
         # ---- Log header (file + verbose>=3) ----
@@ -284,15 +300,33 @@ class Experiment:
         self.result.set_models(self.models, model_names)
 
         total_combos = len(self.datasets) * len(self.models)
-        combo_i = 0
+        total_work = total_combos * self.runs
+        use_pbar = self.verbose >= 2
 
         # Metadata accumulators
         datasets_info: dict = {}
         raw_scores: dict = {}
 
+        # ---- Progress bar (verbose>=2) ----
+        pbar = None
+        if use_pbar:
+            pbar = tqdm(
+                total=total_work,
+                desc="Experiment",
+                unit="run",
+                bar_format=(
+                    "{l_bar}{bar}| {n_fmt}/{total_fmt} "
+                    "[{elapsed}<{remaining}, {rate_fmt}] {postfix}"
+                ),
+                file=sys.stdout,
+            )
+
         for ds_name, ds_entry in self.datasets.items():
 
             logger.debug("Loading dataset: %s", ds_name)
+            if pbar:
+                pbar.set_postfix_str(f"loading {ds_name}…")
+
             Xs, As, labels = _load_dataset(ds_entry)
             labels = np.asarray(labels).reshape(-1)
             n_clusters = len(np.unique(labels))
@@ -316,20 +350,20 @@ class Experiment:
             }
 
             for model_template in self.models:
-                combo_i += 1
                 m_name = self._model_name(model_template)
 
-                # verbose>=2: one-liner progress on console
-                logger.info(
-                    "  [%d/%d] %s × %s …",
-                    combo_i, total_combos, ds_name, m_name,
-                )
+                logger.debug("  %s × %s", ds_name, m_name)
                 logger.debug("    params: %s", model_template.__dict__)
 
                 run_metrics: dict[str, list] = {k: [] for k in self.metrics}
                 run_times: list[float] = []
 
                 for r in range(self.runs):
+                    if pbar:
+                        pbar.set_postfix_str(
+                            f"{ds_name} × {m_name} [run {r+1}/{self.runs}]"
+                        )
+
                     model = copy.deepcopy(model_template)
 
                     t0 = time.perf_counter()
@@ -349,6 +383,9 @@ class Experiment:
                         ", ".join(f"{k}={v:.4f}" for k, v in scores.items()),
                         elapsed,
                     )
+
+                    if pbar:
+                        pbar.update(1)
 
                 # Aggregate
                 avg = OrderedDict()
@@ -386,6 +423,9 @@ class Experiment:
                     avg_time,
                 )
 
+        if pbar:
+            pbar.close()
+
         # Print clean tables to console (WARNING level → verbose>=1)
         output = str(self.result)
         logger.warning("\n%s", output)
@@ -394,7 +434,7 @@ class Experiment:
         logger.debug("\n[FULL RESULTS]\n%s", output)
 
         # Export full experiment folder
-        
+
         if self.save_markdown and experiment_dir:
             from .markdown_export import export_experiment
 

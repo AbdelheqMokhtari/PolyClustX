@@ -32,11 +32,13 @@ Usage
 
 from __future__ import annotations
 
+import sys
 import time
 from collections import OrderedDict
 from typing import Any, Callable, Dict, Type
 
 import numpy as np
+from tqdm import tqdm
 
 from pymv.core import BaseModel
 from .result import RandomSearchResult
@@ -148,6 +150,11 @@ class RandomSearchExperiment:
     experiment_name : str or None
         Folder name under ``experiments/``.
         ``None`` → auto-increment ``experiment#1``, ``#2``, …
+
+    log : bool
+        If ``True``, a log file is created.
+        If ``False`` (default), **no log file is written** — only
+        console output is produced.
     """
 
     def __init__(
@@ -163,6 +170,7 @@ class RandomSearchExperiment:
         verbose: int = 1,
         save_markdown: bool = False,
         experiment_name: str | None = None,
+        log: bool = False,
     ):
         self.model_class = model_class
         self.param_distributions = param_distributions
@@ -174,6 +182,7 @@ class RandomSearchExperiment:
         self.verbose = verbose
         self.save_markdown = save_markdown
         self.experiment_name = experiment_name
+        self.log = log
 
         # Validate best_metric after normalisation
         if best_metric not in self.metrics:
@@ -221,11 +230,14 @@ class RandomSearchExperiment:
             from .markdown_export import _resolve_experiment_dir
             experiment_dir = _resolve_experiment_dir(self.experiment_name)
 
+        use_log = self.log or self.save_markdown
+
         logger = setup_experiment_logger(
             log_dir=self.log_dir,
             prefix="pymv_random_search",
             verbose=self.verbose,
             experiment_dir=experiment_dir,
+            log=use_log,
         )
 
         model_name = self.model_class.__name__
@@ -269,12 +281,31 @@ class RandomSearchExperiment:
             best_metric_name=self.best_metric,
         )
 
+        use_pbar = self.verbose >= 2
+
+        # ---- Progress bar (verbose>=2) ----
+        pbar = None
+        if use_pbar:
+            pbar = tqdm(
+                total=self.n_iter,
+                desc="Random Search",
+                unit="trial",
+                bar_format=(
+                    "{l_bar}{bar}| {n_fmt}/{total_fmt} "
+                    "[{elapsed}<{remaining}, {rate_fmt}] {postfix}"
+                ),
+                file=sys.stdout,
+            )
+
         for i in range(self.n_iter):
             params = self._sample_params(rng)
 
-            # verbose>=2: one-liner progress
-            logger.info("  [%d/%d] params=%s", i + 1, self.n_iter, params)
             logger.debug("  [%d/%d] params=%s", i + 1, self.n_iter, params)
+
+            if pbar:
+                pbar.set_postfix_str(
+                    f"trial {i+1}/{self.n_iter}"
+                )
 
             try:
                 model = self.model_class(**params)
@@ -285,6 +316,13 @@ class RandomSearchExperiment:
 
                 scores = self._evaluate(labels, model.labels_)
                 self.result.add_trial(params, scores, elapsed)
+
+                # Show best so far in the progress bar
+                if pbar:
+                    best = self.result.best_score
+                    pbar.set_postfix_str(
+                        f"best {self.best_metric}={best:.4f}"
+                    )
 
                 logger.debug(
                     "    → %s  (%.2fs)",
@@ -298,6 +336,12 @@ class RandomSearchExperiment:
                     (k, float("nan")) for k in self.metrics
                 )
                 self.result.add_trial(params, nan_scores, 0.0)
+
+            if pbar:
+                pbar.update(1)
+
+        if pbar:
+            pbar.close()
 
         # ---- Print clean table to console (WARNING → verbose>=1) ----
         output = str(self.result)

@@ -43,6 +43,7 @@ def setup_experiment_logger(
     prefix: str = "pymv_experiment",
     verbose: int = 1,
     experiment_dir: str | None = None,
+    log: bool = True,
 ) -> logging.Logger:
     """
     Create and return a logger with a file handler (everything)
@@ -62,6 +63,9 @@ def setup_experiment_logger(
         If provided, the log file is written as
         ``<experiment_dir>/experiment.log`` and *log_dir* / *prefix*
         are ignored.
+    log : bool
+        If ``False``, **no log file is created** — only the
+        console handler is attached.  Default is ``True``.
 
     Returns
     -------
@@ -69,28 +73,32 @@ def setup_experiment_logger(
     """
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-    if experiment_dir is not None:
-        os.makedirs(experiment_dir, exist_ok=True)
-        log_file = os.path.join(experiment_dir, "experiment.log")
-    else:
-        if log_dir is None:
-            log_dir = os.path.join(os.getcwd(), "logs")
-        os.makedirs(log_dir, exist_ok=True)
-        log_file = os.path.join(log_dir, f"{prefix}_{timestamp}.log")
-
     logger = logging.getLogger(f"pymv.experiment.{timestamp}")
     logger.setLevel(logging.DEBUG)
     logger.handlers.clear()
     logger.propagate = False
 
-    # ---- File handler — always captures everything ----
-    fh = logging.FileHandler(log_file, mode="w", encoding="utf-8")
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(logging.Formatter(
-        "%(asctime)s | %(levelname)-8s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    ))
-    logger.addHandler(fh)
+    log_file: str | None = None
+    fh: logging.FileHandler | None = None
+
+    # ---- File handler (skipped when log=False) ----
+    if log:
+        if experiment_dir is not None:
+            os.makedirs(experiment_dir, exist_ok=True)
+            log_file = os.path.join(experiment_dir, "experiment.log")
+        else:
+            if log_dir is None:
+                log_dir = os.path.join(os.getcwd(), "logs")
+            os.makedirs(log_dir, exist_ok=True)
+            log_file = os.path.join(log_dir, f"{prefix}_{timestamp}.log")
+
+        fh = logging.FileHandler(log_file, mode="w", encoding="utf-8")
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(logging.Formatter(
+            "%(asctime)s | %(levelname)-8s | %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        ))
+        logger.addHandler(fh)
 
     # ---- Console handler — controlled by verbose ----
     console_level = _VERBOSE_MAP.get(verbose, logging.INFO)
@@ -104,9 +112,14 @@ def setup_experiment_logger(
     data_logger.setLevel(logging.DEBUG)
     data_logger.handlers.clear()
     data_logger.propagate = False
-    data_logger.addHandler(fh)
+    if fh is not None:
+        data_logger.addHandler(fh)
+    else:
+        # No file handler — silence data loggers completely
+        data_logger.addHandler(logging.NullHandler())
 
-    logger.debug("Log file: %s", log_file)
+    if log_file:
+        logger.debug("Log file: %s", log_file)
 
     # Store the log file path on the logger for later retrieval
     logger.log_file_path = log_file  # type: ignore[attr-defined]
