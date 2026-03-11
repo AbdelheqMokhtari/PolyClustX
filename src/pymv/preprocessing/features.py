@@ -13,7 +13,7 @@ Public API (intended for direct use by end-users)
   or more feature views.
 
 Internal helpers (used by the public API; usable but rarely needed)
-------------------------------------------------------------------
+-------------------------------------------------------------------
 - :func:`preprocess_graph` — builds the row-normalized
   propagation matrix  S = D⁻¹(A + βI).
 - :func:`normalize_features` — TF-IDF or L2 normalization on a
@@ -164,9 +164,7 @@ def normalize_features(
     return features
 
 
-# ------------------------------------------------------------------
 # Multi-view preprocessing
-# ------------------------------------------------------------------
 
 def preprocess_features(
     features: Union[np.ndarray, sp.spmatrix, List[Union[np.ndarray, sp.spmatrix]]],
