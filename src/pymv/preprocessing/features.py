@@ -31,9 +31,7 @@ from sklearn.preprocessing import normalize, StandardScaler
 from sklearn.feature_extraction.text import TfidfTransformer
 
 
-# ------------------------------------------------------------------
 # Graph preprocessing
-# ------------------------------------------------------------------
 
 def preprocess_graph(adj: Union[np.ndarray, sp.spmatrix], beta: float = 1.0):
     r"""Build the row-normalized propagation matrix.
@@ -98,9 +96,7 @@ def preprocess_graph(adj: Union[np.ndarray, sp.spmatrix], beta: float = 1.0):
     return S
 
 
-# ------------------------------------------------------------------
 # Feature normalization
-# ------------------------------------------------------------------
 
 def normalize_features(
     features: Union[np.ndarray, sp.spmatrix],
@@ -265,9 +261,7 @@ def preprocess_features(
     return processed[0] if single_input else processed
 
 
-# ------------------------------------------------------------------
 # Graph feature propagation
-# ------------------------------------------------------------------
 
 def get_propagated_features(
     features: Union[np.ndarray, sp.spmatrix],
