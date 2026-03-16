@@ -81,7 +81,7 @@ def setup_experiment_logger(
     log_file: str | None = None
     fh: logging.FileHandler | None = None
 
-    # ---- File handler (skipped when log=False) ----
+    # File handler (skipped when log=False)
     if log:
         if experiment_dir is not None:
             os.makedirs(experiment_dir, exist_ok=True)
@@ -100,14 +100,14 @@ def setup_experiment_logger(
         ))
         logger.addHandler(fh)
 
-    # ---- Console handler — controlled by verbose ----
+    # Console handler controlled by verbose 
     console_level = _VERBOSE_MAP.get(verbose, logging.INFO)
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(console_level)
     ch.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(ch)
 
-    # ---- Silence pymv.data loggers on console ----
+    # Silence pymv.data loggers on console
     data_logger = logging.getLogger("pymv.data")
     data_logger.setLevel(logging.DEBUG)
     data_logger.handlers.clear()
