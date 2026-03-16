@@ -6,4 +6,4 @@ from . import visualization
 from . import experiment
 from .experiment import Experiment, RandomSearchExperiment
 
-__version__ = "0.3.1"
+__version__ = "0.3.3"

@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog,
 and this project adheres to Semantic Versioning.
 
+## [0.3.3] - 2026-03-11 *(in progress)*
+### Fixed
+- **LMGEC: GPU out-of-memory (OOM) crash.**
+  TensorFlow pre-allocated the entire GPU VRAM at startup, causing `InternalError: Failed copying input tensor` on devices with limited memory (e.g. laptop GPUs). Multiple sequential `.fit()` calls in the same session (notebooks) would also OOM because tensors from previous runs were never released.
+  - Added `_configure_gpu()` — enables **GPU memory growth** at import time so TensorFlow allocates VRAM on demand instead of grabbing everything upfront.
+  - Added **automatic GPU → CPU fallback** — if the GPU runs out of memory during the training loop, LMGEC catches the error, clears the GPU session, and retries the run on CPU. A warning is logged but the run completes.
+  - Added **GPU memory cleanup after `fit()`** — all TensorFlow tensors are explicitly deleted and `tf.keras.backend.clear_session()` is called after extracting NumPy results, freeing VRAM for the next call.
+
+### Changed
+- **LMGEC: moved `scipy.sparse` import to module top level** — was previously a lazy import inside `fit()`. Since `scipy` is already a transitive dependency (via scikit-learn), there is no benefit to deferring the import.
+- **Experiment output: unified experiment folder.** When `save_markdown=True`, all artifacts are now saved together in a single experiment folder instead of being scattered across separate directories:
+  - `results.md` — well-organized Markdown report (config table, per-dataset result tables, best values bolded).
+  - `experiment.log` — full debug log written directly inside the experiment folder (previously created in a separate `./logs/` directory).
+  - `metadata/config.json` — model hyper-parameters, dataset names, metric names, number of runs.
+  - `metadata/datasets.json` — per-dataset shape info (n_samples, n_views, n_clusters, feature dimensions, adjacency shapes).
+  - `metadata/environment.json` — Python version, TensorFlow version, NumPy/SciPy versions, GPU device name, OS, platform.
+  - `metadata/raw_scores.json` — every individual run score for reproducibility and re-analysis.
+- **Logger: `experiment_dir` parameter.** `setup_experiment_logger()` now accepts an `experiment_dir` argument; when provided, the log file is written as `<experiment_dir>/experiment.log` instead of `./logs/`. The logger also stores the log file path as `logger.log_file_path`.
+- **Markdown export API renamed** for clarity:
+  - `export_experiment_markdown()` → `export_experiment()` (now creates the full folder, not just the `.md` file).
+  - `export_random_search_markdown()` → `export_random_search()` (same).
+- **Experiment & RandomSearchExperiment: `log` parameter (default `False`).** By default, no log file is created on disk. When `log=True`, a log file is written to `log_dir`. When `save_markdown=True`, logging is **forced on** and the log file is written inside the experiment folder regardless of the `log` setting.
+- **Experiment verbose=2: tqdm progress bar replaces one-liner messages.** `verbose>=2` now renders a live `tqdm` progress bar that tracks the total number of runs (datasets × models × runs) and displays the current dataset, model, and run number via `set_postfix_str`. The previous `logger.info` one-liner progress messages are removed.
+- **RandomSearchExperiment verbose=2: tqdm progress bar.** `verbose>=2` now renders a `tqdm` progress bar tracking trial progress, displaying the best metric score found so far in the postfix.
+- **`plot_clusters()`: new `ax` and `show` parameters.** Accepts an optional `matplotlib.axes.Axes` object for composing multi-panel figures, and a `show` flag (default `True`) to control whether `plt.show()` is called. Returns the reduced 2D array as before.
+
+### Added
+- **`Experiment` & `RandomSearchExperiment`: `save_markdown` and `experiment_name` parameters.**
+  - `save_markdown=True` — saves the full experiment folder (results + log + metadata).
+  - `experiment_name="my_exp"` — custom folder name under `experiments/`. When `None`, auto-increments as `experiment#1`, `experiment#2`, etc.
+- **Metadata collection in `Experiment.run()`** — automatically gathers dataset shapes, model configs, environment info, and per-run raw scores during execution and passes them to the export functions.
+- **Metadata collection in `RandomSearchExperiment.run()`** — same as above, plus all trial parameters and scores in `raw_scores.json`.
+- **`pymv.visualization.plot_loss()`** — new function that plots a training loss curve. Supports customizable figure size, colors, markers, line width, log scale, grid, and the same `ax`/`show` composability as `plot_clusters()`. Returns the `matplotlib.axes.Axes` object.
+- **`tqdm` dependency** added to `pyproject.toml` (`tqdm>=4.60.0`).
+
 ## [0.3.2] - 2026-03-10
 ### Changed
 - **LMGEC: per-view preprocessing parameters.**
