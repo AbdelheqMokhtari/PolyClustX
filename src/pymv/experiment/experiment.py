@@ -29,11 +29,9 @@ Usage
 from __future__ import annotations
 
 import copy
-import os
 import sys
 import time
 from collections import OrderedDict
-from typing import Any, Callable, Dict, List, Sequence, Tuple, Union
 
 import numpy as np
 from tqdm import tqdm
@@ -43,7 +41,7 @@ from .result import ExperimentResult, Result
 from .logger import setup_experiment_logger
 
 
-# Normalizers — accept many input shapes, return canonical form
+# Normalizers (accept many input shapes, return canonical form)
 
 def _normalize_datasets(datasets) -> OrderedDict:
     """
@@ -279,7 +277,7 @@ class Experiment:
             log=use_log,
         )
 
-        # ---- Log header (file + verbose>=3) ----
+        # Log header (file + verbose>=3)
         logger.debug("=" * 60)
         logger.debug("  pymv Experiment")
         logger.debug("=" * 60)

@@ -35,7 +35,7 @@ from __future__ import annotations
 import sys
 import time
 from collections import OrderedDict
-from typing import Any, Callable, Dict, Type
+from typing import Any, Dict, Type
 
 import numpy as np
 from tqdm import tqdm
@@ -195,9 +195,7 @@ class RandomSearchExperiment:
         # Filled after run()
         self.result: RandomSearchResult | None = None
 
-    # ------------------------------------------------------------------
     # helpers
-    # ------------------------------------------------------------------
 
     def _sample_params(self, rng: np.random.RandomState) -> dict:
         params: dict = {}
@@ -215,16 +213,12 @@ class RandomSearchExperiment:
             values[name] = float(fn(y_true, y_pred))
         return values
 
-    # ------------------------------------------------------------------
     # main loop
-    # ------------------------------------------------------------------
 
     def run(self) -> RandomSearchResult:
         rng = np.random.RandomState(self.seed)
 
-        # ==============================================================
         # Resolve experiment folder first so the log goes inside it
-        # ==============================================================
         experiment_dir: str | None = None
         if self.save_markdown:
             from .markdown_export import _resolve_experiment_dir
@@ -242,7 +236,7 @@ class RandomSearchExperiment:
 
         model_name = self.model_class.__name__
 
-        # ---- Log header (file only unless verbose>=3) ----
+        # Log header (file only unless verbose>=3) 
         logger.debug("=" * 60)
         logger.debug("  pymv Random Search")
         logger.debug("=" * 60)
@@ -283,7 +277,7 @@ class RandomSearchExperiment:
 
         use_pbar = self.verbose >= 2
 
-        # ---- Progress bar (verbose>=2) ----
+        # Progress bar (verbose>=2)
         pbar = None
         if use_pbar:
             pbar = tqdm(
@@ -343,12 +337,12 @@ class RandomSearchExperiment:
         if pbar:
             pbar.close()
 
-        # ---- Print clean table to console (WARNING → verbose>=1) ----
+        # Print clean table to console (WARNING → verbose>=1) 
         output = str(self.result)
         logger.warning("\n%s", output)
         logger.debug("\n[RANDOM SEARCH TABLE]\n%s", output)
 
-        # ---- Export full experiment folder ----
+        # Export full experiment folder 
         if self.save_markdown and experiment_dir:
             from .markdown_export import export_random_search
 
