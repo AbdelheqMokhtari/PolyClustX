@@ -162,12 +162,16 @@ class RandomSearchExperiment:
 
     experiment_name : str or None
         Folder name under ``experiments/``.
-        ``None`` → auto-increment ``experiment#1``, ``#2``, …
+        ``None`` → timestamped folder (e.g. ``2026-03-31_14-30-12``).
 
     log : bool
         If ``True``, a log file is created.
         If ``False`` (default), **no log file is written** — only
         console output is produced.
+
+    save_path : str or None
+        Base directory for saving experiment results.  Only used
+        when ``save_markdown=True``.  Defaults to ``./experiments``.
     """
 
     def __init__(
@@ -184,6 +188,7 @@ class RandomSearchExperiment:
         save_markdown: bool = False,
         experiment_name: str | None = None,
         log: bool = False,
+        save_path: str | None = None,
     ):
         self.model_class = model_class
         self.param_distributions = param_distributions
@@ -196,6 +201,7 @@ class RandomSearchExperiment:
         self.save_markdown = save_markdown
         self.experiment_name = experiment_name
         self.log = log
+        self.save_path = save_path
 
         # Validate best_metric after normalisation
         if best_metric not in self.metrics:
@@ -226,6 +232,42 @@ class RandomSearchExperiment:
             values[name] = float(fn(y_true, y_pred))
         return values
 
+    def _build_reproducible_config(self) -> dict:
+        """Build a config dict that can re-run this random search."""
+        from pymv.tracking import _to_python
+
+        config: dict = {
+            "dataset": self.dataset_name,
+            "model": {
+                "name": self.model_class.__name__.lower(),
+            },
+            "search": {
+                "n_iter": self.n_iter,
+                "best_metric": self.best_metric,
+                "seed": self.seed,
+                "param_distributions": {
+                    k: _to_python(v)
+                    for k, v in self.param_distributions.items()
+                },
+            },
+            "metrics": list(self.metrics.keys()),
+        }
+
+        # Add best trial params if available
+        if self.result and self.result.best_trial:
+            best = self.result.best_trial
+            config["model"]["params"] = {
+                k: _to_python(v) for k, v in best["params"].items()
+            }
+            config["best_trial"] = {
+                "scores": {
+                    k: _to_python(v) for k, v in best["scores"].items()
+                },
+                "time": round(best.get("time", 0.0), 4),
+            }
+
+        return config
+
     # main loop
 
     def run(self) -> RandomSearchResult:
@@ -233,9 +275,14 @@ class RandomSearchExperiment:
 
         # Resolve experiment folder first so the log goes inside it
         experiment_dir: str | None = None
+        tracker = None
         if self.save_markdown:
-            from .markdown_export import _resolve_experiment_dir
-            experiment_dir = _resolve_experiment_dir(self.experiment_name)
+            from pymv.tracking import ExperimentTracker
+            tracker = ExperimentTracker(
+                name=self.experiment_name,
+                save_path=self.save_path,
+            )
+            experiment_dir = tracker.experiment_dir
 
         use_log = self.log or self.save_markdown
 
@@ -358,6 +405,9 @@ class RandomSearchExperiment:
         # Export full experiment folder 
         if self.save_markdown and experiment_dir:
             from .markdown_export import export_random_search
+            from pymv.tracking import (
+                build_results_dict, build_metrics_csv_rows,
+            )
 
             config = {
                 "model_class": model_name,
@@ -370,6 +420,7 @@ class RandomSearchExperiment:
                 "metrics": list(self.metrics.keys()),
             }
 
+            # 1. Markdown report (existing)
             folder = export_random_search(
                 result=self.result,
                 name=self.experiment_name,
@@ -378,6 +429,34 @@ class RandomSearchExperiment:
                 experiment_config=config,
                 experiment_dir=experiment_dir,
             )
-            logger.warning("  � Experiment saved to: %s", folder)
+
+            # 2. Reproducible config.yaml
+            reproducible_config = self._build_reproducible_config()
+            tracker.save_config(reproducible_config)
+
+            # 3. Structured results.json
+            best = self.result.best_trial
+            best_params = best["params"] if best else {}
+            rd = build_results_dict(
+                dataset_name=self.dataset_name,
+                model_name=model_name,
+                model_params=best_params,
+                metrics=dict(best["scores"]) if best else {},
+                runs=self.n_iter,
+                train_time=best.get("time", 0.0) if best else 0.0,
+            )
+            rd["search"] = {
+                "n_iter": self.n_iter,
+                "best_metric": self.best_metric,
+                "best_score": self.result.best_score,
+                "n_trials": len(self.result.trials),
+            }
+            tracker.save_results(rd)
+
+            # 4. metrics.csv
+            csv_rows = build_metrics_csv_rows(self.result)
+            tracker.save_metrics_csv(csv_rows)
+
+            logger.warning("Experiment saved to: %s", folder)
 
         return self.result

@@ -156,6 +156,7 @@ def config_to_args(cfg: dict[str, Any]) -> dict[str, Any]:
         experiment.seed      → seed
         output.save          → save
         output.name          → name
+        output.path          → save_path
         output.log           → log
         search_space.*       → (used directly by random-search builder)
 
@@ -197,6 +198,8 @@ def config_to_args(cfg: dict[str, Any]) -> dict[str, Any]:
     if isinstance(out, dict):
         if "save" in out or "save_results" in out:
             flat["save"] = out.get("save", out.get("save_results", False))
+        if "path" in out:
+            flat["save_path"] = out["path"]
         _copy_keys(out, flat, ["name", "log"])
 
     # ── Search space (kept nested — consumed by random-search) ──

@@ -14,6 +14,7 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import TruncatedSVD
 
 from pymv.core import BaseModel
+from pymv.models.registry import register_model
 from pymv.preprocessing import (
     get_propagated_features,
     preprocess_features,
@@ -127,6 +128,16 @@ def _get_train_loop(n_views):
 
 # Public model class
 
+@register_model("lmgec", defaults={
+    "embedding_dim": 16,
+    "temperature": 1.0,
+    "beta": 1.0,
+    "tf_idf": False,
+    "center": False,
+    "scale": False,
+    "preprocess": True,
+    "max_iter": 30,
+})
 class LMGEC(BaseModel):
     """Linear Multi-view Graph Embedding Clustering.
 

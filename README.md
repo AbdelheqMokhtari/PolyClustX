@@ -858,7 +858,7 @@ LMGEC (Linear Multi-view Graph Embedding Clustering) jointly learns a shared low
 - [ ] Pre-built configurations for reproducible paper comparisons
 - [ ] PyPI release
 
-Contributions are welcome! See [issues](https://github.com/AbdelheqMokhtari/graph-lmgec/issues).
+Contributions are welcome! See [issues](https://github.com/AbdelheqMokhtari/pymv/issues).
 
 ---
 

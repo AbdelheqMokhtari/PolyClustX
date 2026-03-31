@@ -32,28 +32,13 @@ import textwrap
 
 
 # ── Model registry ────────────────────────────────────────────────
-# Maps CLI name → (model class, default params).
-# New models only need to add an entry here.
+# Lazy accessor — triggers TF import only when actually needed
+# (not on --help / --list-datasets / --version).
 
 def _get_model_registry() -> dict:
-    """Lazy import to avoid heavy TF load on --help."""
-    from pymv.models import LMGEC
-
-    return {
-        "lmgec": {
-            "class": LMGEC,
-            "defaults": {
-                "embedding_dim": 16,
-                "temperature": 1.0,
-                "beta": 1.0,
-                "tf_idf": False,
-                "center": False,
-                "scale": False,
-                "preprocess": True,
-                "max_iter": 30,
-            },
-        },
-    }
+    """Return the global model registry (lazy import)."""
+    from pymv.models.registry import list_models_info
+    return list_models_info()
 
 
 # ── Metric registry ──────────────────────────────────────────────
@@ -296,6 +281,8 @@ def build_parser() -> argparse.ArgumentParser:
                      help="Save a Markdown report to experiments/ folder.")
     out.add_argument("--name", default=None,
                      help="Experiment folder name (used with --save).")
+    out.add_argument("--save-path", default=None,
+                     help="Base directory for experiment output (default: ./experiments).")
     out.add_argument("--log", action="store_true",
                      help="Write a log file.")
 
@@ -376,6 +363,7 @@ def cmd_run_experiment(args):
         save_markdown=args.save,
         experiment_name=args.name,
         log=args.log,
+        save_path=args.save_path,
     ).run()
 
     return result
@@ -470,6 +458,7 @@ def cmd_random_search(args):
         save_markdown=args.save,
         experiment_name=args.name,
         log=args.log,
+        save_path=args.save_path,
     ).run()
 
     return result

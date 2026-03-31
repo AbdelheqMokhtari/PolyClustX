@@ -41,8 +41,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/mokhtari.abdelheq/graph-lmgec"
-BugTracker = "https://github.com/mokhtari.abdelheq/graph-lmgec/issues"
+Homepage = "https://github.com/AbdelheqMokhtari/pymv"
+BugTracker = "https://github.com/AbdelheqMokhtari/pymv/issues"
 
 [project.scripts]
 pymv-cli = "pymv_cli_entry:main"
