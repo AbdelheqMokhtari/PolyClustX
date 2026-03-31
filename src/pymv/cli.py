@@ -32,28 +32,13 @@ import textwrap
 
 
 # ── Model registry ────────────────────────────────────────────────
-# Maps CLI name → (model class, default params).
-# New models only need to add an entry here.
+# Lazy accessor — triggers TF import only when actually needed
+# (not on --help / --list-datasets / --version).
 
 def _get_model_registry() -> dict:
-    """Lazy import to avoid heavy TF load on --help."""
-    from pymv.models import LMGEC
-
-    return {
-        "lmgec": {
-            "class": LMGEC,
-            "defaults": {
-                "embedding_dim": 16,
-                "temperature": 1.0,
-                "beta": 1.0,
-                "tf_idf": False,
-                "center": False,
-                "scale": False,
-                "preprocess": True,
-                "max_iter": 30,
-            },
-        },
-    }
+    """Return the global model registry (lazy import)."""
+    from pymv.models.registry import list_models_info
+    return list_models_info()
 
 
 # ── Metric registry ──────────────────────────────────────────────
