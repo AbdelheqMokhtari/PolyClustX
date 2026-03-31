@@ -176,6 +176,13 @@ def _coerce(value: str, default):
     return value
 
 
+def _ensure_list(value):
+    """Wrap a scalar in a list; leave lists as-is."""
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
 # ── Argument parser ───────────────────────────────────────────────
 
 def build_parser() -> argparse.ArgumentParser:
@@ -188,10 +195,19 @@ def build_parser() -> argparse.ArgumentParser:
               pymv-cli --dataset acm
               pymv-cli --dataset dblp --beta 2 --temperature 10 --runs 3
               pymv-cli --dataset acm --random-search --n-trials 20
-              pymv-cli --dataset acm --save --name my_experiment
+              pymv-cli --config configs/experiment.yaml
+              pymv-cli --config configs/experiment.yaml --dataset acm  # override
               pymv-cli --list-datasets
               pymv-cli --list-models
         """),
+    )
+
+    # ── Config file ──
+    p.add_argument(
+        "--config", "-c", default=None, metavar="PATH",
+        help="Path to a YAML/JSON config file.  "
+             "Shorthand names (e.g. 'default') resolve to configs/<name>.yaml.  "
+             "CLI flags override config values.",
     )
 
     # ── Discovery ──
@@ -379,35 +395,48 @@ def cmd_random_search(args):
 
     # Build search distributions — any CLI-provided value is fixed,
     # others get sensible search ranges.
+    # If a config file provided a search_space, use it as the base.
+    config_space = getattr(args, "_search_space", None) or {}
+
     distributions: dict = {"n_clusters": [n_clusters]}
 
     # Embedding dim
     if args.embedding_dim is not None:
         distributions["embedding_dim"] = [args.embedding_dim]
+    elif "embedding_dim" in config_space:
+        distributions["embedding_dim"] = _ensure_list(config_space["embedding_dim"])
     else:
         distributions["embedding_dim"] = [4, 8, 16, 32, 64]
 
     # Temperature
     if args.temperature is not None:
         distributions["temperature"] = [args.temperature]
+    elif "temperature" in config_space:
+        distributions["temperature"] = _ensure_list(config_space["temperature"])
     else:
         distributions["temperature"] = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
 
     # Beta
     if args.beta is not None:
         distributions["beta"] = [_coerce(str(args.beta), defaults["beta"])]
+    elif "beta" in config_space:
+        distributions["beta"] = _ensure_list(config_space["beta"])
     else:
         distributions["beta"] = [0.1, 0.5, 1.0, 2.0, 5.0]
 
     # TF-IDF
     if args.tf_idf is not None:
         distributions["tf_idf"] = [_coerce(str(args.tf_idf), defaults["tf_idf"])]
+    elif "tf_idf" in config_space:
+        distributions["tf_idf"] = _ensure_list(config_space["tf_idf"])
     else:
         distributions["tf_idf"] = [True, False]
 
     # Max iter
     if args.max_iter is not None:
         distributions["max_iter"] = [args.max_iter]
+    elif "max_iter" in config_space:
+        distributions["max_iter"] = _ensure_list(config_space["max_iter"])
     else:
         distributions["max_iter"] = [defaults["max_iter"]]
 
@@ -449,6 +478,7 @@ QUICK_START = """\
   pymv-cli --dataset acm                          # run with defaults
   pymv-cli --dataset dblp --beta 2 --runs 3       # custom params
   pymv-cli --dataset acm --random-search           # hyper-parameter search
+  pymv-cli --config configs/experiment.yaml        # run from config file
 
 \033[1;33m🔍 Discover:\033[0m
 
@@ -461,6 +491,7 @@ QUICK_START = """\
   pymv-cli -d acm --beta 2 --temperature 100 --tf-idf true
   pymv-cli -d acm --random-search --n-trials 30 --seed 42
   pymv-cli -d dblp --runs 5 --metrics acc nmi f1 --save
+  pymv-cli --config experiment.yaml --dataset acm   # config + override
 
 \033[1;33m💡 Tips:\033[0m
 
@@ -468,6 +499,8 @@ QUICK_START = """\
   • Use --no-preprocess if you want to skip internal preprocessing
   • Use --save to export a Markdown report to experiments/
   • Use -v 0 for silent, -v 1 for tables (default), -v 2 for progress, -v 3 for full debug
+  • Use --config with a YAML/JSON file for reproducible experiments
+  • CLI flags always override config file values
   • Run pymv-cli --help for the full list of parameters
 """
 
@@ -483,6 +516,23 @@ def main(argv: list[str] | None = None):
         return
 
     args = parser.parse_args(argv)
+
+    # ── Config file loading ──
+    if args.config:
+        from pymv.config import (
+            load_config, config_to_args, merge_config_with_cli, validate_config,
+        )
+        try:
+            raw_cfg = load_config(args.config)
+        except (FileNotFoundError, ValueError, ImportError) as exc:
+            _die(str(exc))
+
+        errors = validate_config(raw_cfg)
+        if errors:
+            _die("Config validation failed:\n  • " + "\n  • ".join(errors))
+
+        cfg_args = config_to_args(raw_cfg)
+        args = merge_config_with_cli(cfg_args, args, parser)
 
     # Configure Python-side verbosity (env vars already set at module load)
     _configure_verbosity(args.verbose)
