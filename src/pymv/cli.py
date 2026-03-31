@@ -281,6 +281,8 @@ def build_parser() -> argparse.ArgumentParser:
                      help="Save a Markdown report to experiments/ folder.")
     out.add_argument("--name", default=None,
                      help="Experiment folder name (used with --save).")
+    out.add_argument("--save-path", default=None,
+                     help="Base directory for experiment output (default: ./experiments).")
     out.add_argument("--log", action="store_true",
                      help="Write a log file.")
 
@@ -361,6 +363,7 @@ def cmd_run_experiment(args):
         save_markdown=args.save,
         experiment_name=args.name,
         log=args.log,
+        save_path=args.save_path,
     ).run()
 
     return result
@@ -455,6 +458,7 @@ def cmd_random_search(args):
         save_markdown=args.save,
         experiment_name=args.name,
         log=args.log,
+        save_path=args.save_path,
     ).run()
 
     return result
