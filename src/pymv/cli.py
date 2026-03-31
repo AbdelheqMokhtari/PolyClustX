@@ -1,0 +1,471 @@
+"""
+pymv-cli — Command-line interface for the pymv library.
+
+Run multi-view clustering experiments directly from the terminal
+without writing any Python code.
+
+Examples
+--------
+::
+
+    # Basic experiment
+    pymv-cli --dataset acm
+
+    # With model parameters
+    pymv-cli --dataset dblp --beta 2 --temperature 10 --runs 3
+
+    # Random search
+    pymv-cli --dataset acm --random-search --n-trials 20
+
+    # Save results to Markdown
+    pymv-cli --dataset acm --save --name my_experiment
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import textwrap
+
+
+# ── Model registry ────────────────────────────────────────────────
+# Maps CLI name → (model class, default params).
+# New models only need to add an entry here.
+
+def _get_model_registry() -> dict:
+    """Lazy import to avoid heavy TF load on --help."""
+    from pymv.models import LMGEC
+
+    return {
+        "lmgec": {
+            "class": LMGEC,
+            "defaults": {
+                "embedding_dim": 16,
+                "temperature": 1.0,
+                "beta": 1.0,
+                "tf_idf": False,
+                "center": False,
+                "scale": False,
+                "preprocess": True,
+                "max_iter": 30,
+            },
+        },
+    }
+
+
+# ── Metric registry ──────────────────────────────────────────────
+
+_METRIC_ALIASES = {
+    "acc": "clustering_accuracy",
+    "f1": "clustering_f1_score",
+    "nmi": "nmi_score",
+    "ari": "ari_score",
+}
+
+_DEFAULT_METRICS = ["acc", "nmi", "ari"]
+
+
+def _resolve_metrics(names: list[str]) -> list:
+    """Turn short metric names into callables."""
+    import pymv.metrics as M
+
+    out = []
+    for name in names:
+        full = _METRIC_ALIASES.get(name.lower(), name.lower())
+        fn = getattr(M, full, None)
+        if fn is None:
+            _die(
+                f"Unknown metric '{name}'.\n"
+                f"Available: {', '.join(sorted(_METRIC_ALIASES))} "
+                f"(or full names like clustering_accuracy)"
+            )
+        out.append(fn)
+    return out
+
+
+# ── Helpers ───────────────────────────────────────────────────────
+
+def _die(msg: str, code: int = 1):
+    print(f"Error: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def _parse_json_or_csv(value: str):
+    """Parse a CLI value that may be JSON list or comma-separated."""
+    value = value.strip()
+    if value.startswith("["):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            _die(f"Invalid JSON list: {value}")
+    if "," in value:
+        parts = [p.strip() for p in value.split(",")]
+        try:
+            return [float(p) for p in parts]
+        except ValueError:
+            return parts
+    return value
+
+
+def _coerce(value: str, default):
+    """Coerce a CLI string to the same type as *default*."""
+    if isinstance(default, bool):
+        return value.lower() in ("true", "1", "yes")
+    if isinstance(default, int):
+        return int(value)
+    if isinstance(default, float):
+        return float(value)
+    if isinstance(default, list):
+        parsed = _parse_json_or_csv(value)
+        if isinstance(parsed, list):
+            return parsed
+        return [parsed]
+    return value
+
+
+# ── Argument parser ───────────────────────────────────────────────
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="pymv-cli",
+        description="Run multi-view clustering experiments from the terminal.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=textwrap.dedent("""\
+            examples:
+              pymv-cli --dataset acm
+              pymv-cli --dataset dblp --beta 2 --temperature 10 --runs 3
+              pymv-cli --dataset acm --random-search --n-trials 20
+              pymv-cli --dataset acm --save --name my_experiment
+              pymv-cli --list-datasets
+              pymv-cli --list-models
+        """),
+    )
+
+    # ── Discovery ──
+    info = p.add_argument_group("discovery")
+    info.add_argument(
+        "--list-datasets", action="store_true",
+        help="List available datasets and exit.",
+    )
+    info.add_argument(
+        "--list-models", action="store_true",
+        help="List available models and exit.",
+    )
+
+    # ── Required ──
+    core = p.add_argument_group("core")
+    core.add_argument(
+        "--dataset", "-d",
+        help="Dataset name (e.g. acm, dblp, prokaryotic).",
+    )
+    core.add_argument(
+        "--model", "-m", default="lmgec",
+        help="Model name (default: lmgec).",
+    )
+
+    # ── Model parameters ──
+    params = p.add_argument_group(
+        "model parameters",
+        "Override any model parameter.  "
+        "Lists can be passed as JSON or comma-separated.",
+    )
+    params.add_argument("--n-clusters", "-k", type=int, default=None,
+                        help="Number of clusters (auto-detected from labels if omitted).")
+    params.add_argument("--embedding-dim", type=int, default=None,
+                        help="Embedding dimension (default: 16).")
+    params.add_argument("--temperature", type=float, default=None,
+                        help="Softmax temperature (default: 1.0).")
+    params.add_argument("--beta", default=None,
+                        help="Self-loop weight.  Scalar or list (e.g. 2 or '1.0,0.5').")
+    params.add_argument("--tf-idf", default=None,
+                        help="TF-IDF mode.  true/false or list (e.g. 'true,false').")
+    params.add_argument("--center", default=None,
+                        help="Center features (true/false, default: false).")
+    params.add_argument("--scale", default=None,
+                        help="Scale features (true/false, default: false).")
+    params.add_argument("--no-preprocess", action="store_true",
+                        help="Disable internal preprocessing (preprocess=False).")
+    params.add_argument("--max-iter", type=int, default=None,
+                        help="Max optimisation iterations (default: 30).")
+
+    # ── Experiment ──
+    exp = p.add_argument_group("experiment")
+    exp.add_argument("--runs", "-r", type=int, default=1,
+                     help="Number of independent runs (default: 1).")
+    exp.add_argument("--metrics", nargs="+", default=None,
+                     help="Metrics to report (default: acc nmi ari).  "
+                          "Short names: acc, nmi, ari, f1.")
+    exp.add_argument("--verbose", "-v", type=int, default=1,
+                     choices=[0, 1, 2, 3],
+                     help="Verbosity level (default: 1).")
+
+    # ── Random search ──
+    rs = p.add_argument_group("random search")
+    rs.add_argument("--random-search", action="store_true",
+                    help="Run random hyper-parameter search instead of a fixed experiment.")
+    rs.add_argument("--n-trials", type=int, default=20,
+                    help="Number of random-search trials (default: 20).")
+    rs.add_argument("--best-metric", default="acc",
+                    help="Metric to optimise in random search (default: acc).")
+    rs.add_argument("--seed", type=int, default=None,
+                    help="Random seed for reproducibility.")
+
+    # ── Output ──
+    out = p.add_argument_group("output")
+    out.add_argument("--save", action="store_true",
+                     help="Save a Markdown report to experiments/ folder.")
+    out.add_argument("--name", default=None,
+                     help="Experiment folder name (used with --save).")
+    out.add_argument("--log", action="store_true",
+                     help="Write a log file.")
+
+    return p
+
+
+# ── Commands ──────────────────────────────────────────────────────
+
+def cmd_list_datasets():
+    from pymv.data import list_datasets
+    datasets = list_datasets()
+    print("Available datasets:")
+    for name in datasets:
+        print(f"  • {name}")
+
+
+def cmd_list_models():
+    registry = _get_model_registry()
+    print("Available models:")
+    for name, info in registry.items():
+        defaults = info["defaults"]
+        params = ", ".join(f"{k}={v}" for k, v in defaults.items())
+        print(f"  • {name}  ({params})")
+
+
+def cmd_run_experiment(args):
+    """Standard experiment: fixed model config → results table."""
+    from pymv.data import load_dataset
+    from pymv.experiment import Experiment
+
+    registry = _get_model_registry()
+    model_name = args.model.lower()
+    if model_name not in registry:
+        _die(
+            f"Unknown model '{args.model}'.\n"
+            f"Available: {', '.join(registry)}"
+        )
+
+    # Load dataset to auto-detect n_clusters
+    data = load_dataset(args.dataset)
+    n_clusters = args.n_clusters or data.n_clusters
+
+    # Build model kwargs
+    model_info = registry[model_name]
+    kwargs = {"n_clusters": n_clusters}
+    defaults = model_info["defaults"]
+
+    param_map = {
+        "embedding_dim": args.embedding_dim,
+        "temperature": args.temperature,
+        "beta": args.beta,
+        "tf_idf": args.tf_idf,
+        "center": args.center,
+        "scale": args.scale,
+        "max_iter": args.max_iter,
+    }
+
+    for key, cli_val in param_map.items():
+        if cli_val is not None:
+            kwargs[key] = _coerce(str(cli_val), defaults[key])
+        else:
+            kwargs[key] = defaults[key]
+
+    if args.no_preprocess:
+        kwargs["preprocess"] = False
+    else:
+        kwargs["preprocess"] = defaults["preprocess"]
+
+    model = model_info["class"](**kwargs)
+    metrics = _resolve_metrics(args.metrics or _DEFAULT_METRICS)
+
+    result = Experiment(
+        datasets={args.dataset: data},
+        models=[model],
+        metrics=metrics,
+        runs=args.runs,
+        verbose=args.verbose,
+        save_markdown=args.save,
+        experiment_name=args.name,
+        log=args.log,
+    ).run()
+
+    return result
+
+
+def cmd_random_search(args):
+    """Random hyper-parameter search."""
+    from pymv.data import load_dataset
+    from pymv.experiment import RandomSearchExperiment
+
+    registry = _get_model_registry()
+    model_name = args.model.lower()
+    if model_name not in registry:
+        _die(
+            f"Unknown model '{args.model}'.\n"
+            f"Available: {', '.join(registry)}"
+        )
+
+    data = load_dataset(args.dataset)
+    n_clusters = args.n_clusters or data.n_clusters
+
+    model_info = registry[model_name]
+    defaults = model_info["defaults"]
+
+    # Build search distributions — any CLI-provided value is fixed,
+    # others get sensible search ranges.
+    distributions: dict = {"n_clusters": [n_clusters]}
+
+    # Embedding dim
+    if args.embedding_dim is not None:
+        distributions["embedding_dim"] = [args.embedding_dim]
+    else:
+        distributions["embedding_dim"] = [4, 8, 16, 32, 64]
+
+    # Temperature
+    if args.temperature is not None:
+        distributions["temperature"] = [args.temperature]
+    else:
+        distributions["temperature"] = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
+
+    # Beta
+    if args.beta is not None:
+        distributions["beta"] = [_coerce(str(args.beta), defaults["beta"])]
+    else:
+        distributions["beta"] = [0.1, 0.5, 1.0, 2.0, 5.0]
+
+    # TF-IDF
+    if args.tf_idf is not None:
+        distributions["tf_idf"] = [_coerce(str(args.tf_idf), defaults["tf_idf"])]
+    else:
+        distributions["tf_idf"] = [True, False]
+
+    # Max iter
+    if args.max_iter is not None:
+        distributions["max_iter"] = [args.max_iter]
+    else:
+        distributions["max_iter"] = [defaults["max_iter"]]
+
+    # Preprocess
+    if args.no_preprocess:
+        distributions["preprocess"] = [False]
+    else:
+        distributions["preprocess"] = [defaults["preprocess"]]
+
+    metrics = _resolve_metrics(args.metrics or _DEFAULT_METRICS)
+
+    # Resolve best_metric full name
+    best_full = _METRIC_ALIASES.get(args.best_metric.lower(), args.best_metric.lower())
+
+    result = RandomSearchExperiment(
+        model_class=model_info["class"],
+        param_distributions=distributions,
+        dataset=(args.dataset, data),
+        metrics=metrics,
+        best_metric=best_full,
+        n_iter=args.n_trials,
+        seed=args.seed,
+        verbose=args.verbose,
+        save_markdown=args.save,
+        experiment_name=args.name,
+        log=args.log,
+    ).run()
+
+    return result
+
+
+# ── Quick-start guide ─────────────────────────────────────────────
+
+QUICK_START = """\
+\033[1mpymv-cli\033[0m — Run multi-view clustering experiments from the terminal.
+
+\033[1;33m⚡ Quick start:\033[0m
+
+  pymv-cli --dataset acm                          # run with defaults
+  pymv-cli --dataset dblp --beta 2 --runs 3       # custom params
+  pymv-cli --dataset acm --random-search           # hyper-parameter search
+
+\033[1;33m🔍 Discover:\033[0m
+
+  pymv-cli --list-datasets                         # show available datasets
+  pymv-cli --list-models                           # show available models
+  pymv-cli --help                                  # full usage reference
+
+\033[1;33m📖 Common examples:\033[0m
+
+  pymv-cli -d acm --beta 2 --temperature 100 --tf-idf true
+  pymv-cli -d acm --random-search --n-trials 30 --seed 42
+  pymv-cli -d dblp --runs 5 --metrics acc nmi f1 --save
+
+\033[1;33m💡 Tips:\033[0m
+
+  • n_clusters is auto-detected from the dataset if not provided
+  • Use --no-preprocess if you want to skip internal preprocessing
+  • Use --save to export a Markdown report to experiments/
+  • Run pymv-cli --help for the full list of parameters
+"""
+
+
+# ── Entry point ───────────────────────────────────────────────────
+
+def main(argv: list[str] | None = None):
+    parser = build_parser()
+
+    # No arguments at all → show quick-start guide
+    if argv is None and len(sys.argv) == 1:
+        print(QUICK_START)
+        return
+
+    args = parser.parse_args(argv)
+
+    # Discovery commands (no dataset needed)
+    if args.list_datasets:
+        cmd_list_datasets()
+        return
+    if args.list_models:
+        cmd_list_models()
+        return
+
+    # Validate required --dataset
+    if not args.dataset:
+        print(QUICK_START)
+        print("\033[1;31mError:\033[0m --dataset is required.")
+        print("       Use --list-datasets to see available options.\n")
+        sys.exit(1)
+
+    # Validate dataset name early (before heavy imports)
+    from pymv.data import list_datasets
+    available = list_datasets()
+    if args.dataset.lower() not in available:
+        _die(
+            f"Unknown dataset '{args.dataset}'.\n"
+            f"Available: {', '.join(available)}"
+        )
+    args.dataset = args.dataset.lower()
+
+    # Validate model name early
+    registry = _get_model_registry()
+    if args.model.lower() not in registry:
+        _die(
+            f"Unknown model '{args.model}'.\n"
+            f"Available: {', '.join(registry)}"
+        )
+
+    # Dispatch
+    if args.random_search:
+        cmd_random_search(args)
+    else:
+        cmd_run_experiment(args)
+
+
+if __name__ == "__main__":
+    main()

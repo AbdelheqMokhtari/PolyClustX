@@ -43,6 +43,9 @@ dependencies = [
 Homepage = "https://github.com/mokhtari.abdelheq/graph-lmgec"
 BugTracker = "https://github.com/mokhtari.abdelheq/graph-lmgec/issues"
 
+[project.scripts]
+pymv-cli = "pymv.cli:main"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 

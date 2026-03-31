@@ -61,9 +61,10 @@ Everything else (loading, per-run scores, errors) is saved to a log file in `./l
 8. [Experiment framework](#experiment-framework)
 9. [Random search](#random-search)
 10. [Visualization](#visualization)
-11. [Algorithm — LMGEC intuition](#algorithm--lmgec-intuition)
-12. [Tips & troubleshooting](#tips--troubleshooting)
-13. [License](#license)
+11. [Command-line interface](#command-line-interface)
+12. [Algorithm — LMGEC intuition](#algorithm--lmgec-intuition)
+13. [Tips & troubleshooting](#tips--troubleshooting)
+14. [License](#license)
 
 ---
 
@@ -93,6 +94,7 @@ pip install matplotlib seaborn
 pyproject.toml
 src/pymv/
     __init__.py                     # top-level exports, __version__
+    cli.py                          # pymv-cli command-line interface
     core/
         base_model.py               # BaseModel ABC (all models inherit this)
     models/
@@ -584,6 +586,105 @@ plot_clusters(model.embedding_, model.labels_, method="pca",  title="LMGEC clust
 ```
 
 Requires `matplotlib` (`pip install matplotlib`).
+
+---
+
+## Command-line interface
+
+`pymv` ships with **`pymv-cli`** — run experiments directly from the terminal without writing Python code.
+
+### Setup
+
+The CLI is installed automatically with `pymv`:
+
+```bash
+pip install -e .          # editable install
+pymv-cli --help           # verify
+```
+
+### Discover available datasets and models
+
+```bash
+pymv-cli --list-datasets
+pymv-cli --list-models
+```
+
+### Run an experiment
+
+```bash
+# Simplest — default parameters, 1 run
+pymv-cli --dataset acm
+
+# Custom parameters
+pymv-cli --dataset dblp --beta 2 --temperature 100 --tf-idf true
+
+# Multiple runs (shows mean ± std)
+pymv-cli --dataset acm --beta 2 --temperature 100 --runs 3
+
+# Choose metrics (short names: acc, nmi, ari, f1)
+pymv-cli --dataset acm --metrics acc nmi f1
+
+# Set number of clusters explicitly
+pymv-cli --dataset acm -k 3 --embedding-dim 32
+
+# Skip internal preprocessing
+pymv-cli --dataset acm --no-preprocess
+```
+
+### Random hyper-parameter search
+
+```bash
+# Search 20 random configs (default)
+pymv-cli --dataset acm --random-search
+
+# More trials, fixed seed
+pymv-cli --dataset acm --random-search --n-trials 50 --seed 42
+
+# Fix some params, search others
+pymv-cli --dataset dblp --random-search --beta 2 --n-trials 30
+
+# Optimise by NMI instead of ACC
+pymv-cli --dataset acm --random-search --best-metric nmi
+```
+
+### Save results
+
+```bash
+# Save Markdown report + log to experiments/ folder
+pymv-cli --dataset acm --beta 2 --temperature 100 --save
+
+# With a custom experiment name
+pymv-cli --dataset acm --save --name acm_baseline
+
+# Write a log file only (no Markdown)
+pymv-cli --dataset acm --log
+```
+
+### Parameter reference
+
+| Flag | Short | Description | Default |
+|---|---|---|---|
+| `--dataset` | `-d` | Dataset name | *(required)* |
+| `--model` | `-m` | Model name | `lmgec` |
+| `--n-clusters` | `-k` | Number of clusters | auto-detected |
+| `--embedding-dim` | | Latent dimension | `16` |
+| `--temperature` | | Softmax temperature | `1.0` |
+| `--beta` | | Self-loop weight (scalar or list) | `1.0` |
+| `--tf-idf` | | TF-IDF normalization | `false` |
+| `--center` | | Center features | `false` |
+| `--scale` | | Scale features | `false` |
+| `--no-preprocess` | | Disable preprocessing | off |
+| `--max-iter` | | Max iterations | `30` |
+| `--runs` | `-r` | Independent runs | `1` |
+| `--metrics` | | Metrics to report | `acc nmi ari` |
+| `--verbose` | `-v` | Verbosity (0–3) | `1` |
+| `--random-search` | | Enable random search | off |
+| `--n-trials` | | Random search trials | `20` |
+| `--best-metric` | | Metric to optimise | `acc` |
+| `--seed` | | Random seed | none |
+| `--save` | | Save Markdown report | off |
+| `--name` | | Experiment folder name | auto |
+| `--log` | | Write log file | off |
 
 ---
 
