@@ -1,4 +1,4 @@
-.PHONY: release help cli run search list-datasets list-models
+.PHONY: release bump version help cli run search list-datasets list-models
 
 # ── CLI helpers ───────────────────────────────────────────────────
 
@@ -58,7 +58,21 @@ list-models:     ## List all available models
 
 # ── Release ───────────────────────────────────────────────────────
 
-release:
+version:         ## Show the current library version
+	@pymv-cli --version
+
+bump:            ## Bump version using commitizen (updates all version files + CHANGELOG.md)
+	@echo "📦 Bumping version with commitizen..."
+	cz bump
+	@echo ""
+	@echo "✅ Version bumped. Files updated:"
+	@echo "   • pyproject.toml  (project.version + tool.commitizen.version)"
+	@echo "   • src/pymv/__init__.py  (__version__)"
+	@echo "   • CHANGELOG.md"
+	@echo ""
+	@echo "Run  make release  to merge into main and push tags."
+
+release:         ## Full release: bump → merge develop → main, push tags
 	@echo "🚀 Starting release process..."
 
 	@if [ "$$(git branch --show-current)" != "develop" ]; then \
@@ -66,7 +80,12 @@ release:
 		exit 1; \
 	fi
 
-	@echo "📦 Bumping version"
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "❌ Working tree is dirty. Commit or stash changes first."; \
+		exit 1; \
+	fi
+
+	@echo "📦 Bumping version (commitizen → all version files + CHANGELOG.md)"
 	cz bump
 
 	@echo "🔀 Switching to main"
@@ -83,4 +102,6 @@ release:
 	git push origin develop
 	git push origin --tags
 
+	@echo ""
 	@echo "✅ Release completed successfully"
+	@pymv-cli --version

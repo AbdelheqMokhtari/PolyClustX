@@ -60,7 +60,7 @@ version = "0.3.3"
 tag_format = "v$version"
 version_files = [
     "pyproject.toml:version",
-    "src/pymv/__init__.py:__version__"
+    "src/pymv/__init__.py:__version__",
 ]
 
 update_changelog_on_bump = true

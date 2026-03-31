@@ -186,6 +186,8 @@ def _ensure_list(value):
 # ── Argument parser ───────────────────────────────────────────────
 
 def build_parser() -> argparse.ArgumentParser:
+    from pymv import __version__
+
     p = argparse.ArgumentParser(
         prog="pymv-cli",
         description="Run multi-view clustering experiments from the terminal.",
@@ -200,6 +202,11 @@ def build_parser() -> argparse.ArgumentParser:
               pymv-cli --list-datasets
               pymv-cli --list-models
         """),
+    )
+
+    p.add_argument(
+        "--version", "-V", action="version",
+        version=f"%(prog)s {__version__} (pymv {__version__})",
     )
 
     # ── Config file ──
@@ -482,6 +489,7 @@ QUICK_START = """\
 
 \033[1;33m🔍 Discover:\033[0m
 
+  pymv-cli --version                               # show library version
   pymv-cli --list-datasets                         # show available datasets
   pymv-cli --list-models                           # show available models
   pymv-cli --help                                  # full usage reference
