@@ -46,12 +46,13 @@ from .logger import setup_experiment_logger
 def _normalize_datasets(datasets) -> OrderedDict:
     """
     Accept any of the following and return
-    ``OrderedDict[str, callable | tuple]``:
+    ``OrderedDict[str, callable | tuple | MultiViewDataset]``:
 
     *   ``["acm", "dblp"]``          — names resolved via registry
     *   ``[load_acm, load_dblp]``    — callables (name = fn.__name__)
     *   ``{"acm": load_acm, ...}``   — dict of callables
     *   ``{"acm": (Xs, As, y)}``     — dict of pre-loaded tuples
+    *   ``MultiViewDataset``         — single dataset object
     *   single string ``"acm"``      — treated as ``["acm"]``
     *   single callable              — treated as ``[callable]``
     *   single tuple ``(Xs, As, y)`` — treated as ``{"dataset": tuple}``
@@ -60,6 +61,9 @@ def _normalize_datasets(datasets) -> OrderedDict:
 
     if isinstance(datasets, str):
         datasets = [datasets]
+    elif _is_dataset_obj(datasets):
+        name = getattr(datasets, "name", None) or "dataset"
+        datasets = {name: datasets}
     elif isinstance(datasets, tuple) and _is_data_tuple(datasets):
         datasets = {"dataset": datasets}
     elif callable(datasets):
@@ -75,6 +79,9 @@ def _normalize_datasets(datasets) -> OrderedDict:
             if isinstance(item, str):
                 name = item
                 out[name] = DATASETS[name.lower()]
+            elif _is_dataset_obj(item):
+                name = getattr(item, "name", None) or f"dataset_{len(out)}"
+                out[name] = item
             elif callable(item):
                 name = getattr(item, "__name__", type(item).__name__)
                 if name.startswith("load_"):
@@ -99,10 +106,21 @@ def _is_data_tuple(t) -> bool:
     return isinstance(t, tuple) and len(t) == 3
 
 
+def _is_dataset_obj(t) -> bool:
+    """Return True if *t* is a MultiViewDataset."""
+    from pymv.data.dataset import MultiViewDataset
+    return isinstance(t, MultiViewDataset)
+
+
 def _load_dataset(entry) -> tuple:
-    """Call loader or return pre-loaded tuple."""
+    """Call loader or return pre-loaded tuple / MultiViewDataset."""
+    if _is_dataset_obj(entry):
+        return (entry.Xs, entry.As, entry.labels)
     if callable(entry):
-        return entry()
+        result = entry()
+        if _is_dataset_obj(result):
+            return (result.Xs, result.As, result.labels)
+        return result
     if isinstance(entry, tuple) and _is_data_tuple(entry):
         return entry
     raise TypeError(f"Cannot load dataset from {type(entry)}")
@@ -441,12 +459,18 @@ class Experiment:
                 "labels_", "centroids_", "embedding_",
                 "loss_history_", "_name",
             }
+            _PREPROCESS_ONLY = {"beta", "tf_idf", "center", "scale"}
+            all_preprocess_off = all(
+                getattr(m, "preprocess", True) is False
+                for m in self.models
+            )
             config = {
                 "datasets": list(self.datasets.keys()),
                 "models": {
                     self._model_name(m): {
                         k: str(v) for k, v in m.__dict__.items()
                         if k not in _SKIP and not k.endswith("_")
+                        and not (all_preprocess_off and k in _PREPROCESS_ONLY)
                     }
                     for m in self.models
                 },
