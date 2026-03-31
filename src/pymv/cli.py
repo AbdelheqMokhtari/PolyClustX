@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
+import os
 import sys
 import textwrap
 
@@ -87,8 +89,58 @@ def _resolve_metrics(names: list[str]) -> list:
 # ── Helpers ───────────────────────────────────────────────────────
 
 def _die(msg: str, code: int = 1):
-    print(f"Error: {msg}", file=sys.stderr)
+    # Write to stdout (not stderr) so the message is visible even
+    # when stderr is suppressed to silence TF/CUDA C++ noise.
+    print(f"Error: {msg}")
     sys.exit(code)
+
+
+def _configure_verbosity(level: int) -> None:
+    """
+    Configure **all** logging layers based on the ``--verbose`` level.
+
+    The C++ env vars (``TF_CPP_MIN_LOG_LEVEL``, etc.) are already set
+    at module load time (see top of file).  This function handles the
+    *Python-side* loggers: root, absl, tensorflow, and pymv.data.
+
+    Levels
+    ------
+    0 — **silent**   : suppress everything (TF, CUDA, absl, pymv).
+    1 — **tables**   : suppress TF/CUDA noise, show pymv result tables only.
+    2 — **progress** : suppress TF/CUDA noise, show pymv progress + tables.
+    3 — **debug**    : show *everything* including TF and system messages.
+    """
+    # Python logging root — cap at WARNING for levels < 3
+    if level == 0:
+        logging.basicConfig(level=logging.CRITICAL + 1)
+    elif level <= 2:
+        logging.basicConfig(level=logging.WARNING)
+    else:
+        logging.basicConfig(level=logging.DEBUG)
+
+    # Silence absl loggers (used internally by TF)
+    try:
+        import absl.logging                          # type: ignore
+        if level <= 2:
+            absl.logging.set_verbosity(absl.logging.ERROR)
+        else:
+            absl.logging.set_verbosity(absl.logging.INFO)
+    except ImportError:
+        pass
+
+    # Silence TF's own Python logger
+    _TF_LOG_LEVEL = {
+        0: logging.CRITICAL + 1,
+        1: logging.ERROR,
+        2: logging.ERROR,
+        3: logging.DEBUG,
+    }
+    _level = _TF_LOG_LEVEL.get(level, logging.ERROR)
+
+    tf_logger = logging.getLogger("tensorflow")
+    tf_logger.setLevel(_level)
+    tf_logger.handlers.clear()
+    tf_logger.addHandler(logging.NullHandler())
 
 
 def _parse_json_or_csv(value: str):
@@ -198,7 +250,11 @@ def build_parser() -> argparse.ArgumentParser:
                           "Short names: acc, nmi, ari, f1.")
     exp.add_argument("--verbose", "-v", type=int, default=1,
                      choices=[0, 1, 2, 3],
-                     help="Verbosity level (default: 1).")
+                     help="Verbosity level: "
+                          "0=silent, "
+                          "1=results tables only (default), "
+                          "2=progress + tables, "
+                          "3=debug (includes TF/CUDA logs).")
 
     # ── Random search ──
     rs = p.add_argument_group("random search")
@@ -411,6 +467,7 @@ QUICK_START = """\
   • n_clusters is auto-detected from the dataset if not provided
   • Use --no-preprocess if you want to skip internal preprocessing
   • Use --save to export a Markdown report to experiments/
+  • Use -v 0 for silent, -v 1 for tables (default), -v 2 for progress, -v 3 for full debug
   • Run pymv-cli --help for the full list of parameters
 """
 
@@ -426,6 +483,9 @@ def main(argv: list[str] | None = None):
         return
 
     args = parser.parse_args(argv)
+
+    # Configure Python-side verbosity (env vars already set at module load)
+    _configure_verbosity(args.verbose)
 
     # Discovery commands (no dataset needed)
     if args.list_datasets:
