@@ -98,6 +98,7 @@ src/pymv/
     models/
         lmgec/lmgec.py              # LMGEC (first algorithm — more coming)
     data/
+        dataset.py                  # MultiViewDataset container class
         registry.py                 # load_dataset() / list_datasets()
         downloader.py               # Zenodo auto-download helper
         acm.py  amazon_photos.py    # -+
@@ -131,7 +132,7 @@ from pymv.data import load_acm
 from pymv.models import LMGEC
 from pymv.metrics import clustering_accuracy, nmi_score, ari_score
 
-# 1. Load data - returns (list[features], list[adjacencies], labels)
+# 1. Load data - returns a MultiViewDataset (tuple unpacking still works)
 Xs, As, y = load_acm()
 
 # 2. Fit and predict
@@ -142,6 +143,17 @@ labels = model.fit_predict(Xs, As)
 print("ACC:", clustering_accuracy(y, labels))
 print("NMI:", nmi_score(y, labels))
 print("ARI:", ari_score(y, labels))
+```
+
+You can also use named attribute access:
+
+```python
+data = load_acm()
+print(data)  # MultiViewDataset('acm', n_samples=3025, n_views=2, ...)
+
+model = LMGEC(n_clusters=data.n_clusters, embedding_dim=16)
+labels = model.fit_predict(data.Xs, data.As)
+print("ACC:", clustering_accuracy(data.labels, labels))
 ```
 
 ### Example 2 — Per-view preprocessing options
@@ -228,6 +240,10 @@ print(result.results_tables())   # per-dataset results
 | **Results — dblp** | ... |
 | **Results — imdb** | ... |
 
+> **Smart config table:** When all models have `preprocess=False`, preprocessing-only
+> parameters (`beta`, `tf_idf`, `center`, `scale`) are automatically hidden from the
+> configuration table since they have no effect in that mode.
+
 ### Example 6 — Hyper-parameter search
 
 Find the best configuration for a single dataset:
@@ -267,12 +283,22 @@ from pymv.experiment import Experiment
 from pymv.models import LMGEC
 from pymv.metrics import clustering_accuracy
 
-# Pre-loaded data as a tuple
+# Option A: pre-loaded tuple (still works)
 my_data = (Xs, As, y)
+
+# Option B: pass a MultiViewDataset directly
+data = load_acm()
 
 result = Experiment(
     datasets={"my_dataset": my_data},      # dict with custom name
     models=[LMGEC(n_clusters=5, embedding_dim=16)],
+    metrics=[clustering_accuracy],
+).run()
+
+# Or pass the dataset object directly
+result = Experiment(
+    datasets=data,                         # uses data.name automatically
+    models=[LMGEC(n_clusters=data.n_clusters, embedding_dim=16)],
     metrics=[clustering_accuracy],
 ).run()
 ```
@@ -299,7 +325,29 @@ plot_clusters(model.embedding_, y, method="pca", title="Ground truth on ACM")
 
 ## Datasets
 
-All loaders return `(Xs, As, y)` — a list of feature matrices, a list of adjacency matrices, and a ground-truth label vector. Datasets are downloaded automatically from Zenodo on first use.
+All loaders return a `MultiViewDataset` object containing feature matrices, adjacency matrices, and ground-truth labels. Datasets are downloaded automatically from Zenodo on first use.
+
+**Tuple unpacking still works** (backward compatible):
+
+```python
+Xs, As, y = load_acm()          # classic 3-tuple unpacking
+```
+
+**Named attribute access** (new):
+
+```python
+data = load_acm()
+data.Xs                          # list of feature matrices
+data.As                          # list of adjacency matrices (or Nones)
+data.labels                      # ground-truth label vector
+data.n_samples                   # number of samples
+data.n_views                     # number of views
+data.n_clusters                  # number of unique labels
+data.feature_dims                # [dim_v0, dim_v1, ...]
+data.has_graphs                  # True if any adjacency is not None
+print(data)                      # one-line summary
+print(data.summary())            # multi-line summary
+```
 
 | Function | Dataset | Type |
 |---|---|---|
@@ -323,7 +371,8 @@ print(list_datasets())
 # ['acm', 'amazon_photos', 'bdgp', 'coco_all', 'coco_cross',
 #  'dblp', 'imdb', 'pascal', 'prokaryotic', 'wiki']
 
-Xs, As, y = load_dataset("acm")
+data = load_dataset("acm")     # returns MultiViewDataset
+Xs, As, y = load_dataset("acm")  # tuple unpacking also works
 ```
 
 ---
