@@ -62,9 +62,10 @@ Everything else (loading, per-run scores, errors) is saved to a log file in `./l
 9. [Random search](#random-search)
 10. [Visualization](#visualization)
 11. [Command-line interface](#command-line-interface)
-12. [Algorithm — LMGEC intuition](#algorithm--lmgec-intuition)
-13. [Tips & troubleshooting](#tips--troubleshooting)
-14. [License](#license)
+12. [Config-based experiments](#config-based-experiments)
+13. [Algorithm — LMGEC intuition](#algorithm--lmgec-intuition)
+14. [Tips & troubleshooting](#tips--troubleshooting)
+15. [License](#license)
 
 ---
 
@@ -685,6 +686,140 @@ pymv-cli --dataset acm --log
 | `--save` | | Save Markdown report | off |
 | `--name` | | Experiment folder name | auto |
 | `--log` | | Write log file | off |
+| `--config` | `-c` | Path to YAML/JSON config file | none |
+
+---
+
+## Config-based experiments
+
+Instead of passing every flag on the command line, you can define your
+experiment in a **YAML** (or JSON) config file and run it with a single
+command:
+
+```bash
+pymv-cli --config configs/experiment.yaml
+```
+
+### Config file format
+
+```yaml
+# configs/experiment.yaml
+dataset: acm
+
+model:
+  name: lmgec
+  params:
+    beta: 2
+    temperature: 100
+    tf_idf: true
+    preprocess: true
+    max_iter: 30
+
+experiment:
+  runs: 3
+  metrics: [acc, nmi, ari, f1]
+  verbose: 1
+
+output:
+  save: true
+  name: acm_tuned
+```
+
+All sections except `dataset` are optional — sensible defaults are used
+for anything you don't specify.
+
+### Minimal config
+
+```yaml
+# configs/minimal.yaml
+dataset: dblp
+```
+
+This is equivalent to `pymv-cli --dataset dblp`.
+
+### Random search via config
+
+```yaml
+# configs/random_search.yaml
+dataset: acm
+
+model:
+  name: lmgec
+
+experiment:
+  random_search: true
+  n_trials: 20
+  best_metric: acc
+  seed: 42
+  metrics: [acc, nmi, ari]
+
+search_space:
+  embedding_dim: [4, 8, 16, 32, 64]
+  temperature: [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
+  beta: [0.1, 0.5, 1.0, 2.0, 5.0]
+  tf_idf: [true, false]
+
+output:
+  save: true
+  name: acm_search
+```
+
+```bash
+pymv-cli --config configs/random_search.yaml
+```
+
+### CLI overrides
+
+CLI flags **always take priority** over config values, so you can reuse
+the same config for multiple datasets:
+
+```bash
+# Config says dataset: acm, but we override to dblp
+pymv-cli --config configs/experiment.yaml --dataset dblp
+
+# Override runs
+pymv-cli --config configs/experiment.yaml --runs 5
+
+# Override beta and add verbose
+pymv-cli --config configs/experiment.yaml --beta 5 -v 2
+```
+
+### Shorthand names
+
+If your config is inside the `configs/` directory, you can skip the
+path and just use the filename (without extension):
+
+```bash
+pymv-cli --config default           # → configs/default.yaml
+pymv-cli --config experiment        # → configs/experiment.yaml
+pymv-cli --config random_search     # → configs/random_search.yaml
+```
+
+### Config field reference
+
+| Section | Field | Description | Default |
+|---|---|---|---|
+| *(top)* | `dataset` | Dataset name | *(required)* |
+| `model` | `name` | Model name | `lmgec` |
+| `model.params` | `embedding_dim` | Latent dimension | `16` |
+| `model.params` | `temperature` | Softmax temperature | `1.0` |
+| `model.params` | `beta` | Self-loop weight | `1.0` |
+| `model.params` | `tf_idf` | TF-IDF normalization | `false` |
+| `model.params` | `center` | Center features | `false` |
+| `model.params` | `scale` | Scale features | `false` |
+| `model.params` | `preprocess` | Enable preprocessing | `true` |
+| `model.params` | `max_iter` | Max iterations | `30` |
+| `experiment` | `runs` | Independent runs | `1` |
+| `experiment` | `metrics` | Metrics list | `[acc, nmi, ari]` |
+| `experiment` | `verbose` | Verbosity (0–3) | `1` |
+| `experiment` | `random_search` | Enable random search | `false` |
+| `experiment` | `n_trials` | Random search trials | `20` |
+| `experiment` | `best_metric` | Metric to optimise | `acc` |
+| `experiment` | `seed` | Random seed | none |
+| `output` | `save` | Save Markdown report | `false` |
+| `output` | `name` | Experiment folder name | auto |
+| `output` | `log` | Write log file | `false` |
+| `search_space` | `<param>` | List of values to sample | *(built-in ranges)* |
 
 ---
 
