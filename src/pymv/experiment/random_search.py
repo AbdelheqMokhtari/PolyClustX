@@ -54,8 +54,14 @@ def _resolve_dataset(dataset) -> tuple[str, Any]:
     *   ``load_acm``       — callable
     *   ``(Xs, As, y)``    — pre-loaded tuple
     *   ``("acm", load_acm)`` or ``("acm", (Xs, As, y))`` — named pair
+    *   ``MultiViewDataset`` — dataset object
     """
+    from pymv.data.dataset import MultiViewDataset
     from pymv.data.registry import DATASETS
+
+    if isinstance(dataset, MultiViewDataset):
+        name = getattr(dataset, "name", None) or "dataset"
+        return name, dataset
 
     if isinstance(dataset, str):
         name = dataset
@@ -79,8 +85,15 @@ def _resolve_dataset(dataset) -> tuple[str, Any]:
 
 
 def _load(entry) -> tuple:
+    from pymv.data.dataset import MultiViewDataset
+
+    if isinstance(entry, MultiViewDataset):
+        return (entry.Xs, entry.As, entry.labels)
     if callable(entry):
-        return entry()
+        result = entry()
+        if isinstance(result, MultiViewDataset):
+            return (result.Xs, result.As, result.labels)
+        return result
     if isinstance(entry, tuple) and len(entry) == 3:
         return entry
     raise TypeError(f"Cannot load dataset from {type(entry)}")

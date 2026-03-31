@@ -37,11 +37,15 @@ dependencies = [
     "pandas>=1.3.0",
     "tensorflow>=2.10.0",
     "tqdm>=4.60.0",
+    "pyyaml>=6.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/mokhtari.abdelheq/graph-lmgec"
 BugTracker = "https://github.com/mokhtari.abdelheq/graph-lmgec/issues"
+
+[project.scripts]
+pymv-cli = "pymv_cli_entry:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -56,7 +60,7 @@ version = "0.3.3"
 tag_format = "v$version"
 version_files = [
     "pyproject.toml:version",
-    "src/pymv/__init__.py:__version__"
+    "src/pymv/__init__.py:__version__",
 ]
 
 update_changelog_on_bump = true

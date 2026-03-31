@@ -282,11 +282,19 @@ def _write_experiment_markdown(result, folder: str, now: str):
             "labels_", "centroids_", "embedding_", "loss_history_",
             "_name",
         }
+        _PREPROCESS_ONLY = {"beta", "tf_idf", "center", "scale"}
+        all_preprocess_off = all(
+            getattr(m, "preprocess", True) is False
+            for m in result._models
+        )
+
         all_keys: list[str] = []
         seen: set[str] = set()
         for m in result._models:
             for k in m.__dict__:
                 if k not in seen and k not in _SKIP and not k.endswith("_"):
+                    if all_preprocess_off and k in _PREPROCESS_ONLY:
+                        continue
                     all_keys.append(k)
                     seen.add(k)
 

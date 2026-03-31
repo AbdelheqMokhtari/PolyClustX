@@ -61,9 +61,11 @@ Everything else (loading, per-run scores, errors) is saved to a log file in `./l
 8. [Experiment framework](#experiment-framework)
 9. [Random search](#random-search)
 10. [Visualization](#visualization)
-11. [Algorithm — LMGEC intuition](#algorithm--lmgec-intuition)
-12. [Tips & troubleshooting](#tips--troubleshooting)
-13. [License](#license)
+11. [Command-line interface](#command-line-interface)
+12. [Config-based experiments](#config-based-experiments)
+13. [Algorithm — LMGEC intuition](#algorithm--lmgec-intuition)
+14. [Tips & troubleshooting](#tips--troubleshooting)
+15. [License](#license)
 
 ---
 
@@ -93,11 +95,13 @@ pip install matplotlib seaborn
 pyproject.toml
 src/pymv/
     __init__.py                     # top-level exports, __version__
+    cli.py                          # pymv-cli command-line interface
     core/
         base_model.py               # BaseModel ABC (all models inherit this)
     models/
         lmgec/lmgec.py              # LMGEC (first algorithm — more coming)
     data/
+        dataset.py                  # MultiViewDataset container class
         registry.py                 # load_dataset() / list_datasets()
         downloader.py               # Zenodo auto-download helper
         acm.py  amazon_photos.py    # -+
@@ -131,7 +135,7 @@ from pymv.data import load_acm
 from pymv.models import LMGEC
 from pymv.metrics import clustering_accuracy, nmi_score, ari_score
 
-# 1. Load data - returns (list[features], list[adjacencies], labels)
+# 1. Load data - returns a MultiViewDataset (tuple unpacking still works)
 Xs, As, y = load_acm()
 
 # 2. Fit and predict
@@ -142,6 +146,17 @@ labels = model.fit_predict(Xs, As)
 print("ACC:", clustering_accuracy(y, labels))
 print("NMI:", nmi_score(y, labels))
 print("ARI:", ari_score(y, labels))
+```
+
+You can also use named attribute access:
+
+```python
+data = load_acm()
+print(data)  # MultiViewDataset('acm', n_samples=3025, n_views=2, ...)
+
+model = LMGEC(n_clusters=data.n_clusters, embedding_dim=16)
+labels = model.fit_predict(data.Xs, data.As)
+print("ACC:", clustering_accuracy(data.labels, labels))
 ```
 
 ### Example 2 — Per-view preprocessing options
@@ -228,6 +243,10 @@ print(result.results_tables())   # per-dataset results
 | **Results — dblp** | ... |
 | **Results — imdb** | ... |
 
+> **Smart config table:** When all models have `preprocess=False`, preprocessing-only
+> parameters (`beta`, `tf_idf`, `center`, `scale`) are automatically hidden from the
+> configuration table since they have no effect in that mode.
+
 ### Example 6 — Hyper-parameter search
 
 Find the best configuration for a single dataset:
@@ -267,12 +286,22 @@ from pymv.experiment import Experiment
 from pymv.models import LMGEC
 from pymv.metrics import clustering_accuracy
 
-# Pre-loaded data as a tuple
+# Option A: pre-loaded tuple (still works)
 my_data = (Xs, As, y)
+
+# Option B: pass a MultiViewDataset directly
+data = load_acm()
 
 result = Experiment(
     datasets={"my_dataset": my_data},      # dict with custom name
     models=[LMGEC(n_clusters=5, embedding_dim=16)],
+    metrics=[clustering_accuracy],
+).run()
+
+# Or pass the dataset object directly
+result = Experiment(
+    datasets=data,                         # uses data.name automatically
+    models=[LMGEC(n_clusters=data.n_clusters, embedding_dim=16)],
     metrics=[clustering_accuracy],
 ).run()
 ```
@@ -299,7 +328,29 @@ plot_clusters(model.embedding_, y, method="pca", title="Ground truth on ACM")
 
 ## Datasets
 
-All loaders return `(Xs, As, y)` — a list of feature matrices, a list of adjacency matrices, and a ground-truth label vector. Datasets are downloaded automatically from Zenodo on first use.
+All loaders return a `MultiViewDataset` object containing feature matrices, adjacency matrices, and ground-truth labels. Datasets are downloaded automatically from Zenodo on first use.
+
+**Tuple unpacking still works** (backward compatible):
+
+```python
+Xs, As, y = load_acm()          # classic 3-tuple unpacking
+```
+
+**Named attribute access** (new):
+
+```python
+data = load_acm()
+data.Xs                          # list of feature matrices
+data.As                          # list of adjacency matrices (or Nones)
+data.labels                      # ground-truth label vector
+data.n_samples                   # number of samples
+data.n_views                     # number of views
+data.n_clusters                  # number of unique labels
+data.feature_dims                # [dim_v0, dim_v1, ...]
+data.has_graphs                  # True if any adjacency is not None
+print(data)                      # one-line summary
+print(data.summary())            # multi-line summary
+```
 
 | Function | Dataset | Type |
 |---|---|---|
@@ -323,7 +374,8 @@ print(list_datasets())
 # ['acm', 'amazon_photos', 'bdgp', 'coco_all', 'coco_cross',
 #  'dblp', 'imdb', 'pascal', 'prokaryotic', 'wiki']
 
-Xs, As, y = load_dataset("acm")
+data = load_dataset("acm")     # returns MultiViewDataset
+Xs, As, y = load_dataset("acm")  # tuple unpacking also works
 ```
 
 ---
@@ -535,6 +587,239 @@ plot_clusters(model.embedding_, model.labels_, method="pca",  title="LMGEC clust
 ```
 
 Requires `matplotlib` (`pip install matplotlib`).
+
+---
+
+## Command-line interface
+
+`pymv` ships with **`pymv-cli`** — run experiments directly from the terminal without writing Python code.
+
+### Setup
+
+The CLI is installed automatically with `pymv`:
+
+```bash
+pip install -e .          # editable install
+pymv-cli --help           # verify
+```
+
+### Discover available datasets and models
+
+```bash
+pymv-cli --list-datasets
+pymv-cli --list-models
+```
+
+### Run an experiment
+
+```bash
+# Simplest — default parameters, 1 run
+pymv-cli --dataset acm
+
+# Custom parameters
+pymv-cli --dataset dblp --beta 2 --temperature 100 --tf-idf true
+
+# Multiple runs (shows mean ± std)
+pymv-cli --dataset acm --beta 2 --temperature 100 --runs 3
+
+# Choose metrics (short names: acc, nmi, ari, f1)
+pymv-cli --dataset acm --metrics acc nmi f1
+
+# Set number of clusters explicitly
+pymv-cli --dataset acm -k 3 --embedding-dim 32
+
+# Skip internal preprocessing
+pymv-cli --dataset acm --no-preprocess
+```
+
+### Random hyper-parameter search
+
+```bash
+# Search 20 random configs (default)
+pymv-cli --dataset acm --random-search
+
+# More trials, fixed seed
+pymv-cli --dataset acm --random-search --n-trials 50 --seed 42
+
+# Fix some params, search others
+pymv-cli --dataset dblp --random-search --beta 2 --n-trials 30
+
+# Optimise by NMI instead of ACC
+pymv-cli --dataset acm --random-search --best-metric nmi
+```
+
+### Save results
+
+```bash
+# Save Markdown report + log to experiments/ folder
+pymv-cli --dataset acm --beta 2 --temperature 100 --save
+
+# With a custom experiment name
+pymv-cli --dataset acm --save --name acm_baseline
+
+# Write a log file only (no Markdown)
+pymv-cli --dataset acm --log
+```
+
+### Parameter reference
+
+| Flag | Short | Description | Default |
+|---|---|---|---|
+| `--dataset` | `-d` | Dataset name | *(required)* |
+| `--model` | `-m` | Model name | `lmgec` |
+| `--n-clusters` | `-k` | Number of clusters | auto-detected |
+| `--embedding-dim` | | Latent dimension | `16` |
+| `--temperature` | | Softmax temperature | `1.0` |
+| `--beta` | | Self-loop weight (scalar or list) | `1.0` |
+| `--tf-idf` | | TF-IDF normalization | `false` |
+| `--center` | | Center features | `false` |
+| `--scale` | | Scale features | `false` |
+| `--no-preprocess` | | Disable preprocessing | off |
+| `--max-iter` | | Max iterations | `30` |
+| `--runs` | `-r` | Independent runs | `1` |
+| `--metrics` | | Metrics to report | `acc nmi ari` |
+| `--verbose` | `-v` | Verbosity (0–3) | `1` |
+| `--random-search` | | Enable random search | off |
+| `--n-trials` | | Random search trials | `20` |
+| `--best-metric` | | Metric to optimise | `acc` |
+| `--seed` | | Random seed | none |
+| `--save` | | Save Markdown report | off |
+| `--name` | | Experiment folder name | auto |
+| `--log` | | Write log file | off |
+| `--config` | `-c` | Path to YAML/JSON config file | none |
+
+---
+
+## Config-based experiments
+
+Instead of passing every flag on the command line, you can define your
+experiment in a **YAML** (or JSON) config file and run it with a single
+command:
+
+```bash
+pymv-cli --config configs/experiment.yaml
+```
+
+### Config file format
+
+```yaml
+# configs/experiment.yaml
+dataset: acm
+
+model:
+  name: lmgec
+  params:
+    beta: 2
+    temperature: 100
+    tf_idf: true
+    preprocess: true
+    max_iter: 30
+
+experiment:
+  runs: 3
+  metrics: [acc, nmi, ari, f1]
+  verbose: 1
+
+output:
+  save: true
+  name: acm_tuned
+```
+
+All sections except `dataset` are optional — sensible defaults are used
+for anything you don't specify.
+
+### Minimal config
+
+```yaml
+# configs/minimal.yaml
+dataset: dblp
+```
+
+This is equivalent to `pymv-cli --dataset dblp`.
+
+### Random search via config
+
+```yaml
+# configs/random_search.yaml
+dataset: acm
+
+model:
+  name: lmgec
+
+experiment:
+  random_search: true
+  n_trials: 20
+  best_metric: acc
+  seed: 42
+  metrics: [acc, nmi, ari]
+
+search_space:
+  embedding_dim: [4, 8, 16, 32, 64]
+  temperature: [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
+  beta: [0.1, 0.5, 1.0, 2.0, 5.0]
+  tf_idf: [true, false]
+
+output:
+  save: true
+  name: acm_search
+```
+
+```bash
+pymv-cli --config configs/random_search.yaml
+```
+
+### CLI overrides
+
+CLI flags **always take priority** over config values, so you can reuse
+the same config for multiple datasets:
+
+```bash
+# Config says dataset: acm, but we override to dblp
+pymv-cli --config configs/experiment.yaml --dataset dblp
+
+# Override runs
+pymv-cli --config configs/experiment.yaml --runs 5
+
+# Override beta and add verbose
+pymv-cli --config configs/experiment.yaml --beta 5 -v 2
+```
+
+### Shorthand names
+
+If your config is inside the `configs/` directory, you can skip the
+path and just use the filename (without extension):
+
+```bash
+pymv-cli --config default           # → configs/default.yaml
+pymv-cli --config experiment        # → configs/experiment.yaml
+pymv-cli --config random_search     # → configs/random_search.yaml
+```
+
+### Config field reference
+
+| Section | Field | Description | Default |
+|---|---|---|---|
+| *(top)* | `dataset` | Dataset name | *(required)* |
+| `model` | `name` | Model name | `lmgec` |
+| `model.params` | `embedding_dim` | Latent dimension | `16` |
+| `model.params` | `temperature` | Softmax temperature | `1.0` |
+| `model.params` | `beta` | Self-loop weight | `1.0` |
+| `model.params` | `tf_idf` | TF-IDF normalization | `false` |
+| `model.params` | `center` | Center features | `false` |
+| `model.params` | `scale` | Scale features | `false` |
+| `model.params` | `preprocess` | Enable preprocessing | `true` |
+| `model.params` | `max_iter` | Max iterations | `30` |
+| `experiment` | `runs` | Independent runs | `1` |
+| `experiment` | `metrics` | Metrics list | `[acc, nmi, ari]` |
+| `experiment` | `verbose` | Verbosity (0–3) | `1` |
+| `experiment` | `random_search` | Enable random search | `false` |
+| `experiment` | `n_trials` | Random search trials | `20` |
+| `experiment` | `best_metric` | Metric to optimise | `acc` |
+| `experiment` | `seed` | Random seed | none |
+| `output` | `save` | Save Markdown report | `false` |
+| `output` | `name` | Experiment folder name | auto |
+| `output` | `log` | Write log file | `false` |
+| `search_space` | `<param>` | List of values to sample | *(built-in ranges)* |
 
 ---
 
