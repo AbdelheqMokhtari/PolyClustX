@@ -1,3 +1,4 @@
+from .dataset import MultiViewDataset
 from .registry import load_dataset, list_datasets
 from .acm import load_acm
 from .amazon_photos import load_amazon_photos
@@ -11,6 +12,7 @@ from .prokaryotic import load_prokaryotic
 from .wiki import load_wiki
 
 __all__ = [
+    "MultiViewDataset",
     "load_dataset",
     "list_datasets",
     "load_acm",

@@ -4,6 +4,7 @@ import scipy.io as io
 import numpy as np
 
 from .base import get_dataset_path
+from .dataset import MultiViewDataset
 from .downloader import download_file
 
 logger = logging.getLogger(__name__)
@@ -37,4 +38,4 @@ def load_prokaryotic():
 
     logger.info("Dataset loaded: samples=%d, views=%d", Xs[0].shape[0], len(Xs))
 
-    return Xs, As, labels
+    return MultiViewDataset(Xs, As, labels, name="prokaryotic")
