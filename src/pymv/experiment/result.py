@@ -22,9 +22,155 @@ TIME_FMT = "{:.2f}s"
 MEAN_STD_FMT = "{:.4f} (±{:.4f})"
 
 
-# =====================================================================
+def _terminal_width() -> int:
+    """Best-effort terminal width; fall back to 120."""
+    import shutil
+    try:
+        return shutil.get_terminal_size().columns
+    except Exception:
+        return 120
+
+
 # Table renderer
-# =====================================================================
+
+def _render_horizontal(
+    rows: list[list[str]],
+    headers: list[str],
+    index: list[str],
+    title: str | None,
+    index_header: str,
+    pad: int,
+) -> str:
+    """Standard horizontal table (columns = params)."""
+    n_cols = len(headers)
+    sp = " " * pad
+
+    idx_w = max((len(s) for s in index), default=0)
+    idx_w = max(idx_w, len(index_header))
+
+    col_ws = []
+    for c in range(n_cols):
+        w = len(headers[c])
+        for r in rows:
+            w = max(w, len(r[c]))
+        col_ws.append(w)
+
+    def _sep(left, mid, right, fill="─"):
+        parts = [fill * (idx_w + 2 * pad)]
+        for w in col_ws:
+            parts.append(fill * (w + 2 * pad))
+        return left + mid.join(parts) + right
+
+    top    = _sep("┌", "┬", "┐")
+    mid    = _sep("├", "┼", "┤")
+    bottom = _sep("└", "┴", "┘")
+
+    def _row(label, cells):
+        parts = [f"{sp}{label.ljust(idx_w)}{sp}"]
+        for c, w in zip(cells, col_ws):
+            parts.append(f"{sp}{c.rjust(w)}{sp}")
+        return "│" + "│".join(parts) + "│"
+
+    lines = []
+    if title:
+        lines.append("")
+        lines.append(f"  {title}")
+
+    lines.append(top)
+    lines.append(_row(index_header, headers))
+    lines.append(mid)
+    for idx_label, row in zip(index, rows):
+        lines.append(_row(idx_label, row))
+    lines.append(bottom)
+
+    return "\n".join(lines)
+
+
+def _render_transposed(
+    rows: list[list[str]],
+    headers: list[str],
+    index: list[str],
+    title: str | None,
+    index_header: str,
+    pad: int,
+) -> str:
+    """Transposed table: rows = params, columns = models.
+
+    Used automatically when the horizontal layout is too wide for the
+    terminal.  Each parameter becomes a row, each model a column.
+    """
+    sp = " " * pad
+
+    # First column is the parameter name, then one column per model
+    t_index = headers                          # param names
+    t_headers = index                          # model names
+    t_index_header = "Parameter"
+
+    t_rows: list[list[str]] = []
+    for c in range(len(headers)):
+        t_rows.append([rows[r][c] for r in range(len(rows))])
+
+    idx_w = max((len(s) for s in t_index), default=0)
+    idx_w = max(idx_w, len(t_index_header))
+
+    col_ws = []
+    for c in range(len(t_headers)):
+        w = len(t_headers[c])
+        for r in t_rows:
+            w = max(w, len(r[c]))
+        col_ws.append(w)
+
+    def _sep(left, mid, right, fill="─"):
+        parts = [fill * (idx_w + 2 * pad)]
+        for w in col_ws:
+            parts.append(fill * (w + 2 * pad))
+        return left + mid.join(parts) + right
+
+    top    = _sep("┌", "┬", "┐")
+    mid    = _sep("├", "┼", "┤")
+    bottom = _sep("└", "┴", "┘")
+
+    def _row(label, cells):
+        parts = [f"{sp}{label.ljust(idx_w)}{sp}"]
+        for c, w in zip(cells, col_ws):
+            parts.append(f"{sp}{c.rjust(w)}{sp}")
+        return "│" + "│".join(parts) + "│"
+
+    lines = []
+    if title:
+        lines.append("")
+        lines.append(f"  {title}")
+
+    lines.append(top)
+    lines.append(_row(t_index_header, t_headers))
+    lines.append(mid)
+    for param_name, row in zip(t_index, t_rows):
+        lines.append(_row(param_name, row))
+    lines.append(bottom)
+
+    return "\n".join(lines)
+
+
+def _table_width(
+    index: list[str],
+    headers: list[str],
+    rows: list[list[str]],
+    index_header: str,
+    pad: int,
+) -> int:
+    """Calculate the width of the horizontal table without building it."""
+    idx_w = max((len(s) for s in index), default=0)
+    idx_w = max(idx_w, len(index_header))
+    total = idx_w + 2 * pad + 1  # index col + left border
+
+    for c in range(len(headers)):
+        w = len(headers[c])
+        for r in rows:
+            w = max(w, len(r[c]))
+        total += w + 2 * pad + 1  # col + separator
+
+    return total
+
 
 def _build_table(
     rows: list[list[str]],
@@ -37,6 +183,10 @@ def _build_table(
 ) -> str:
     """
     Render an ASCII table with box-drawing characters.
+
+    Automatically **transposes** the table (rows ↔ columns) when
+    the horizontal layout would be wider than the terminal, so the
+    output stays readable without line-wrapping.
 
     Parameters
     ----------
@@ -60,61 +210,22 @@ def _build_table(
         best_cols = {}
 
     n_cols = len(headers)
-    sp = " " * pad
 
     # Mark best values with *
     for col_i, row_i in best_cols.items():
         if 0 <= row_i < len(rows) and 0 <= col_i < n_cols:
             rows[row_i][col_i] = rows[row_i][col_i] + " *"
 
-    # Compute column widths
-    idx_w = max((len(s) for s in index), default=0)
-    idx_w = max(idx_w, len(index_header))
+    # Decide layout: horizontal vs transposed
+    width = _table_width(index, headers, rows, index_header, pad)
+    term_w = _terminal_width()
 
-    col_ws = []
-    for c in range(n_cols):
-        w = len(headers[c])
-        for r in rows:
-            w = max(w, len(r[c]))
-        col_ws.append(w)
-
-    # Build lines
-    def _sep(left, mid, right, fill="─"):
-        parts = [fill * (idx_w + 2 * pad)]
-        for w in col_ws:
-            parts.append(fill * (w + 2 * pad))
-        return left + mid.join(parts) + right
-
-    top    = _sep("┌", "┬", "┐")
-    mid    = _sep("├", "┼", "┤")
-    bottom = _sep("└", "┴", "┘")
-
-    def _row(label, cells):
-        parts = [f"{sp}{label.ljust(idx_w)}{sp}"]
-        for c, w in zip(cells, col_ws):
-            parts.append(f"{sp}{c.rjust(w)}{sp}")
-        return "│" + "│".join(parts) + "│"
-
-    lines = []
-
-    if title:
-        lines.append("")
-        lines.append(f"  {title}")
-
-    lines.append(top)
-    lines.append(_row(index_header, headers))
-    lines.append(mid)
-
-    for idx_label, row in zip(index, rows):
-        lines.append(_row(idx_label, row))
-
-    lines.append(bottom)
-    return "\n".join(lines)
+    if width > term_w:
+        return _render_transposed(rows, headers, index, title, index_header, pad)
+    return _render_horizontal(rows, headers, index, title, index_header, pad)
 
 
-# =====================================================================
 # Config table builder
-# =====================================================================
 
 def _build_config_table(
     models: list,
@@ -125,6 +236,11 @@ def _build_config_table(
 
     One row per model.  Columns = union of all parameter names
     across models (excluding private attrs like ``labels_``).
+
+    Preprocessing-only parameters (``beta``, ``tf_idf``, ``center``,
+    ``scale``) are **hidden** when every model in the table has
+    ``preprocess=False``, since those values have no effect in that
+    mode.
     """
     # Collect all parameter keys across models
     _SKIP = {
@@ -132,11 +248,22 @@ def _build_config_table(
         "_name",
     }
 
+    # Parameters that only matter when preprocess=True
+    _PREPROCESS_ONLY = {"beta", "tf_idf", "center", "scale"}
+
+    # Determine whether preprocessing params should be shown:
+    # hide them only when *every* model has preprocess=False.
+    all_preprocess_off = all(
+        getattr(m, "preprocess", True) is False for m in models
+    )
+
     all_keys: list[str] = []
     seen: set[str] = set()
     for m in models:
         for k in m.__dict__:
             if k not in seen and k not in _SKIP and not k.endswith("_"):
+                if all_preprocess_off and k in _PREPROCESS_ONLY:
+                    continue
                 all_keys.append(k)
                 seen.add(k)
 
@@ -158,9 +285,7 @@ def _build_config_table(
     )
 
 
-# =====================================================================
 # Result containers
-# =====================================================================
 
 class Result:
     """

@@ -5,4 +5,10 @@ src/*.egg-info
 to_do_list.md
 .readthedocs.yaml
 docs/*
-.github/*
+tutorials/*
+.coverage
+configs/*.local.yaml
+configs/tmp/
+configs/experiments/
+experiments/
+START.md

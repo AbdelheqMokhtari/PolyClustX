@@ -166,3 +166,41 @@ and this project adheres to Semantic Versioning.
 - LMGEC `fit()` now explicitly converts arrays to `tf.float32` tensors before entering `@tf.function`, preventing dtype mismatch errors.
 - Division-by-zero guard when all view alphas sum to zero.
 - `embedding_dim >= n_features` edge case handled with a warning and identity fallback instead of a crash.
+
+## v0.4.0 (2026-04-01)
+
+### Feat
+
+- add model registry, pytest suite, and CI workflow
+- **tracking**: add expirement tracking system for saving configs and results
+- **models**: add models registry system for dynamic model management
+- add CLI, config-based experiments, and core framework improvements #2
+- **core**: add version endpoint to expose library version
+- **cli**: add config-based experiment system using yaml/json
+- **cli**: add command-line interface for running experiments
+- **experiements**: improve configuration table formatting and conditional display
+
+### Refactor
+
+- **git**: modify .gitignore for experiments and temorary files
+- **cli**: adding the verbose details with cli
+- **dataloader**: standardize dataset outputs with unified structure
+- **preprocessing**: modify some typos in the code in preprocessing folder
+- **metrics**: modify some typos in the code in metrics folder
+- **experiment**: modify some typos in the code in expirement folder
+
+## v0.3.3 (2026-03-16)
+
+## v0.3.2 (2026-03-10)
+
+## v0.3.1 (2026-03-09)
+
+## v0.3.0 (2026-03-09)
+
+## v0.2.2 (2026-02-16)
+
+## v0.2.1 (2026-01-06)
+
+## v0.2.0 (2026-01-02)
+
+## v0.1.0 (2025-12-01)

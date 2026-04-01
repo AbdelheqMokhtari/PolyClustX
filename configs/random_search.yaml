@@ -1,0 +1,32 @@
+# ─────────────────────────────────────────────────────────────
+#  pymv — Example: random hyper-parameter search
+# ─────────────────────────────────────────────────────────────
+#  Usage:
+#    pymv-cli --config configs/random_search.yaml
+#    pymv-cli --config configs/random_search.yaml --dataset dblp
+
+dataset: acm
+
+model:
+  name: lmgec
+
+experiment:
+  random_search: true
+  n_trials: 20
+  best_metric: acc
+  seed: 42
+  runs: 1
+  metrics: [acc, nmi, ari]
+  verbose: 1
+
+# Define the hyper-parameter search space.
+# Each key maps to a list of candidate values to sample from.
+search_space:
+  embedding_dim: [4, 8, 16, 32, 64]
+  temperature: [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
+  beta: [0.1, 0.5, 1.0, 2.0, 5.0]
+  tf_idf: [true, false]
+
+output:
+  save: true
+  name: acm_search

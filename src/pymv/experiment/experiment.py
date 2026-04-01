@@ -29,11 +29,9 @@ Usage
 from __future__ import annotations
 
 import copy
-import os
 import sys
 import time
 from collections import OrderedDict
-from typing import Any, Callable, Dict, List, Sequence, Tuple, Union
 
 import numpy as np
 from tqdm import tqdm
@@ -43,17 +41,18 @@ from .result import ExperimentResult, Result
 from .logger import setup_experiment_logger
 
 
-# Normalizers — accept many input shapes, return canonical form
+# Normalizers (accept many input shapes, return canonical form)
 
 def _normalize_datasets(datasets) -> OrderedDict:
     """
     Accept any of the following and return
-    ``OrderedDict[str, callable | tuple]``:
+    ``OrderedDict[str, callable | tuple | MultiViewDataset]``:
 
     *   ``["acm", "dblp"]``          — names resolved via registry
     *   ``[load_acm, load_dblp]``    — callables (name = fn.__name__)
     *   ``{"acm": load_acm, ...}``   — dict of callables
     *   ``{"acm": (Xs, As, y)}``     — dict of pre-loaded tuples
+    *   ``MultiViewDataset``         — single dataset object
     *   single string ``"acm"``      — treated as ``["acm"]``
     *   single callable              — treated as ``[callable]``
     *   single tuple ``(Xs, As, y)`` — treated as ``{"dataset": tuple}``
@@ -62,6 +61,9 @@ def _normalize_datasets(datasets) -> OrderedDict:
 
     if isinstance(datasets, str):
         datasets = [datasets]
+    elif _is_dataset_obj(datasets):
+        name = getattr(datasets, "name", None) or "dataset"
+        datasets = {name: datasets}
     elif isinstance(datasets, tuple) and _is_data_tuple(datasets):
         datasets = {"dataset": datasets}
     elif callable(datasets):
@@ -77,6 +79,9 @@ def _normalize_datasets(datasets) -> OrderedDict:
             if isinstance(item, str):
                 name = item
                 out[name] = DATASETS[name.lower()]
+            elif _is_dataset_obj(item):
+                name = getattr(item, "name", None) or f"dataset_{len(out)}"
+                out[name] = item
             elif callable(item):
                 name = getattr(item, "__name__", type(item).__name__)
                 if name.startswith("load_"):
@@ -101,10 +106,21 @@ def _is_data_tuple(t) -> bool:
     return isinstance(t, tuple) and len(t) == 3
 
 
+def _is_dataset_obj(t) -> bool:
+    """Return True if *t* is a MultiViewDataset."""
+    from pymv.data.dataset import MultiViewDataset
+    return isinstance(t, MultiViewDataset)
+
+
 def _load_dataset(entry) -> tuple:
-    """Call loader or return pre-loaded tuple."""
+    """Call loader or return pre-loaded tuple / MultiViewDataset."""
+    if _is_dataset_obj(entry):
+        return (entry.Xs, entry.As, entry.labels)
     if callable(entry):
-        return entry()
+        result = entry()
+        if _is_dataset_obj(result):
+            return (result.Xs, result.As, result.labels)
+        return result
     if isinstance(entry, tuple) and _is_data_tuple(entry):
         return entry
     raise TypeError(f"Cannot load dataset from {type(entry)}")
@@ -204,8 +220,8 @@ class Experiment:
 
         * If a string is given, the folder is
           ``experiments/<experiment_name>``.
-        * If ``None`` (default), the folder is auto-incremented:
-          ``experiments/experiment#1``, ``experiment#2``, etc.
+        * If ``None`` (default), a timestamped folder is created
+          (e.g. ``2026-03-31_14-30-12``).
 
     log : bool
         If ``True``, a log file is created (either
@@ -213,6 +229,10 @@ class Experiment:
         or in ``log_dir``).
         If ``False`` (default), **no log file is written** — only
         console output is produced.
+
+    save_path : str or None
+        Base directory for saving experiment results.  Only used
+        when ``save_markdown=True``.  Defaults to ``./experiments``.
     """
 
     def __init__(
@@ -226,6 +246,7 @@ class Experiment:
         save_markdown: bool = False,
         experiment_name: str | None = None,
         log: bool = False,
+        save_path: str | None = None,
     ):
         self.datasets = _normalize_datasets(datasets)
         self.models = _normalize_models(models)
@@ -236,6 +257,7 @@ class Experiment:
         self.save_markdown = save_markdown
         self.experiment_name = experiment_name
         self.log = log
+        self.save_path = save_path
 
         # Filled after run()
         self.result: ExperimentResult | None = None
@@ -255,6 +277,51 @@ class Experiment:
             values[name] = float(fn(y_true, y_pred))
         return values
 
+    def _build_reproducible_config(self) -> dict:
+        """Build a config dict that can re-run this experiment.
+
+        The output is designed to be loadable by
+        ``pymv-cli --config <path>/config.yaml``.
+        """
+        from pymv.tracking import _to_python
+
+        _SKIP = {"labels_", "centroids_", "embedding_", "loss_history_", "_name"}
+        datasets_list = list(self.datasets.keys())
+        config: dict = {}
+
+        # Dataset — single string or list
+        config["dataset"] = datasets_list[0] if len(datasets_list) == 1 else datasets_list
+
+        # Model(s) — use the first model for the config
+        if self.models:
+            m = self.models[0]
+            model_section: dict = {"name": type(m).__name__.lower()}
+            params = {
+                k: _to_python(v)
+                for k, v in m.__dict__.items()
+                if k not in _SKIP and not k.startswith("_") and not k.endswith("_")
+            }
+            if params:
+                model_section["params"] = params
+            config["model"] = model_section
+
+        # Experiment settings
+        exp: dict = {}
+        if self.runs != 1:
+            exp["runs"] = self.runs
+        metric_names = list(self.metrics.keys())
+        if metric_names:
+            exp["metrics"] = metric_names
+        if self.verbose != 1:
+            exp["verbose"] = self.verbose
+        if exp:
+            config["experiment"] = exp
+
+        # Output
+        config["output"] = {"save": True}
+
+        return config
+
     # main loop
 
     def run(self) -> ExperimentResult:
@@ -263,9 +330,14 @@ class Experiment:
         # Resolve experiment folder first (if saving), so the log goes
         # inside it from the very beginning.
         experiment_dir: str | None = None
+        tracker = None
         if self.save_markdown:
-            from .markdown_export import _resolve_experiment_dir
-            experiment_dir = _resolve_experiment_dir(self.experiment_name)
+            from pymv.tracking import ExperimentTracker
+            tracker = ExperimentTracker(
+                name=self.experiment_name,
+                save_path=self.save_path,
+            )
+            experiment_dir = tracker.experiment_dir
 
         # When save_markdown=True, log is always enabled inside the
         # experiment folder regardless of the log parameter.
@@ -279,7 +351,7 @@ class Experiment:
             log=use_log,
         )
 
-        # ---- Log header (file + verbose>=3) ----
+        # Log header (file + verbose>=3)
         logger.debug("=" * 60)
         logger.debug("  pymv Experiment")
         logger.debug("=" * 60)
@@ -437,18 +509,27 @@ class Experiment:
 
         if self.save_markdown and experiment_dir:
             from .markdown_export import export_experiment
+            from pymv.tracking import (
+                build_results_dict, build_metrics_csv_rows,
+            )
 
             # Build config metadata
             _SKIP = {
                 "labels_", "centroids_", "embedding_",
                 "loss_history_", "_name",
             }
+            _PREPROCESS_ONLY = {"beta", "tf_idf", "center", "scale"}
+            all_preprocess_off = all(
+                getattr(m, "preprocess", True) is False
+                for m in self.models
+            )
             config = {
                 "datasets": list(self.datasets.keys()),
                 "models": {
                     self._model_name(m): {
                         k: str(v) for k, v in m.__dict__.items()
                         if k not in _SKIP and not k.endswith("_")
+                        and not (all_preprocess_off and k in _PREPROCESS_ONLY)
                     }
                     for m in self.models
                 },
@@ -456,6 +537,7 @@ class Experiment:
                 "runs": self.runs,
             }
 
+            # 1. Markdown report (existing)
             folder = export_experiment(
                 result=self.result,
                 name=self.experiment_name,
@@ -465,6 +547,43 @@ class Experiment:
                 raw_scores=raw_scores,
                 experiment_dir=experiment_dir,
             )
-            logger.warning("  � Experiment saved to: %s", folder)
+
+            # 2. Reproducible config.yaml
+            reproducible_config = self._build_reproducible_config()
+            tracker.save_config(reproducible_config)
+
+            # 3. Structured results.json (per dataset × model)
+            all_results_list = []
+            for ds_name, result_list in self.result.all_results.items():
+                for r in result_list:
+                    model_template = None
+                    for m in self.models:
+                        if self._model_name(m) == r.model_name:
+                            model_template = m
+                            break
+                    m_params = {}
+                    if model_template:
+                        m_params = {
+                            k: v for k, v in model_template.__dict__.items()
+                            if not k.startswith("_") and not k.endswith("_")
+                        }
+                    rd = build_results_dict(
+                        dataset_name=ds_name,
+                        model_name=r.model_name,
+                        model_params=m_params,
+                        metrics=dict(r.metric_avg),
+                        metrics_std=dict(r.metric_std) if r.metric_std else None,
+                        runs=self.runs,
+                        train_time=r.train_time,
+                    )
+                    all_results_list.append(rd)
+
+            tracker.save_results({"experiments": all_results_list})
+
+            # 4. metrics.csv
+            csv_rows = build_metrics_csv_rows(self.result)
+            tracker.save_metrics_csv(csv_rows)
+
+            logger.warning("Experiment saved to: %s", folder)
 
         return self.result
