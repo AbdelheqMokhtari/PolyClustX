@@ -41,7 +41,7 @@ import numpy as np
 from tqdm import tqdm
 
 from pymv.core import BaseModel
-from .result import RandomSearchResult
+from .result import RandomSearchResult, _in_notebook
 from .logger import setup_experiment_logger
 
 
@@ -399,7 +399,20 @@ class RandomSearchExperiment:
 
         # Print clean table to console (WARNING → verbose>=1) 
         output = str(self.result)
-        logger.warning("\n%s", output)
+
+        if _in_notebook() and self.verbose >= 1 and output.strip():
+            from IPython.display import display, HTML
+            import html as _html_mod
+            html_out = (
+                '<pre style="white-space: pre; overflow-x: auto; '
+                'font-family: monospace; font-size: 13px; '
+                'line-height: 1.4; padding: 8px 0; margin: 0;">'
+                f"{_html_mod.escape(output)}</pre>"
+            )
+            display(HTML(html_out))
+        else:
+            logger.warning("\n%s", output)
+
         logger.debug("\n[RANDOM SEARCH TABLE]\n%s", output)
 
         # Export full experiment folder 

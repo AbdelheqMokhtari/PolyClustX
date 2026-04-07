@@ -22,6 +22,18 @@ TIME_FMT = "{:.2f}s"
 MEAN_STD_FMT = "{:.4f} (±{:.4f})"
 
 
+def _in_notebook() -> bool:
+    """Return ``True`` when running inside a Jupyter/IPython notebook."""
+    try:
+        from IPython import get_ipython
+        shell = get_ipython()
+        if shell is None:
+            return False
+        return shell.__class__.__name__ == "ZMQInteractiveShell"
+    except Exception:
+        return False
+
+
 def _terminal_width() -> int:
     """Best-effort terminal width; fall back to 120."""
     import shutil
@@ -184,9 +196,13 @@ def _build_table(
     """
     Render an ASCII table with box-drawing characters.
 
-    Automatically **transposes** the table (rows ↔ columns) when
-    the horizontal layout would be wider than the terminal, so the
-    output stays readable without line-wrapping.
+    In **Jupyter notebooks** the table always uses the horizontal
+    layout (models = rows) and is wrapped in a scrollable HTML
+    ``<pre>`` block so that wide tables never wrap or overlap.
+
+    In a **terminal** the table automatically **transposes**
+    (rows ↔ columns) when the horizontal layout would be wider
+    than the terminal, so the output stays readable.
 
     Parameters
     ----------
@@ -216,13 +232,29 @@ def _build_table(
         if 0 <= row_i < len(rows) and 0 <= col_i < n_cols:
             rows[row_i][col_i] = rows[row_i][col_i] + " *"
 
-    # Decide layout: horizontal vs transposed
-    width = _table_width(index, headers, rows, index_header, pad)
-    term_w = _terminal_width()
+    notebook = _in_notebook()
 
-    if width > term_w:
-        return _render_transposed(rows, headers, index, title, index_header, pad)
-    return _render_horizontal(rows, headers, index, title, index_header, pad)
+    if notebook:
+        # In notebooks, always use horizontal layout (models = rows).
+        # Jupyter renders output in a <pre> block; wide tables get a
+        # horizontal scrollbar automatically, so line-wrapping is not
+        # an issue.  The transposed layout (models = columns) breaks
+        # when there are many models because columns become too narrow.
+        return _render_horizontal(
+            rows, headers, index, title, index_header, pad,
+        )
+    else:
+        # Terminal: transpose when the table is wider than the terminal
+        # to avoid line-wrapping that breaks box-drawing alignment.
+        width = _table_width(index, headers, rows, index_header, pad)
+        term_w = _terminal_width()
+        if width > term_w:
+            return _render_transposed(
+                rows, headers, index, title, index_header, pad,
+            )
+        return _render_horizontal(
+            rows, headers, index, title, index_header, pad,
+        )
 
 
 # Config table builder
