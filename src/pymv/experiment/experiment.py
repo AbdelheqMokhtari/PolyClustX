@@ -393,11 +393,12 @@ class Experiment:
                 total=total_work,
                 desc="Experiment",
                 unit="run",
+                dynamic_ncols=True,
+                file=sys.stdout,
                 bar_format=(
                     "{l_bar}{bar}| {n_fmt}/{total_fmt} "
                     "[{elapsed}<{remaining}, {rate_fmt}] {postfix}"
                 ),
-                file=sys.stdout,
             )
 
         for ds_name, ds_entry in self.datasets.items():
