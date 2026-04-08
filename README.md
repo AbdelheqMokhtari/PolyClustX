@@ -590,6 +590,20 @@ Requires `matplotlib` (`pip install matplotlib`).
 
 ---
 
+## Dataset variants
+
+```python
+# Via the variant parameter directly
+from pymv.data import load_pascal
+ds = load_pascal(variant="clip")
+
+# Via the registry (load_dataset)
+from pymv.data import load_dataset
+ds = load_dataset("pascal_clip")
+ds = load_dataset("coco_all_vit_sbert")
+ds = load_dataset("coco_cross_resnet_minilm")
+```
+
 ## Command-line interface
 
 `pymv` ships with **`pymv-cli`** — run experiments directly from the terminal without writing Python code.
