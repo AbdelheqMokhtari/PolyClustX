@@ -63,7 +63,7 @@ def _normalize_datasets(datasets) -> OrderedDict:
     *   single callable              — treated as ``[callable]``
     *   single tuple ``(Xs, As, y)`` — treated as ``{"dataset": tuple}``
     """
-    from pymv.data.registry import DATASETS, load_dataset
+    from pymv.data.registry import DATASETS
 
     if isinstance(datasets, str):
         datasets = [datasets]

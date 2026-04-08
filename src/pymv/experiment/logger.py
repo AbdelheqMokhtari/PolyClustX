@@ -100,7 +100,7 @@ def setup_experiment_logger(
         ))
         logger.addHandler(fh)
 
-    # Console handler controlled by verbose 
+    # Console handler controlled by verbose
     console_level = _VERBOSE_MAP.get(verbose, logging.INFO)
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(console_level)

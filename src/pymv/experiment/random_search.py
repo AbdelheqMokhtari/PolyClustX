@@ -296,7 +296,7 @@ class RandomSearchExperiment:
 
         model_name = self.model_class.__name__
 
-        # Log header (file only unless verbose>=3) 
+        # Log header (file only unless verbose>=3)
         logger.debug("=" * 60)
         logger.debug("  pymv Random Search")
         logger.debug("=" * 60)
@@ -397,7 +397,7 @@ class RandomSearchExperiment:
         if pbar:
             pbar.close()
 
-        # Print clean table to console (WARNING → verbose>=1) 
+        # Print clean table to console (WARNING → verbose>=1)
         output = str(self.result)
 
         if _in_notebook() and self.verbose >= 1 and output.strip():
@@ -415,7 +415,7 @@ class RandomSearchExperiment:
 
         logger.debug("\n[RANDOM SEARCH TABLE]\n%s", output)
 
-        # Export full experiment folder 
+        # Export full experiment folder
         if self.save_markdown and experiment_dir:
             from .markdown_export import export_random_search
             from pymv.tracking import (

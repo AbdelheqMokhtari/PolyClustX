@@ -6,4 +6,3 @@ class BaseModel(ABC):
     @abstractmethod
     def fit(self, X):
         pass
-

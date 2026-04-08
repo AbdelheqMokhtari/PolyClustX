@@ -43,6 +43,7 @@ _configure_gpu()
 
 # update rules  F, W, And G
 
+
 def _update_rule_F(XW, G, K):
     return tf.math.unsorted_segment_mean(XW, G, num_segments=K)
 
@@ -311,7 +312,7 @@ class LMGEC(BaseModel):
             betas = self._resolve_per_view(self.beta, n_views, "beta")
             tf_idfs = self._resolve_per_view(self.tf_idf, n_views, "tf_idf")
 
-            # Build adjacency list 
+            # Build adjacency list
             if As is None:
                 adj_list = [None] * n_views
             else:

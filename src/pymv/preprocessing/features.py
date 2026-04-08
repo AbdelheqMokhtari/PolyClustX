@@ -230,7 +230,7 @@ def preprocess_features(
         graph propagation) that should be called **before** this
         function if graph structure is available.
     """
-    
+
     single_input = not isinstance(features, list)
 
     if single_input:

@@ -27,7 +27,7 @@ Example
 from __future__ import annotations
 
 import inspect
-from typing import Any, Dict, Type
+from typing import Any, Dict
 
 # ── Central registry ──────────────────────────────────────────────
 

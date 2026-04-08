@@ -12,7 +12,6 @@ characters for experiment results.  Two table types:
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import List, Optional
 
 import numpy as np
 
@@ -73,8 +72,8 @@ def _render_horizontal(
             parts.append(fill * (w + 2 * pad))
         return left + mid.join(parts) + right
 
-    top    = _sep("┌", "┬", "┐")
-    mid    = _sep("├", "┼", "┤")
+    top = _sep("┌", "┬", "┐")
+    mid = _sep("├", "┼", "┤")
     bottom = _sep("└", "┴", "┘")
 
     def _row(label, cells):
@@ -138,8 +137,8 @@ def _render_transposed(
             parts.append(fill * (w + 2 * pad))
         return left + mid.join(parts) + right
 
-    top    = _sep("┌", "┬", "┐")
-    mid    = _sep("├", "┼", "┤")
+    top = _sep("┌", "┬", "┐")
+    mid = _sep("├", "┼", "┤")
     bottom = _sep("└", "┴", "┘")
 
     def _row(label, cells):

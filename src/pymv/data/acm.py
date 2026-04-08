@@ -37,6 +37,3 @@ def load_acm():
     logger.info("Dataset loaded: samples=%d, views=%d", Xs[0].shape[0], len(Xs))
 
     return MultiViewDataset(Xs, As, labels, name="acm")
-
-
-
