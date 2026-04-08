@@ -38,8 +38,9 @@ import numpy as np
 from tqdm import tqdm
 
 from pymv.core import BaseModel
-from .result import ExperimentResult, Result, _in_notebook
+
 from .logger import setup_experiment_logger
+from .result import ExperimentResult, Result, _in_notebook
 
 
 def _html_escape(text: str) -> str:
@@ -510,7 +511,7 @@ class Experiment:
         if _in_notebook() and self.verbose >= 1 and output.strip():
             # In Jupyter notebooks, render tables as scrollable HTML
             # so wide tables never wrap or break box-drawing alignment.
-            from IPython.display import display, HTML
+            from IPython.display import HTML, display
             html = (
                 '<pre style="white-space: pre; overflow-x: auto; '
                 'font-family: monospace; font-size: 13px; '
@@ -527,10 +528,10 @@ class Experiment:
         # Export full experiment folder
 
         if self.save_markdown and experiment_dir:
+            from pymv.tracking import (build_metrics_csv_rows,
+                                       build_results_dict)
+
             from .markdown_export import export_experiment
-            from pymv.tracking import (
-                build_results_dict, build_metrics_csv_rows,
-            )
 
             # Build config metadata
             _SKIP = {

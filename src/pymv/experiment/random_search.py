@@ -41,8 +41,9 @@ import numpy as np
 from tqdm import tqdm
 
 from pymv.core import BaseModel
-from .result import RandomSearchResult, _in_notebook
+
 from .logger import setup_experiment_logger
+from .result import RandomSearchResult, _in_notebook
 
 
 def _resolve_dataset(dataset) -> tuple[str, Any]:
@@ -401,8 +402,9 @@ class RandomSearchExperiment:
         output = str(self.result)
 
         if _in_notebook() and self.verbose >= 1 and output.strip():
-            from IPython.display import display, HTML
             import html as _html_mod
+
+            from IPython.display import HTML, display
             html_out = (
                 '<pre style="white-space: pre; overflow-x: auto; '
                 'font-family: monospace; font-size: 13px; '
@@ -417,10 +419,10 @@ class RandomSearchExperiment:
 
         # Export full experiment folder
         if self.save_markdown and experiment_dir:
+            from pymv.tracking import (build_metrics_csv_rows,
+                                       build_results_dict)
+
             from .markdown_export import export_random_search
-            from pymv.tracking import (
-                build_results_dict, build_metrics_csv_rows,
-            )
 
             config = {
                 "model_class": model_name,

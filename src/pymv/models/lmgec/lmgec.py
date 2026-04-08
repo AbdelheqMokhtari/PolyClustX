@@ -15,10 +15,7 @@ from sklearn.decomposition import TruncatedSVD
 
 from pymv.core import BaseModel
 from pymv.models.registry import register_model
-from pymv.preprocessing import (
-    get_propagated_features,
-    preprocess_features,
-)
+from pymv.preprocessing import get_propagated_features, preprocess_features
 
 logger = logging.getLogger(__name__)
 

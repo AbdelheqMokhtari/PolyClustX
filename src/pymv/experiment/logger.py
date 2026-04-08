@@ -28,7 +28,6 @@ import os
 import sys
 from datetime import datetime
 
-
 # Map verbose int -> console log level
 _VERBOSE_MAP = {
     0: logging.CRITICAL + 1,   # effectively silent

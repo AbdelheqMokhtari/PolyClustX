@@ -15,7 +15,6 @@ from collections import OrderedDict
 
 import numpy as np
 
-
 NUM_FMT = "{:.4f}"
 TIME_FMT = "{:.2f}s"
 MEAN_STD_FMT = "{:.4f} (±{:.4f})"

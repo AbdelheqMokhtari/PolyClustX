@@ -32,8 +32,8 @@ Internal helpers (used by the external metrics; usable but rarely needed)
 from __future__ import annotations
 
 import numpy as np
-from sklearn import metrics
 from scipy.optimize import linear_sum_assignment
+from sklearn import metrics
 
 # Internal helpers
 

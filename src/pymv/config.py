@@ -37,7 +37,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-
 # ── Built-in config directory ─────────────────────────────────────
 
 _BUILTIN_CONFIGS_DIR = Path(__file__).resolve().parent.parent.parent / "configs"
