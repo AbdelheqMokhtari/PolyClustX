@@ -65,3 +65,10 @@ version_files = [
 
 update_changelog_on_bump = true
 changelog_file = "CHANGELOG.md"
+
+[tool.isort]
+profile = "black"
+line_length = 120
+
+[tool.flake8]
+max-line-length = 120

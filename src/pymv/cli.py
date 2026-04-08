@@ -515,8 +515,7 @@ def main(argv: list[str] | None = None):
 
     # ── Config file loading ──
     if args.config:
-        from pymv.config import (config_to_args, load_config,
-                                 merge_config_with_cli, validate_config)
+        from pymv.config import config_to_args, load_config, merge_config_with_cli, validate_config
         try:
             raw_cfg = load_config(args.config)
         except (FileNotFoundError, ValueError, ImportError) as exc:

@@ -1,5 +1,4 @@
-from .features import (get_propagated_features, normalize_features,
-                       preprocess_features, preprocess_graph)
+from .features import get_propagated_features, normalize_features, preprocess_features, preprocess_graph
 
 __all__ = [
     "get_propagated_features",

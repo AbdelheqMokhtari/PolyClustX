@@ -528,8 +528,7 @@ class Experiment:
         # Export full experiment folder
 
         if self.save_markdown and experiment_dir:
-            from pymv.tracking import (build_metrics_csv_rows,
-                                       build_results_dict)
+            from pymv.tracking import build_metrics_csv_rows, build_results_dict
 
             from .markdown_export import export_experiment
 
