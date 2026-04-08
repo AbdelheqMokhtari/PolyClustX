@@ -48,4 +48,4 @@ jobs:
         run: isort src/ --check-only --diff --profile black
 
       - name: Check syntax (compile)
-        run: python -m py_compile src/graphs/__init__.py
+        run: python -m py_compile src/pymv/__init__.py

@@ -26,14 +26,13 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
 import textwrap
-
 
 # ── Model registry ────────────────────────────────────────────────
 # Lazy accessor — triggers TF import only when actually needed
 # (not on --help / --list-datasets / --version).
+
 
 def _get_model_registry() -> dict:
     """Return the global model registry (lazy import)."""
@@ -105,7 +104,7 @@ def _configure_verbosity(level: int) -> None:
 
     # Silence absl loggers (used internally by TF)
     try:
-        import absl.logging                          # type: ignore
+        import absl.logging  # type: ignore
         if level <= 2:
             absl.logging.set_verbosity(absl.logging.ERROR)
         else:
@@ -516,9 +515,7 @@ def main(argv: list[str] | None = None):
 
     # ── Config file loading ──
     if args.config:
-        from pymv.config import (
-            load_config, config_to_args, merge_config_with_cli, validate_config,
-        )
+        from pymv.config import config_to_args, load_config, merge_config_with_cli, validate_config
         try:
             raw_cfg = load_config(args.config)
         except (FileNotFoundError, ValueError, ImportError) as exc:

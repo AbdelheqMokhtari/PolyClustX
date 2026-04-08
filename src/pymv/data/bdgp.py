@@ -1,7 +1,6 @@
 import logging
 
 import scipy.io as io
-import numpy as np
 
 from .base import get_dataset_path
 from .dataset import MultiViewDataset
@@ -9,7 +8,7 @@ from .downloader import download_file
 
 logger = logging.getLogger(__name__)
 
-BDGP_URL = "https://zenodo.org/records/18923707/files/BDGP.mat?download=1" 
+BDGP_URL = "https://zenodo.org/records/18923707/files/BDGP.mat?download=1"
 
 
 def load_bdgp():

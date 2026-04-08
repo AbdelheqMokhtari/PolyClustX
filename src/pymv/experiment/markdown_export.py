@@ -235,22 +235,22 @@ def export_experiment(
     os.makedirs(os.path.join(folder, "metadata"), exist_ok=True)
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # 1. results.md 
+    # 1. results.md
     _write_experiment_markdown(result, folder, now)
 
-    # 2. experiment.log 
+    # 2. experiment.log
     _move_log_file(log_file, folder)
 
-    # 3. metadata/environment.json 
+    # 3. metadata/environment.json
     env_info = _get_environment_info()
     env_info["export_time"] = now
     _save_json(env_info, os.path.join(folder, "metadata", "environment.json"))
 
-    # 4. metadata/config.json 
+    # 4. metadata/config.json
     if experiment_config:
         _save_json(experiment_config, os.path.join(folder, "metadata", "config.json"))
 
-    # 5. metadata/datasets.json 
+    # 5. metadata/datasets.json
     if datasets_info:
         _save_json(datasets_info, os.path.join(folder, "metadata", "datasets.json"))
 
@@ -452,7 +452,7 @@ def _write_random_search_markdown(result, folder: str, now: str):
             f.write("\n".join(lines))
         return
 
-    # All trials table 
+    # All trials table
     lines.append("---")
     lines.append("")
     lines.append("## All Trials")

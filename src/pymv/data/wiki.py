@@ -1,7 +1,7 @@
 import logging
 
-import scipy.io as io
 import numpy as np
+import scipy.io as io
 from sklearn.neighbors import kneighbors_graph
 
 from .base import get_dataset_path

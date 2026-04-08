@@ -1,14 +1,14 @@
-from .dataset import MultiViewDataset
-from .registry import load_dataset, list_datasets
 from .acm import load_acm
 from .amazon_photos import load_amazon_photos
 from .bdgp import load_bdgp
 from .coco_all import load_coco_all
 from .coco_cross import load_coco_cross
+from .dataset import MultiViewDataset
 from .dblp import load_dblp
 from .imdb import load_imdb
 from .pascal import load_pascal
 from .prokaryotic import load_prokaryotic
+from .registry import list_datasets, load_dataset
 from .wiki import load_wiki
 
 __all__ = [

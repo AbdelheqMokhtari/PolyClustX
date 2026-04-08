@@ -1,7 +1,6 @@
 import logging
 
 import scipy.io as io
-import numpy as np
 
 from .base import get_dataset_path
 from .dataset import MultiViewDataset

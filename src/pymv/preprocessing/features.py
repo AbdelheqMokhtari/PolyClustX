@@ -22,16 +22,15 @@ Internal helpers (used by the public API; usable but rarely needed)
 
 from __future__ import annotations
 
+from typing import List, Union
+
 import numpy as np
 import scipy.sparse as sp
-
-from typing import Union, List
-
-from sklearn.preprocessing import normalize, StandardScaler
 from sklearn.feature_extraction.text import TfidfTransformer
-
+from sklearn.preprocessing import StandardScaler, normalize
 
 # Graph preprocessing
+
 
 def preprocess_graph(adj: Union[np.ndarray, sp.spmatrix], beta: float = 1.0):
     r"""Build the row-normalized propagation matrix.
@@ -230,7 +229,7 @@ def preprocess_features(
         graph propagation) that should be called **before** this
         function if graph structure is available.
     """
-    
+
     single_input = not isinstance(features, list)
 
     if single_input:

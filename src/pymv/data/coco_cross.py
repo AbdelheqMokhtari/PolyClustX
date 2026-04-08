@@ -1,7 +1,6 @@
 import logging
 
 import scipy.io as io
-import numpy as np
 
 from .base import get_dataset_path
 from .dataset import MultiViewDataset
@@ -9,7 +8,7 @@ from .downloader import download_file
 
 logger = logging.getLogger(__name__)
 
-COCO_CROSS_URL = "https://zenodo.org/records/18923707/files/coco_cross.mat?download=1" 
+COCO_CROSS_URL = "https://zenodo.org/records/18923707/files/coco_cross.mat?download=1"
 
 
 def load_coco_cross():

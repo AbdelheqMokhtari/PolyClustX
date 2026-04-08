@@ -9,7 +9,6 @@ from .pascal import load_pascal
 from .prokaryotic import load_prokaryotic
 from .wiki import load_wiki
 
-
 DATASETS = {
     "acm": load_acm,
     "amazon_photos": load_amazon_photos,
@@ -34,6 +33,7 @@ def load_dataset(name):
         )
 
     return DATASETS[name]()
+
 
 def list_datasets():
     """

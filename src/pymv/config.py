@@ -34,10 +34,8 @@ Example YAML
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
-
 
 # ── Built-in config directory ─────────────────────────────────────
 
@@ -246,7 +244,6 @@ def merge_config_with_cli(
     """
     import sys
 
-    defaults = vars(parser.parse_args([]))  # all defaults
     raw_argv = sys.argv[1:] if hasattr(sys, "argv") else []
 
     # Build set of flags that the user typed on the command line
