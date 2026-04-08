@@ -5,7 +5,11 @@ from .coco_all import load_coco_all
 from .coco_cross import load_coco_cross
 from .dataset import MultiViewDataset
 from .dblp import load_dblp
+from .esp_game import load_esp_game
+from .flickr30k import load_flickr30k
+from .iaprtc12 import load_iaprtc12
 from .imdb import load_imdb
+from .nus_wide import load_nus_wide
 from .pascal import load_pascal
 from .prokaryotic import load_prokaryotic
 from .registry import list_datasets, load_dataset
@@ -21,7 +25,11 @@ __all__ = [
     "load_coco_all",
     "load_coco_cross",
     "load_dblp",
+    "load_esp_game",
+    "load_flickr30k",
+    "load_iaprtc12",
     "load_imdb",
+    "load_nus_wide",
     "load_pascal",
     "load_prokaryotic",
     "load_wiki",
