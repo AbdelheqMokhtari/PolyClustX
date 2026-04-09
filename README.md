@@ -47,6 +47,45 @@ Experiment(
 The console prints **two clean tables** — model configuration + per-dataset results.
 Everything else (loading, per-run scores, errors) is saved to a log file in `./logs/`.
 
+### Run on a single view
+
+pymv always expects **lists** of views. To run the algorithm on just one
+view, wrap the single feature matrix (and adjacency) in a list:
+
+```python
+from pymv.data import load_flickr30k
+from pymv.models import LMGEC
+from pymv.experiment import Experiment
+from pymv.metrics import clustering_accuracy, nmi_score, ari_score
+
+data = load_flickr30k()
+Xs, As, labels = data
+
+# ⚠ Wrap the single view in a list — [Xs[0]], not Xs[0]
+model = LMGEC(
+    n_clusters=data.n_clusters,
+    embedding_dim=data.n_clusters + 1,
+    preprocess=True,
+    tf_idf=False,
+    center=True,
+    scale=False,
+)
+model.name = "LMGEC base"
+
+result = Experiment(
+    datasets={"flickr30k_view0": ([Xs[0]], [As[0]], labels)},
+    models=model,
+    metrics=[clustering_accuracy, nmi_score, ari_score],
+    runs=5,
+    verbose=2,
+).run()
+```
+
+> **Key point:** `([Xs[0]], [As[0]], labels)` — square brackets turn
+> the single array into a one-element list, which is what the model and
+> the Experiment expect. Writing `(Xs[0], As[0], labels)` without the
+> wrapping lists will raise an error.
+
 ---
 
 ## Table of contents
@@ -54,18 +93,19 @@ Everything else (loading, per-run scores, errors) is saved to a log file in `./l
 1. [Installation](#installation)
 2. [Package structure](#package-structure)
 3. [Quickstart — in depth](#quickstart--in-depth)
-4. [Datasets](#datasets)
-5. [Models](#models)
-6. [Preprocessing](#preprocessing)
-7. [Metrics](#metrics)
-8. [Experiment framework](#experiment-framework)
-9. [Random search](#random-search)
-10. [Visualization](#visualization)
-11. [Command-line interface](#command-line-interface)
-12. [Config-based experiments](#config-based-experiments)
-13. [Algorithm — LMGEC intuition](#algorithm--lmgec-intuition)
-14. [Tips & troubleshooting](#tips--troubleshooting)
-15. [License](#license)
+4. [Tutorial — full workflow with per-view preprocessing](#tutorial--full-workflow-with-per-view-preprocessing)
+5. [Datasets](#datasets)
+6. [Models](#models)
+7. [Preprocessing](#preprocessing)
+8. [Metrics](#metrics)
+9. [Experiment framework](#experiment-framework)
+10. [Random search](#random-search)
+11. [Visualization](#visualization)
+12. [Command-line interface](#command-line-interface)
+13. [Config-based experiments](#config-based-experiments)
+14. [Algorithm — LMGEC intuition](#algorithm--lmgec-intuition)
+15. [Tips & troubleshooting](#tips--troubleshooting)
+16. [License](#license)
 
 ---
 
@@ -322,6 +362,243 @@ plot_clusters(model.embedding_, model.labels_, method="tsne", title="LMGEC on AC
 
 # PCA (faster, deterministic)
 plot_clusters(model.embedding_, y, method="pca", title="Ground truth on ACM")
+```
+
+---
+
+## Tutorial — full workflow with per-view preprocessing
+
+This tutorial walks through the **complete pymv workflow** — from loading
+raw data to running a full comparative experiment — using **only pymv
+functions** (no external libraries needed).
+
+We use **Flickr30k** as an example. It has two views (image embeddings
+and text embeddings) with no graph structure.
+
+### Step 1 — Load the dataset
+
+```python
+from pymv.data import load_flickr30k
+
+# Auto-downloads from Zenodo on first call
+data = load_flickr30k()
+print(data)
+# MultiViewDataset('flickr30k', n_samples=12154, n_views=2, ...)
+
+# Unpack into views, adjacencies, and labels
+Xs, As, labels = data
+# Xs = [img_features (12154 × 100), txt_features (12154 × 100)]
+# As = [None, None]  (no graph structure)
+```
+
+### Step 2 — Per-view preprocessing
+
+`pymv.preprocessing` gives you full control over each view independently.
+Here we build **new** preprocessed arrays without modifying the originals.
+
+**Goal:**
+| View | Normalization | Centering | Scaling |
+|---|---|---|---|
+| View 0 (image) | L2 | ✓ | ✓ |
+| View 1 (text) | L2 | ✓ | ✗ |
+
+```python
+from pymv.preprocessing import normalize_features, preprocess_features
+
+# ---- View 0 (image): L2 normalization + centering + scaling ----
+H0 = normalize_features(Xs[0], tf_idf=False)          # L2 row-normalization
+H0 = preprocess_features(H0, center=True, scale=True)  # center + scale
+
+# ---- View 1 (text): L2 normalization + centering only ----
+H1 = normalize_features(Xs[1], tf_idf=False)           # L2 row-normalization
+H1 = preprocess_features(H1, center=True, scale=False)  # center only
+
+# Group preprocessed views into a new list
+Hs = [H0, H1]
+```
+
+> **Tip:** `normalize_features` applies L2 normalization (each row has
+> unit norm). Set `tf_idf=True` for TF-IDF + L2 if your features are
+> raw term-frequency counts.
+
+### Step 3 — Declare the model
+
+Since we already preprocessed manually, set `preprocess=False` so LMGEC
+skips its internal normalization / propagation:
+
+```python
+from pymv.models import LMGEC
+
+model = LMGEC(
+    n_clusters=data.n_clusters,   # auto-detected from labels
+    embedding_dim=16,
+    temperature=1.0,
+    max_iter=30,
+    preprocess=False,              # we already preprocessed
+)
+```
+
+### Step 4 — Fit and evaluate
+
+```python
+from pymv.metrics import clustering_accuracy, nmi_score, ari_score
+
+# Fit with the preprocessed views
+pred_labels = model.fit_predict(Hs)
+
+# Evaluate
+print("ACC:", clustering_accuracy(labels, pred_labels))
+print("NMI:", nmi_score(labels, pred_labels))
+print("ARI:", ari_score(labels, pred_labels))
+```
+
+### Step 5 — Compare configurations with Experiment
+
+Wrap everything into an `Experiment` to compare multiple configurations
+and get clean result tables automatically.
+
+We pass the preprocessed `Hs` as a custom dataset. There are **several
+ways** to do this:
+
+```python
+from pymv.experiment import Experiment
+
+# Define model variants — all with preprocess=False
+m1 = LMGEC(n_clusters=data.n_clusters, embedding_dim=16, temperature=1.0, preprocess=False)
+m1.name = "LMGEC-T1"
+
+m2 = LMGEC(n_clusters=data.n_clusters, embedding_dim=16, temperature=10.0, preprocess=False)
+m2.name = "LMGEC-T10"
+
+m3 = LMGEC(n_clusters=data.n_clusters, embedding_dim=32, temperature=5.0, preprocess=False)
+m3.name = "LMGEC-d32"
+
+metrics = [clustering_accuracy, nmi_score, ari_score]
+models  = [m1, m2, m3]
+
+# ── Option A: named dict with a (Xs, As, labels) tuple ──
+result = Experiment(
+    datasets={"flickr30k_preprocessed": (Hs, As, labels)},
+    models=models,
+    metrics=metrics,
+    runs=5,
+    verbose=2,
+).run()
+
+# ── Option B: anonymous tuple (auto-named "dataset") ──
+result = Experiment(
+    datasets=(Hs, As, labels),
+    models=models,
+    metrics=metrics,
+    runs=5,
+).run()
+
+# ── Option C: build a MultiViewDataset from the preprocessed views ──
+from pymv.data.dataset import MultiViewDataset
+
+preprocessed_data = MultiViewDataset(Hs, As, labels, name="flickr30k_preprocessed")
+result = Experiment(
+    datasets=preprocessed_data,       # uses .name automatically
+    models=models,
+    metrics=metrics,
+    runs=5,
+).run()
+```
+
+This prints a **model configuration table** and a **results table** with
+mean ± std over 5 runs, with the best values highlighted.
+
+### Step 6 — Hyper-parameter search
+
+Find the best configuration automatically using the preprocessed views:
+
+```python
+from pymv.experiment import RandomSearchExperiment
+
+rs = RandomSearchExperiment(
+    model_class=LMGEC,
+    param_distributions={
+        "n_clusters": [data.n_clusters],
+        "embedding_dim": [4, 8, 16, 32, 64],
+        "temperature": [0.1, 0.5, 1.0, 5.0, 10.0],
+        "max_iter": [30],
+        "preprocess": [False],
+    },
+    dataset={"flickr30k_preprocessed": (Hs, As, labels)},
+    metrics=[clustering_accuracy, nmi_score, ari_score],
+    best_metric="ACC",
+    n_iter=20,
+    verbose=2,
+)
+result = rs.run()
+
+print("Best params:", result.best_params)
+print("Best ACC:   ", result.best_score)
+```
+
+### Putting it all together
+
+Here is the complete script in one block:
+
+```python
+# ── pymv: Full workflow with per-view preprocessing ──────────────
+
+# 1. Load
+from pymv.data import load_flickr30k
+
+data = load_flickr30k()
+Xs, As, labels = data
+
+# 2. Per-view preprocessing (into new variables)
+from pymv.preprocessing import normalize_features, preprocess_features
+
+# View 0 (image): L2 + center + scale
+H0 = normalize_features(Xs[0], tf_idf=False)
+H0 = preprocess_features(H0, center=True, scale=True)
+
+# View 1 (text): L2 + center only
+H1 = normalize_features(Xs[1], tf_idf=False)
+H1 = preprocess_features(H1, center=True, scale=False)
+
+Hs = [H0, H1]
+
+# 3. Declare model
+from pymv.models import LMGEC
+
+model = LMGEC(
+    n_clusters=data.n_clusters,
+    embedding_dim=16,
+    temperature=1.0,
+    preprocess=False,
+)
+
+# 4. Fit & evaluate
+from pymv.metrics import clustering_accuracy, nmi_score, ari_score
+
+pred = model.fit_predict(Hs)
+print("ACC:", clustering_accuracy(labels, pred))
+print("NMI:", nmi_score(labels, pred))
+print("ARI:", ari_score(labels, pred))
+
+# 5. Full experiment (compare configurations)
+from pymv.experiment import Experiment
+
+m1 = LMGEC(n_clusters=data.n_clusters, embedding_dim=16, temperature=1.0, preprocess=False)
+m1.name = "LMGEC-T1"
+
+m2 = LMGEC(n_clusters=data.n_clusters, embedding_dim=16, temperature=10.0, preprocess=False)
+m2.name = "LMGEC-T10"
+
+m3 = LMGEC(n_clusters=data.n_clusters, embedding_dim=32, temperature=5.0, preprocess=False)
+m3.name = "LMGEC-d32"
+
+Experiment(
+    datasets={"flickr30k_preprocessed": (Hs, As, labels)},
+    models=[m1, m2, m3],
+    metrics=[clustering_accuracy, nmi_score, ari_score],
+    n_runs=5,
+    verbose=2,
+).run()
 ```
 
 ---
