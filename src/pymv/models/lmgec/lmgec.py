@@ -15,7 +15,7 @@ from sklearn.decomposition import TruncatedSVD
 
 from pymv.core import BaseModel
 from pymv.models.registry import register_model
-from pymv.preprocessing import get_propagated_features, preprocess_features
+from pymv.preprocessing import get_propagated_features
 
 logger = logging.getLogger(__name__)
 
@@ -318,6 +318,11 @@ class LMGEC(BaseModel):
                 while len(adj_list) < n_views:
                     adj_list.append(adj_list[-1])
 
+            # Per-view pipeline (correct order):
+            #   Raw → center/scale (column-wise) → L2 normalize (row-wise) → propagate
+            # Centering and scaling must precede row normalization so that
+            # feature distributions are aligned before projecting onto the
+            # unit sphere.
             Hs = []
             for v in range(n_views):
                 H = get_propagated_features(
@@ -325,14 +330,10 @@ class LMGEC(BaseModel):
                     adj=adj_list[v],
                     beta=betas[v],
                     tf_idf=tf_idfs[v],
+                    center=self.center,
+                    scale=self.scale,
                 )
                 Hs.append(H)
-
-            # centering / scaling
-            if self.center or self.scale:
-                Hs = preprocess_features(
-                    Hs, center=self.center, scale=self.scale
-                )
 
         else:
             # User already prepared the views — use as-is
