@@ -15,10 +15,7 @@ from sklearn.decomposition import TruncatedSVD
 
 from pymv.core import BaseModel
 from pymv.models.registry import register_model
-from pymv.preprocessing import (
-    get_propagated_features,
-    preprocess_features,
-)
+from pymv.preprocessing import get_propagated_features
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +39,7 @@ def _configure_gpu():
 _configure_gpu()
 
 # update rules  F, W, And G
+
 
 def _update_rule_F(XW, G, K):
     return tf.math.unsorted_segment_mean(XW, G, num_segments=K)
@@ -311,7 +309,7 @@ class LMGEC(BaseModel):
             betas = self._resolve_per_view(self.beta, n_views, "beta")
             tf_idfs = self._resolve_per_view(self.tf_idf, n_views, "tf_idf")
 
-            # Build adjacency list 
+            # Build adjacency list
             if As is None:
                 adj_list = [None] * n_views
             else:
@@ -320,6 +318,11 @@ class LMGEC(BaseModel):
                 while len(adj_list) < n_views:
                     adj_list.append(adj_list[-1])
 
+            # Per-view pipeline (correct order):
+            #   Raw → center/scale (column-wise) → L2 normalize (row-wise) → propagate
+            # Centering and scaling must precede row normalization so that
+            # feature distributions are aligned before projecting onto the
+            # unit sphere.
             Hs = []
             for v in range(n_views):
                 H = get_propagated_features(
@@ -327,14 +330,10 @@ class LMGEC(BaseModel):
                     adj=adj_list[v],
                     beta=betas[v],
                     tf_idf=tf_idfs[v],
+                    center=self.center,
+                    scale=self.scale,
                 )
                 Hs.append(H)
-
-            # centering / scaling
-            if self.center or self.scale:
-                Hs = preprocess_features(
-                    Hs, center=self.center, scale=self.scale
-                )
 
         else:
             # User already prepared the views — use as-is

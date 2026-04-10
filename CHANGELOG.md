@@ -167,6 +167,22 @@ and this project adheres to Semantic Versioning.
 - Division-by-zero guard when all view alphas sum to zero.
 - `embedding_dim >= n_features` edge case handled with a warning and identity fallback instead of a crash.
 
+## v0.5.0 (2026-04-10)
+
+### Feat
+
+- **data**: add embedding variants (clip, resnet_minilm, vit_minilm, vit_sbert) for pascal, coco_all, and coco_cross
+- **data**: add embedding variants (clip, resnet_minilm, vit_minilm, vit_sbert) for pascal, coco_all, and coco_cross
+- **data**: add flickr30k, iaprtc12, nus_wide, and esp_game dataset loaders
+
+### Fix
+
+- **preprocessing**: correct order of normalization and scaling in LMGEC pipeline
+- **experiment**: fix tqdm progress bar to update in place instead of printing every line
+- **ci**: update py_compile path from src/graphs to src/pymv
+- **lint**: fix all flake8 violations (W292, W291, W293, W391, F401, F841, E221, E302, E303)
+- **markdown**: adding horizontal scrollbar to fix wrapping problem in the notebook output
+
 ## v0.4.0 (2026-04-01)
 
 ### Feat

@@ -22,16 +22,15 @@ Internal helpers (used by the public API; usable but rarely needed)
 
 from __future__ import annotations
 
+from typing import List, Union
+
 import numpy as np
 import scipy.sparse as sp
-
-from typing import Union, List
-
-from sklearn.preprocessing import normalize, StandardScaler
 from sklearn.feature_extraction.text import TfidfTransformer
-
+from sklearn.preprocessing import StandardScaler, normalize
 
 # Graph preprocessing
+
 
 def preprocess_graph(adj: Union[np.ndarray, sp.spmatrix], beta: float = 1.0):
     r"""Build the row-normalized propagation matrix.
@@ -230,7 +229,7 @@ def preprocess_features(
         graph propagation) that should be called **before** this
         function if graph structure is available.
     """
-    
+
     single_input = not isinstance(features, list)
 
     if single_input:
@@ -267,18 +266,24 @@ def get_propagated_features(
     features: Union[np.ndarray, sp.spmatrix],
     adj: Union[np.ndarray, sp.spmatrix, None] = None,
     beta: float = 1.0,
-    tf_idf: bool = False
+    tf_idf: bool = False,
+    center: bool = False,
+    scale: bool = False,
 ):
-    r"""Normalize and (optionally) propagate features through a graph.
+    r"""Center/scale, normalize, and (optionally) propagate features.
 
     **Public API** — this is the recommended entry point for
     preparing a **single view** before clustering.
 
     The pipeline is:
 
-    1. **Normalize** the feature matrix via
+    1. **Center / scale** the feature matrix column-wise via
+       :func:`preprocess_features` (only when requested).
+       Column-wise operations must come first so that the
+       subsequent row normalization sees standardized columns.
+    2. **Normalize** the feature matrix via
        :func:`normalize_features` (L2 or TF-IDF + L2).
-    2. **Propagate** through the graph (if an adjacency matrix is
+    3. **Propagate** through the graph (if an adjacency matrix is
        provided):
 
        .. math::
@@ -286,6 +291,14 @@ def get_propagated_features(
 
        If ``adj`` is ``None``, propagation is skipped and the
        normalized features are returned directly.
+
+    .. note::
+       **Why this order?**  Centering and scaling are *column-wise*
+       statistics that align feature distributions across samples.
+       Row normalization (L2) then projects each sample onto the
+       unit sphere.  Reversing the two (normalizing first, then
+       centering) would destroy the unit-norm property and produce
+       geometrically inconsistent representations.
 
     Parameters
     ----------
@@ -304,16 +317,23 @@ def get_propagated_features(
         If ``True``, apply TF-IDF + L2 normalization instead of
         plain L2 normalization.  See :func:`normalize_features`.
 
+    center : bool, default=False
+        Subtract the column mean from each feature **before**
+        row normalization.  See :func:`preprocess_features`.
+
+    scale : bool, default=False
+        Divide each feature by its column standard deviation
+        **before** row normalization.  See :func:`preprocess_features`.
+
     Returns
     -------
     np.ndarray of shape (n_samples, n_features)
-        Dense feature matrix — normalized and (if ``adj`` was
-        provided) propagated.
+        Dense feature matrix — optionally centered/scaled,
+        normalized, and (if ``adj`` was provided) propagated.
 
     See Also
     --------
-    preprocess_features : Apply centering / scaling **after**
-        propagation (call on the output of this function).
+    preprocess_features : Column-wise centering / scaling.
     normalize_features : Internal — normalization only.
     preprocess_graph : Internal — builds the propagation matrix.
 
@@ -336,8 +356,14 @@ def get_propagated_features(
     (2, 2)
     """
 
+    # Step 1: column-wise centering / scaling (before row normalization)
+    if center or scale:
+        features = preprocess_features(features, center=center, scale=scale)
+
+    # Step 2: row-wise L2 (or TF-IDF + L2) normalization
     X = normalize_features(features, tf_idf)
 
+    # Step 3: graph propagation (if adjacency is provided)
     if adj is None:
         return X
 

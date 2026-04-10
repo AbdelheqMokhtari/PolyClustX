@@ -18,7 +18,7 @@ as well as named attribute access::
 
 from __future__ import annotations
 
-from typing import Any, Iterator, List, Optional
+from typing import Iterator
 
 import numpy as np
 

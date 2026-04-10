@@ -29,6 +29,7 @@ Usage
 from __future__ import annotations
 
 import copy
+import html as _html_mod
 import sys
 import time
 from collections import OrderedDict
@@ -37,8 +38,14 @@ import numpy as np
 from tqdm import tqdm
 
 from pymv.core import BaseModel
-from .result import ExperimentResult, Result
+
 from .logger import setup_experiment_logger
+from .result import ExperimentResult, Result, _in_notebook
+
+
+def _html_escape(text: str) -> str:
+    """Escape HTML special characters while preserving box-drawing chars."""
+    return _html_mod.escape(text)
 
 
 # Normalizers (accept many input shapes, return canonical form)
@@ -57,7 +64,7 @@ def _normalize_datasets(datasets) -> OrderedDict:
     *   single callable              — treated as ``[callable]``
     *   single tuple ``(Xs, As, y)`` — treated as ``{"dataset": tuple}``
     """
-    from pymv.data.registry import DATASETS, load_dataset
+    from pymv.data.registry import DATASETS
 
     if isinstance(datasets, str):
         datasets = [datasets]
@@ -386,11 +393,12 @@ class Experiment:
                 total=total_work,
                 desc="Experiment",
                 unit="run",
+                dynamic_ncols=True,
+                file=sys.stdout,
                 bar_format=(
                     "{l_bar}{bar}| {n_fmt}/{total_fmt} "
                     "[{elapsed}<{remaining}, {rate_fmt}] {postfix}"
                 ),
-                file=sys.stdout,
             )
 
         for ds_name, ds_entry in self.datasets.items():
@@ -500,7 +508,20 @@ class Experiment:
 
         # Print clean tables to console (WARNING level → verbose>=1)
         output = str(self.result)
-        logger.warning("\n%s", output)
+
+        if _in_notebook() and self.verbose >= 1 and output.strip():
+            # In Jupyter notebooks, render tables as scrollable HTML
+            # so wide tables never wrap or break box-drawing alignment.
+            from IPython.display import HTML, display
+            html = (
+                '<pre style="white-space: pre; overflow-x: auto; '
+                'font-family: monospace; font-size: 13px; '
+                'line-height: 1.4; padding: 8px 0; margin: 0;">'
+                f"{_html_escape(output)}</pre>"
+            )
+            display(HTML(html))
+        else:
+            logger.warning("\n%s", output)
 
         # Also write full tables to log file
         logger.debug("\n[FULL RESULTS]\n%s", output)
@@ -508,10 +529,9 @@ class Experiment:
         # Export full experiment folder
 
         if self.save_markdown and experiment_dir:
+            from pymv.tracking import build_metrics_csv_rows, build_results_dict
+
             from .markdown_export import export_experiment
-            from pymv.tracking import (
-                build_results_dict, build_metrics_csv_rows,
-            )
 
             # Build config metadata
             _SKIP = {

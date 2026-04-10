@@ -41,8 +41,9 @@ import numpy as np
 from tqdm import tqdm
 
 from pymv.core import BaseModel
-from .result import RandomSearchResult
+
 from .logger import setup_experiment_logger
+from .result import RandomSearchResult, _in_notebook
 
 
 def _resolve_dataset(dataset) -> tuple[str, Any]:
@@ -296,7 +297,7 @@ class RandomSearchExperiment:
 
         model_name = self.model_class.__name__
 
-        # Log header (file only unless verbose>=3) 
+        # Log header (file only unless verbose>=3)
         logger.debug("=" * 60)
         logger.debug("  pymv Random Search")
         logger.debug("=" * 60)
@@ -344,11 +345,12 @@ class RandomSearchExperiment:
                 total=self.n_iter,
                 desc="Random Search",
                 unit="trial",
+                dynamic_ncols=True,
+                file=sys.stdout,
                 bar_format=(
                     "{l_bar}{bar}| {n_fmt}/{total_fmt} "
                     "[{elapsed}<{remaining}, {rate_fmt}] {postfix}"
                 ),
-                file=sys.stdout,
             )
 
         for i in range(self.n_iter):
@@ -397,17 +399,30 @@ class RandomSearchExperiment:
         if pbar:
             pbar.close()
 
-        # Print clean table to console (WARNING → verbose>=1) 
+        # Print clean table to console (WARNING → verbose>=1)
         output = str(self.result)
-        logger.warning("\n%s", output)
+
+        if _in_notebook() and self.verbose >= 1 and output.strip():
+            import html as _html_mod
+
+            from IPython.display import HTML, display
+            html_out = (
+                '<pre style="white-space: pre; overflow-x: auto; '
+                'font-family: monospace; font-size: 13px; '
+                'line-height: 1.4; padding: 8px 0; margin: 0;">'
+                f"{_html_mod.escape(output)}</pre>"
+            )
+            display(HTML(html_out))
+        else:
+            logger.warning("\n%s", output)
+
         logger.debug("\n[RANDOM SEARCH TABLE]\n%s", output)
 
-        # Export full experiment folder 
+        # Export full experiment folder
         if self.save_markdown and experiment_dir:
+            from pymv.tracking import build_metrics_csv_rows, build_results_dict
+
             from .markdown_export import export_random_search
-            from pymv.tracking import (
-                build_results_dict, build_metrics_csv_rows,
-            )
 
             config = {
                 "model_class": model_name,

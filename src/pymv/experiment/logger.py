@@ -28,6 +28,7 @@ import os
 import sys
 from datetime import datetime
 
+from tqdm import tqdm
 
 # Map verbose int -> console log level
 _VERBOSE_MAP = {
@@ -36,6 +37,22 @@ _VERBOSE_MAP = {
     2: logging.INFO,           # progress + tables
     3: logging.DEBUG,          # everything
 }
+
+
+class _TqdmHandler(logging.StreamHandler):
+    """Logging handler that routes output through ``tqdm.write()``.
+
+    This prevents log messages from breaking a tqdm progress bar
+    that is updating in-place on the same stream.
+    """
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            tqdm.write(msg, file=self.stream)
+            self.flush()
+        except Exception:
+            self.handleError(record)
 
 
 def setup_experiment_logger(
@@ -100,9 +117,10 @@ def setup_experiment_logger(
         ))
         logger.addHandler(fh)
 
-    # Console handler controlled by verbose 
+    # Console handler controlled by verbose
+    # Uses _TqdmHandler so log messages don't break tqdm progress bars.
     console_level = _VERBOSE_MAP.get(verbose, logging.INFO)
-    ch = logging.StreamHandler(sys.stdout)
+    ch = _TqdmHandler(sys.stdout)
     ch.setLevel(console_level)
     ch.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(ch)

@@ -32,10 +32,11 @@ Internal helpers (used by the external metrics; usable but rarely needed)
 from __future__ import annotations
 
 import numpy as np
-from sklearn import metrics
 from scipy.optimize import linear_sum_assignment
+from sklearn import metrics
 
 # Internal helpers
+
 
 def ordered_confusion_matrix(y_true, y_pred):
     r"""Build a confusion matrix with columns reordered by Hungarian alignment.
@@ -102,7 +103,6 @@ def ordered_confusion_matrix(y_true, y_pred):
     return conf_mat
 
 
-
 def cmat_to_pseudo_labels(conf_mat):
     r"""Expand a confusion matrix into aligned label vectors.
 
@@ -159,6 +159,7 @@ def cmat_to_pseudo_labels(conf_mat):
 
 # External metrics (require ground truth)
 
+
 def clustering_accuracy(y_true, y_pred):
     r"""Clustering accuracy (ACC) with Hungarian label alignment.
 
@@ -207,8 +208,6 @@ def clustering_accuracy(y_true, y_pred):
     conf_mat = ordered_confusion_matrix(y_true, y_pred)
 
     return np.trace(conf_mat) / np.sum(conf_mat)
-
-
 
 
 def clustering_f1_score(y_true, y_pred, average="macro"):
