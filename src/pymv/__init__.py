@@ -8,4 +8,4 @@ from .experiment import Experiment, RandomSearchExperiment  # noqa: F401
 from .models import get_model, list_models, register_model  # noqa: F401
 from .tracking import ExperimentTracker  # noqa: F401
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
