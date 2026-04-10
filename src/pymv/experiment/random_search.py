@@ -345,11 +345,12 @@ class RandomSearchExperiment:
                 total=self.n_iter,
                 desc="Random Search",
                 unit="trial",
+                dynamic_ncols=True,
+                file=sys.stdout,
                 bar_format=(
                     "{l_bar}{bar}| {n_fmt}/{total_fmt} "
                     "[{elapsed}<{remaining}, {rate_fmt}] {postfix}"
                 ),
-                file=sys.stdout,
             )
 
         for i in range(self.n_iter):
