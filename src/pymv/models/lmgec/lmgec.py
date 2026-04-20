@@ -46,10 +46,8 @@ def _update_rule_F(XW, G, K):
 
 
 def _update_rule_W(X, F, G):
-    F_g = tf.gather(F, G)
-    M = tf.linalg.matmul(X, F_g, transpose_a=True)
-    s, u, v = tf.linalg.svd(M)
-    W = tf.linalg.matmul(u, v, adjoint_b=True)
+    _, U, V = tf.linalg.svd(tf.transpose(X) @ tf.gather(F, G), full_matrices=False)
+    W = U @ tf.transpose(V)
     return W
 
 
