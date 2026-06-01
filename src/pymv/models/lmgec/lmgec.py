@@ -89,11 +89,6 @@ def _make_train_loop(n_views):
         losses = tf.TensorArray(dtype=tf.float64, size=max_iter)
 
         for t in tf.range(max_iter):
-            # Print the alpha values clearly for every iteration and every view.
-            # This allows monitoring of alpha evolution (or stability) for debugging collapse issues.
-            for v in range(n_views):
-                tf.print("[Iteration", t, "| View", v, "] Alpha:", alphas[v])
-
             XW_consensus = tf.zeros((n, m), dtype=tf.float64)
             loss_total = tf.constant(0.0, dtype=tf.float64)
 
@@ -389,6 +384,11 @@ class LMGEC(BaseModel):
         # run training loop (with automatic GPU → CPU fallback on OOM)
 
         alphas_norm = alphas / (alpha_sum if alpha_sum > 0 else n_views)
+        
+        # This helps in debugging alpha collapse.
+        for v in range(n_views):
+            print(f"[View {v}] Final Computed Alpha: {alphas_norm[v]:.4f}")
+            
         train_loop = _get_train_loop(n_views)
 
         def _run_on_device(device: str):
