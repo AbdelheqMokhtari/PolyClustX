@@ -12,3 +12,6 @@ configs/tmp/
 configs/experiments/
 experiments/
 START.md
+FINDING.md
+src/pymv/models/lmgec2/
+LMGEC
