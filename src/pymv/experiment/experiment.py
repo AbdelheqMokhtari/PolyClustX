@@ -437,6 +437,7 @@ class Experiment:
 
                 run_metrics: dict[str, list] = {k: [] for k in self.metrics}
                 run_times: list[float] = []
+                run_alphas: list = []
 
                 for r in range(self.runs):
                     if pbar:
@@ -456,11 +457,18 @@ class Experiment:
                     for k, v in scores.items():
                         run_metrics[k].append(v)
                     run_times.append(elapsed)
+                    
+                    alpha_str = ""
+                    if hasattr(model, "alphas_") and model.alphas_ is not None:
+                        run_alphas.append([float(a) for a in model.alphas_])
+                        alpha_vals = [f"{a:.3f}" for a in model.alphas_]
+                        alpha_str = f" | alphas=[{', '.join(alpha_vals)}]"
 
                     logger.debug(
-                        "    run %d/%d: %s  (%.2fs)",
+                        "    run %d/%d: %s%s  (%.2fs)",
                         r + 1, self.runs,
                         ", ".join(f"{k}={v:.4f}" for k, v in scores.items()),
+                        alpha_str,
                         elapsed,
                     )
 
@@ -477,12 +485,19 @@ class Experiment:
 
                 avg_time = float(np.mean(run_times))
 
+                table_alpha_str = ""
+                if run_alphas:
+                    avg_alphas = np.mean(run_alphas, axis=0)
+                    alpha_vals = [f"{a:.3f}" for a in avg_alphas]
+                    table_alpha_str = f"[{', '.join(alpha_vals)}]"
+
                 result = Result(
                     dataset_name=ds_name,
                     model_name=m_name,
                     metric_avg=avg,
                     metric_std=std if self.runs > 1 else None,
                     train_time=avg_time,
+                    alpha_str=table_alpha_str,
                 )
                 self.result.add(result)
 
@@ -496,10 +511,19 @@ class Experiment:
                     },
                     "times": [round(t, 4) for t in run_times],
                 }
+                if run_alphas:
+                    raw_scores[raw_key]["alphas"] = run_alphas
+
+                alpha_str = ""
+                if run_alphas:
+                    avg_alphas = np.mean(run_alphas, axis=0)
+                    alpha_vals = [f"{a:.3f}" for a in avg_alphas]
+                    alpha_str = f" | avg alphas=[{', '.join(alpha_vals)}]"
 
                 logger.debug(
-                    "    → %s  (%.2fs)",
+                    "    → %s%s  (%.2fs)",
                     ", ".join(f"{k}={v:.4f}" for k, v in avg.items()),
+                    alpha_str,
                     avg_time,
                 )
 

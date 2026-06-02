@@ -386,8 +386,8 @@ class LMGEC(BaseModel):
         alphas_norm = alphas / (alpha_sum if alpha_sum > 0 else n_views)
         
         # This helps in debugging alpha collapse.
-        for v in range(n_views):
-            print(f"[View {v}] Final Computed Alpha: {alphas_norm[v]:.4f}")
+        # for v in range(n_views):
+        #    print(f"[View {v}] Final Computed Alpha: {alphas_norm[v]:.4f}")
             
         train_loop = _get_train_loop(n_views)
 
@@ -422,6 +422,7 @@ class LMGEC(BaseModel):
         self.centroids_ = F_out.numpy()
         self.embedding_ = XW_out.numpy()
         self.loss_history_ = losses.numpy()
+        self.alphas_ = alphas_norm
 
         # Release all TF tensors so GPU VRAM is freed for the next call
         del G_out, F_out, XW_out, losses

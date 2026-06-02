@@ -340,6 +340,7 @@ class Result:
         metric_avg: dict,
         metric_std: dict | None = None,
         train_time: float = 0.0,
+        alpha_str: str = "",
     ):
         self.dataset_name = dataset_name
         self.model_name = model_name
@@ -348,6 +349,7 @@ class Result:
             {k: 0.0 for k in metric_avg}
         )
         self.train_time = train_time
+        self.alpha_str = alpha_str
 
     def format_cell(self, metric_name: str, show_std: bool = False) -> str:
         mean = self.metric_avg[metric_name]
@@ -427,12 +429,19 @@ class ExperimentResult:
                 continue
 
             metric_names = list(results[0].metric_avg.keys())
-            headers = metric_names + ["Time"]
+            has_alphas = any(getattr(r, "alpha_str", "") for r in results)
+            
+            headers = metric_names.copy()
+            if has_alphas:
+                headers.append("Alphas")
+            headers.append("Time")
 
             rows = []
             index = []
             for r in results:
                 row = [r.format_cell(m, show_std=show_std) for m in metric_names]
+                if has_alphas:
+                    row.append(getattr(r, "alpha_str", ""))
                 row.append(TIME_FMT.format(r.train_time))
                 rows.append(row)
                 index.append(r.model_name)
