@@ -498,6 +498,11 @@ class RandomSearchResult:
             self.best_idx = len(self.trials) - 1
 
     @property
+    def best_trial(self) -> dict | None:
+        """The full best trial (``params`` / ``metrics`` / ``time``)."""
+        return self.trials[self.best_idx] if self.trials else None
+
+    @property
     def best_params(self) -> dict:
         return self.trials[self.best_idx]["params"]
 

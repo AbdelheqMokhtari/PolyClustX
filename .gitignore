@@ -2,6 +2,9 @@ __pycache__/
 *.mat
 dist/*
 src/*.egg-info
+.venv/
+venv/
+.ipynb_checkpoints/
 to_do_list.md
 .readthedocs.yaml
 docs/*

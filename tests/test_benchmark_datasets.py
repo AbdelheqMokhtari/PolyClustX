@@ -55,7 +55,7 @@ def _check_multimodal(ds):
 class TestLoad100Leaves:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.hundred_leaves import load_100leaves
+        from pymv.data import load_100leaves
         return load_100leaves()
 
     def test_structure(self, ds):
@@ -65,7 +65,7 @@ class TestLoad100Leaves:
 class TestLoad3Sources:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.three_sources import load_3sources
+        from pymv.data import load_3sources
         return load_3sources()
 
     def test_structure(self, ds):
@@ -75,7 +75,7 @@ class TestLoad3Sources:
 class TestLoadAcm5View:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.acm_5view import load_acm_5view
+        from pymv.data import load_acm_5view
         return load_acm_5view()
 
     def test_structure(self, ds):
@@ -85,17 +85,21 @@ class TestLoadAcm5View:
 class TestLoadAloi:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.aloi import load_aloi
+        from pymv.data import load_aloi
         return load_aloi()
 
     def test_structure(self, ds):
         _check_standard(ds, expected_views=4)
 
 
+@pytest.mark.skip(
+    reason="BBC4view.mat hosted on Zenodo is corrupt (unreadable by scipy "
+    "and MATLAB/HDF5 readers) — the file needs to be re-uploaded."
+)
 class TestLoadBbc4View:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.bbc4view import load_bbc4view
+        from pymv.data import load_bbc4view
         return load_bbc4view()
 
     def test_structure(self, ds):
@@ -105,7 +109,7 @@ class TestLoadBbc4View:
 class TestLoadBbcSport:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.bbcsport import load_bbcsport
+        from pymv.data import load_bbcsport
         return load_bbcsport()
 
     def test_structure(self, ds):
@@ -115,7 +119,7 @@ class TestLoadBbcSport:
 class TestLoadCaltech101_7:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.caltech101_7 import load_caltech101_7
+        from pymv.data import load_caltech101_7
         return load_caltech101_7()
 
     def test_structure(self, ds):
@@ -125,7 +129,7 @@ class TestLoadCaltech101_7:
 class TestLoadCiteSeer:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.citeseer import load_citeseer
+        from pymv.data import load_citeseer
         return load_citeseer()
 
     def test_structure(self, ds):
@@ -135,7 +139,7 @@ class TestLoadCiteSeer:
 class TestLoadCora:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.cora import load_cora
+        from pymv.data import load_cora
         return load_cora()
 
     def test_structure(self, ds):
@@ -145,7 +149,7 @@ class TestLoadCora:
 class TestLoadHandwritten:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.handwritten import load_handwritten
+        from pymv.data import load_handwritten
         return load_handwritten()
 
     def test_structure(self, ds):
@@ -155,7 +159,7 @@ class TestLoadHandwritten:
 class TestLoadMnist10k:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.mnist_10k import load_mnist_10k
+        from pymv.data import load_mnist_10k
         return load_mnist_10k()
 
     def test_structure(self, ds):
@@ -165,7 +169,7 @@ class TestLoadMnist10k:
 class TestLoadMnist4:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.mnist_4 import load_mnist_4
+        from pymv.data import load_mnist_4
         return load_mnist_4()
 
     def test_structure(self, ds):
@@ -175,7 +179,7 @@ class TestLoadMnist4:
 class TestLoadMsrcV5:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.msrc_v5 import load_msrc_v5
+        from pymv.data import load_msrc_v5
         return load_msrc_v5()
 
     def test_structure(self, ds):
@@ -185,7 +189,7 @@ class TestLoadMsrcV5:
 class TestLoadOutdoorScene:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.outdoor_scene import load_outdoor_scene
+        from pymv.data import load_outdoor_scene
         return load_outdoor_scene()
 
     def test_structure(self, ds):
@@ -195,7 +199,7 @@ class TestLoadOutdoorScene:
 class TestLoadProteinFold:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.protein_fold import load_protein_fold
+        from pymv.data import load_protein_fold
         return load_protein_fold()
 
     def test_structure(self, ds):
@@ -205,7 +209,7 @@ class TestLoadProteinFold:
 class TestLoadReuters1200:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.reuters_1200 import load_reuters_1200
+        from pymv.data import load_reuters_1200
         return load_reuters_1200()
 
     def test_structure(self, ds):
@@ -215,7 +219,7 @@ class TestLoadReuters1200:
 class TestLoadReuters1500:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.reuters_1500 import load_reuters_1500
+        from pymv.data import load_reuters_1500
         return load_reuters_1500()
 
     def test_structure(self, ds):
@@ -225,7 +229,7 @@ class TestLoadReuters1500:
 class TestLoadUci:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.uci import load_uci
+        from pymv.data import load_uci
         return load_uci()
 
     def test_structure(self, ds):
@@ -235,7 +239,7 @@ class TestLoadUci:
 class TestLoadWebKB:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.webkb import load_webkb
+        from pymv.data import load_webkb
         return load_webkb()
 
     def test_structure(self, ds):
@@ -245,7 +249,7 @@ class TestLoadWebKB:
 class TestLoadWikipedia:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.wikipedia import load_wikipedia
+        from pymv.data import load_wikipedia
         return load_wikipedia()
 
     def test_structure(self, ds):
@@ -255,7 +259,7 @@ class TestLoadWikipedia:
 class TestLoadYale:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.yale import load_yale
+        from pymv.data import load_yale
         return load_yale()
 
     def test_structure(self, ds):
@@ -270,7 +274,7 @@ class TestLoadYale:
 class TestLoadArtsMultimodal:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.arts_multimodal import load_arts_multimodal
+        from pymv.data import load_arts_multimodal
         return load_arts_multimodal()
 
     def test_structure(self, ds):
@@ -280,7 +284,7 @@ class TestLoadArtsMultimodal:
 class TestLoadGroceryMultimodal:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.grocery_multimodal import load_grocery_multimodal
+        from pymv.data import load_grocery_multimodal
         return load_grocery_multimodal()
 
     def test_structure(self, ds):
@@ -290,7 +294,7 @@ class TestLoadGroceryMultimodal:
 class TestLoadGrocerySMultimodal:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.grocerys_multimodal import load_grocerys_multimodal
+        from pymv.data import load_grocerys_multimodal
         return load_grocerys_multimodal()
 
     def test_structure(self, ds):
@@ -300,7 +304,7 @@ class TestLoadGrocerySMultimodal:
 class TestLoadMoviesMultimodal:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.movies_multimodal import load_movies_multimodal
+        from pymv.data import load_movies_multimodal
         return load_movies_multimodal()
 
     def test_structure(self, ds):
@@ -310,7 +314,7 @@ class TestLoadMoviesMultimodal:
 class TestLoadPhotoMultimodal:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.photo_multimodal import load_photo_multimodal
+        from pymv.data import load_photo_multimodal
         return load_photo_multimodal()
 
     def test_structure(self, ds):
@@ -320,7 +324,7 @@ class TestLoadPhotoMultimodal:
 class TestLoadRedditMultimodal:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.reddit_multimodal import load_reddit_multimodal
+        from pymv.data import load_reddit_multimodal
         return load_reddit_multimodal()
 
     def test_structure(self, ds):
@@ -330,7 +334,7 @@ class TestLoadRedditMultimodal:
 class TestLoadRedditSMultimodal:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.reddits_multimodal import load_reddits_multimodal
+        from pymv.data import load_reddits_multimodal
         return load_reddits_multimodal()
 
     def test_structure(self, ds):
@@ -340,7 +344,7 @@ class TestLoadRedditSMultimodal:
 class TestLoadToysMultimodal:
     @pytest.fixture(scope="class")
     def ds(self):
-        from pymv.data.toys_multimodal import load_toys_multimodal
+        from pymv.data import load_toys_multimodal
         return load_toys_multimodal()
 
     def test_structure(self, ds):

@@ -384,11 +384,7 @@ class LMGEC(BaseModel):
         # run training loop (with automatic GPU → CPU fallback on OOM)
 
         alphas_norm = alphas / (alpha_sum if alpha_sum > 0 else n_views)
-        
-        # This helps in debugging alpha collapse.
-        # for v in range(n_views):
-        #    print(f"[View {v}] Final Computed Alpha: {alphas_norm[v]:.4f}")
-            
+
         train_loop = _get_train_loop(n_views)
 
         def _run_on_device(device: str):

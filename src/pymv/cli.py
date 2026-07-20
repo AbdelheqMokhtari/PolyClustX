@@ -291,11 +291,17 @@ def build_parser() -> argparse.ArgumentParser:
 # ── Commands ──────────────────────────────────────────────────────
 
 def cmd_list_datasets():
-    from pymv.data import list_datasets
-    datasets = list_datasets()
+    from pymv.data import get_dataset_info, list_datasets
     print("Available datasets:")
-    for name in datasets:
-        print(f"  • {name}")
+    for category in ("graph", "features", "multimodal"):
+        names = list_datasets(category=category)
+        if not names:
+            continue
+        print(f"\n  {category}:")
+        for name in names:
+            info = get_dataset_info(name)
+            cached = "  [cached]" if info["cached"] else ""
+            print(f"    • {name:<26} {info['description']}{cached}")
 
 
 def cmd_list_models():
@@ -349,6 +355,17 @@ def cmd_run_experiment(args):
         kwargs["preprocess"] = False
     else:
         kwargs["preprocess"] = defaults["preprocess"]
+
+    # Pass through every other registered model parameter.  Config
+    # files can set params that have no dedicated CLI flag (e.g. the
+    # LMGECplus component specs: reconstruction_loss, clustering, …);
+    # merge_config_with_cli attaches them to `args`, so pick them up
+    # here and fall back to the registry default otherwise.
+    for key, default in defaults.items():
+        if key in kwargs or key == "preprocess":
+            continue
+        val = getattr(args, key, None)
+        kwargs[key] = default if val is None else val
 
     model = model_info["class"](**kwargs)
     metrics = _resolve_metrics(args.metrics or _DEFAULT_METRICS)
