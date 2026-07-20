@@ -262,7 +262,7 @@ class RandomSearchExperiment:
             }
             config["best_trial"] = {
                 "scores": {
-                    k: _to_python(v) for k, v in best["scores"].items()
+                    k: _to_python(v) for k, v in best["metrics"].items()
                 },
                 "time": round(best.get("time", 0.0), 4),
             }
@@ -456,7 +456,7 @@ class RandomSearchExperiment:
                 dataset_name=self.dataset_name,
                 model_name=model_name,
                 model_params=best_params,
-                metrics=dict(best["scores"]) if best else {},
+                metrics=dict(best["metrics"]) if best else {},
                 runs=self.n_iter,
                 train_time=best.get("time", 0.0) if best else 0.0,
             )
