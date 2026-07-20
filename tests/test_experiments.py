@@ -6,8 +6,6 @@ from __future__ import annotations
 
 import os
 
-import numpy as np
-import pytest
 
 
 # ── Experiment ────────────────────────────────────────────────────
@@ -301,3 +299,73 @@ class TestRandomSearchResult:
 
         rs = RandomSearchResult("acm", "LMGEC", "acc")
         assert str(rs) == "(no trials)"
+
+    def test_best_trial(self):
+        from pymv.experiment.result import RandomSearchResult
+
+        rs = RandomSearchResult("acm", "LMGEC", "acc")
+        assert rs.best_trial is None  # no trials yet
+        rs.add_trial({"beta": 1.0}, {"acc": 0.5}, 1.0)
+        rs.add_trial({"beta": 2.0}, {"acc": 0.9}, 1.5)
+
+        best = rs.best_trial
+        assert best["params"] == {"beta": 2.0}
+        assert best["metrics"]["acc"] == 0.9
+        assert best["time"] == 1.5
+
+
+class TestRandomSearchExperiment:
+    def test_run_and_best_trial(self, mock_dataset, metrics_fns):
+        from pymv.experiment import RandomSearchExperiment
+        from pymv.models.lmgec import LMGEC
+
+        rs = RandomSearchExperiment(
+            model_class=LMGEC,
+            param_distributions={
+                "n_clusters": [mock_dataset.n_clusters],
+                "embedding_dim": [4],
+                "max_iter": [3],
+                "preprocess": [False],
+            },
+            dataset=("mock", mock_dataset),
+            metrics=metrics_fns,
+            best_metric=next(iter(metrics_fns)),
+            n_iter=2,
+            seed=0,
+            verbose=0,
+        )
+        result = rs.run()
+        assert result.best_trial is not None
+        assert "params" in result.best_trial
+
+    def test_save_creates_files(self, mock_dataset, metrics_fns, tmp_dir):
+        # Regression: the save path referenced a non-existent ``best_trial``
+        # attribute and the wrong metrics key, crashing save_markdown runs.
+        from pymv.experiment import RandomSearchExperiment
+        from pymv.models.lmgec import LMGEC
+
+        rs = RandomSearchExperiment(
+            model_class=LMGEC,
+            param_distributions={
+                "n_clusters": [mock_dataset.n_clusters],
+                "embedding_dim": [4],
+                "max_iter": [3],
+                "preprocess": [False],
+            },
+            dataset=("mock", mock_dataset),
+            metrics=metrics_fns,
+            best_metric=next(iter(metrics_fns)),
+            n_iter=2,
+            seed=0,
+            verbose=0,
+            save_markdown=True,
+            experiment_name="test_rs",
+            save_path=tmp_dir,
+        )
+        rs.run()
+
+        exp_dir = os.path.join(tmp_dir, "test_rs")
+        assert os.path.isfile(os.path.join(exp_dir, "results.md"))
+        assert os.path.isfile(os.path.join(exp_dir, "config.yaml"))
+        assert os.path.isfile(os.path.join(exp_dir, "results.json"))
+        assert os.path.isfile(os.path.join(exp_dir, "metrics.csv"))

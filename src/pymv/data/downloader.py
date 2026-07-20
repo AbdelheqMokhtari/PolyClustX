@@ -1,5 +1,5 @@
 import logging
-import os
+from pathlib import Path
 
 import requests
 from tqdm import tqdm
@@ -7,37 +7,42 @@ from tqdm import tqdm
 logger = logging.getLogger(__name__)
 
 
-def download_file(url, destination):
+def download_file(url: str, destination, timeout: int = 30) -> Path:
+    """Download ``url`` to ``destination``, reusing a cached copy if present.
 
-    os.makedirs(os.path.dirname(destination), exist_ok=True)
+    The file is written to a temporary ``.part`` path and moved into
+    place only after the download completes, so an interrupted or
+    failed download never leaves a corrupt file in the cache.
+    """
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
 
-    if os.path.exists(destination):
-
-        logger.debug("Dataset already downloaded.")
+    if destination.exists():
         logger.debug("Using cached file: %s", destination)
-
         return destination
 
-    logger.info("Downloading dataset...")
-    logger.info("Saving to: %s", destination)
+    logger.info("Downloading dataset to: %s", destination)
+    tmp_path = destination.with_suffix(destination.suffix + ".part")
 
-    response = requests.get(url, stream=True)
+    try:
+        response = requests.get(url, stream=True, timeout=timeout)
+        response.raise_for_status()
 
-    total_size = int(response.headers.get("content-length", 0))
-    block_size = 8192
+        total_size = int(response.headers.get("content-length", 0))
+        with open(tmp_path, "wb") as f, tqdm(
+            total=total_size,
+            unit="B",
+            unit_scale=True,
+            desc="Downloading",
+        ) as progress:
+            for chunk in response.iter_content(8192):
+                f.write(chunk)
+                progress.update(len(chunk))
 
-    with open(destination, "wb") as f, tqdm(
-        total=total_size,
-        unit="B",
-        unit_scale=True,
-        desc="Downloading",
-    ) as progress:
-
-        for data in response.iter_content(block_size):
-
-            f.write(data)
-            progress.update(len(data))
+        tmp_path.replace(destination)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
     logger.info("Download completed.")
-
     return destination

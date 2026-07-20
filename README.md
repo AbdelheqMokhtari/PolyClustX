@@ -142,13 +142,11 @@ src/pymv/
         lmgec/lmgec.py              # LMGEC (first algorithm — more coming)
     data/
         dataset.py                  # MultiViewDataset container class
-        registry.py                 # load_dataset() / list_datasets()
-        downloader.py               # Zenodo auto-download helper
-        acm.py  amazon_photos.py    # -+
-        bdgp.py  coco_all.py        #  | 10 dataset loaders
-        coco_cross.py  dblp.py      #  | (one file each)
-        imdb.py  pascal.py          #  |
-        prokaryotic.py  wiki.py     # -+
+        registry.py                 # dataset catalog: one DatasetSpec per dataset,
+                                    # load_dataset() / list_datasets() / load_<name>()
+        readers.py                  # generic .mat readers (one per file layout)
+        downloader.py               # Zenodo auto-download helper (atomic, cached)
+        base.py                     # cache dir (~/.pymv_datasets, or $PYMV_DATA_DIR)
     preprocessing/
         features.py                 # normalize, propagate, TF-IDF, center/scale
     metrics/

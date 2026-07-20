@@ -46,10 +46,8 @@ def _update_rule_F(XW, G, K):
 
 
 def _update_rule_W(X, F, G):
-    F_g = tf.gather(F, G)
-    M = tf.linalg.matmul(X, F_g, transpose_a=True)
-    s, u, v = tf.linalg.svd(M)
-    W = tf.linalg.matmul(u, v, adjoint_b=True)
+    _, U, V = tf.linalg.svd(tf.transpose(X) @ tf.gather(F, G), full_matrices=False)
+    W = U @ tf.transpose(V)
     return W
 
 
@@ -354,12 +352,25 @@ class LMGEC(BaseModel):
         alphas = np.zeros(n_views, dtype=np.float64)
         XW_consensus = np.zeros((Hs[0].shape[0], m), dtype=np.float64)
 
+        # Why collapse happens: On large datasets, inertia scales with dataset size N. 
+        # This large raw inertia score dominates the exponential function, pushing one view's alpha 
+        # towards 1 while others collapse towards 0.
+        # Why normalization helps: Normalization by sqrt(N) makes the scale invariant to dataset size, 
+        # preventing the exponential collapse.
+        # Alpha evolution can be used for debugging: tracking these values ensures the model retains
+        # multi-view balance instead of deteriorating into single-view representation.
         for v in range(n_views):
             Wv = _init_W(Hs[v], m)
             XWv = Hs[v] @ Wv
             Gv, Fv = _init_G_F(XWv, k)
             inertia = np.linalg.norm(XWv - Fv[Gv])
-            alphas[v] = np.exp(-inertia / self.temperature)
+            
+            # Normalize inertia by sqrt(N) to make the scale invariant to dataset size.
+            # This prevents the exponential from collapsing to 100/0 on large datasets!
+            normalized_inertia = inertia / np.sqrt(XWv.shape[0])
+            logger.info(f"[View {v}] Normalized Inertia: {normalized_inertia:.4f}")
+            
+            alphas[v] = np.exp(-normalized_inertia / self.temperature)
             XW_consensus += alphas[v] * XWv
 
         alpha_sum = alphas.sum()
@@ -373,6 +384,7 @@ class LMGEC(BaseModel):
         # run training loop (with automatic GPU → CPU fallback on OOM)
 
         alphas_norm = alphas / (alpha_sum if alpha_sum > 0 else n_views)
+
         train_loop = _get_train_loop(n_views)
 
         def _run_on_device(device: str):
@@ -406,6 +418,7 @@ class LMGEC(BaseModel):
         self.centroids_ = F_out.numpy()
         self.embedding_ = XW_out.numpy()
         self.loss_history_ = losses.numpy()
+        self.alphas_ = alphas_norm
 
         # Release all TF tensors so GPU VRAM is freed for the next call
         del G_out, F_out, XW_out, losses
