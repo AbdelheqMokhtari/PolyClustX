@@ -167,6 +167,20 @@ and this project adheres to Semantic Versioning.
 - Division-by-zero guard when all view alphas sum to zero.
 - `embedding_dim >= n_features` edge case handled with a warning and identity fallback instead of a crash.
 
+## v1.0.0 (2026-07-20)
+
+### Feat
+
+- **ablation**: change the entire library to fix errors and change the logic to improve implementation
+- **dataset**: upgrading the dataloader by adding extra datasets
+- **alphas**: Log alpha values once since they are fixed a priori
+- **lmgec**: adding normalized intertia to avoid view collapsing
+
+### Fix
+
+- **intertia**: modify the log to print the intertia during the expirements
+- **update_W**: modify the update W method to match exactly the original implementation
+
 ## v0.5.0 (2026-04-10)
 
 ### Feat
