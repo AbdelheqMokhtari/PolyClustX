@@ -1,14 +1,15 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pymv"
-version = "1.1.0"
+version = "1.1.1"
 description = "Python package for multi-view graph clustering and representation learning algorithms."
 readme = "README.md"
 requires-python = ">=3.9"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 
 authors = [
     { name = "Abdelheq Mokhtari", email = "mokhtari.abdelheq@gmail.com" }
@@ -28,7 +29,6 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Operating System :: OS Independent",
-    "License :: OSI Approved :: MIT License"
 ]
 
 dependencies = [
@@ -80,7 +80,7 @@ pymv = ["configs/*.yaml"]
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "1.1.0"
+version = "1.1.1"
 tag_format = "v$version"
 version_files = [
     "pyproject.toml:version",

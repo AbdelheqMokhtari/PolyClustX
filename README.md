@@ -5,9 +5,10 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/AbdelheqMokhtari/pymv/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/AbdelheqMokhtari/pymv/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-blue?logo=python&logoColor=white">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-green">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.1.0-orange">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.1.1-orange">
 </p>
 
 `pymv` makes it easy to **benchmark**, **compare** and **develop** multi-view
@@ -56,7 +57,7 @@ Core dependencies (`numpy`, `scipy`, `scikit-learn`, `matplotlib`,
 `tensorflow>=2.10`, `pyyaml`, `tqdm`, `requests`) install automatically.
 
 ```bash
-pip install -e ".[dev]"     # + pytest, coverage, ruff, build
+pip install -e ".[dev]"     # + pytest, ruff, build
 pip install -e ".[docs]"    # + sphinx and the docs theme
 pip install -e ".[umap]"    # + UMAP projection for plot_clusters
 ```
@@ -124,7 +125,7 @@ print(data.summary())
 ```
 
 Datasets are downloaded on first use and cached under `~/.pymv_datasets`
-(override with the `PYMV_DATA_HOME` environment variable).
+(override with the `PYMV_DATA_DIR` environment variable).
 
 | Kind | Examples |
 |---|---|

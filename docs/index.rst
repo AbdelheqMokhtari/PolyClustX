@@ -7,7 +7,7 @@
      <h2>pymv</h2>
      <p><strong>A comparative framework for multi-view &amp; multi-modal clustering in Python</strong></p>
      <p>Benchmark · Compare · Publish — in a few lines of code</p>
-     <span class="version-badge">v 1.1.0</span>
+     <span class="version-badge">v 1.1.1</span>
    </div>
 
    <!-- Badges -->
@@ -15,7 +15,7 @@
      <a href="https://github.com/AbdelheqMokhtari/pymv"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-repo-blue?logo=github"></a>
      <img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-blue?logo=python&logoColor=white">
      <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-green">
-     <img alt="Version" src="https://img.shields.io/badge/version-1.1.0-orange">
+     <img alt="Version" src="https://img.shields.io/badge/version-1.1.1-orange">
    </div>
 
    <hr class="landing-divider">

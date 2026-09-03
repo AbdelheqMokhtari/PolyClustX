@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog,
 and this project adheres to Semantic Versioning.
 
+## v1.1.1 (2026-09-03)
+
+### Fixed
+
+- Required CI no longer downloads the live Zenodo benchmark catalog, which
+  previously caused repeated timeouts after more than 20 minutes.
+- Dataset downloads now retry interrupted transfers, resume partial files when
+  the server supports byte ranges, and reject incomplete files.
+
+### Changed
+
+- CI now checks the oldest and newest supported Python versions, validates the
+  package distribution, and uses Node 24-compatible GitHub Actions releases.
+- Live dataset validation is available as a manual ACM smoke-test workflow;
+  the full catalog remains available with `pytest -m network`.
+
+### Added
+
+- Offline tests for dataset download caching, retry, resume, cleanup, and
+  servers that ignore range requests.
+
 ## v1.1.0 (2026-09-02)
 
 ### Removed
@@ -270,4 +291,3 @@ and this project adheres to Semantic Versioning.
 - LMGEC `fit()` now explicitly converts arrays to `tf.float32` tensors before entering `@tf.function`, preventing dtype mismatch errors.
 - Division-by-zero guard when all view alphas sum to zero.
 - `embedding_dim >= n_features` edge case handled with a warning and identity fallback instead of a crash.
-

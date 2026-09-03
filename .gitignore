@@ -16,9 +16,11 @@ dist/
 docs/_build/
 
 # Local data, experiment output and scratch notes
-data/
+# Keep these anchored to the repository root so source packages such as
+# src/pymv/data are never ignored accidentally.
+/data/
 *.mat
-experiments/
+/experiments/
 src/pymv/configs/*.local.yaml
 START.md
 FINDING.md

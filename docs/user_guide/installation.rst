@@ -41,7 +41,7 @@ Declared as extras in ``pyproject.toml``:
 
 .. code-block:: bash
 
-   pip install -e ".[dev]"     # pytest, coverage, ruff, build
+   pip install -e ".[dev]"     # pytest, ruff, build
    pip install -e ".[docs]"    # sphinx, furo, myst-parser, copybutton
    pip install -e ".[umap]"    # UMAP projection for plot_clusters
 
@@ -51,7 +51,7 @@ Verify
 .. code-block:: python
 
    import pymv
-   print(pymv.__version__)   # e.g. "1.1.0"
+   print(pymv.__version__)   # e.g. "1.1.1"
 
    from pymv.data import list_datasets
    print(list_datasets())    # ['acm', 'amazon_photos', ...]
