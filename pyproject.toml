@@ -46,7 +46,6 @@ dependencies = [
 umap = ["umap-learn>=0.5.0"]
 dev = [
     "pytest>=7.0",
-    "coverage>=7.0",
     "ruff>=0.5",
     "build>=1.0",
 ]
@@ -90,6 +89,15 @@ version_files = [
 
 update_changelog_on_bump = true
 changelog_file = "CHANGELOG.md"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Dataset-loader tests can download more than 1 GB from Zenodo, so they are
+# deselected by default.  Run them with:  pytest -m network
+addopts = "-q -m 'not network'"
+markers = [
+    "network: downloads a dataset from Zenodo (deselected by default)",
+]
 
 [tool.ruff]
 line-length = 120
