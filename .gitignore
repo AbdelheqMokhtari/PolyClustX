@@ -1,20 +1,25 @@
+# Python
 __pycache__/
-*.mat
-build/
-dist/*
 *.egg-info/
 src/*.egg-info
+build/
+dist/
 .venv/
-.ipynb_checkpoints/
-.coverage
+
+# Tooling caches
 .pytest_cache/
 .ruff_cache/
-to_do_list.md
-tutorials/*
+.coverage
+.ipynb_checkpoints/
+
+# Docs
 docs/_build/
-src/pymv/configs/*.local.yaml
+
+# Local data, experiment output and scratch notes
+data/
+*.mat
 experiments/
+src/pymv/configs/*.local.yaml
 START.md
 FINDING.md
-src/pymv/models/lmgec2/
-LMGEC
+to_do_list.md

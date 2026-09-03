@@ -251,8 +251,7 @@ class TestModelRegistry:
 
 
 class TestLMGECReproducibility:
-    """LMGEC must be seedable — the baseline is compared against
-    LMGECplus, which already accepts ``random_state``."""
+    """LMGEC must produce identical labels for a fixed ``random_state``."""
 
     def test_same_seed_gives_same_labels(self, mock_dataset):
         from pymv.models.lmgec import LMGEC

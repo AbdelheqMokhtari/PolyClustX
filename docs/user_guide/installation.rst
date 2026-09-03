@@ -4,10 +4,10 @@ Installation
 Requirements
 ------------
 
-- **Python ≥ 3.8**
-- Core: ``numpy``, ``scipy``, ``scikit-learn``, ``networkx``, ``pandas``
+- **Python ≥ 3.9**
+- Core: ``numpy``, ``scipy``, ``scikit-learn``, ``matplotlib``,
+  ``requests``, ``pyyaml``, ``tqdm``
 - Model backend: ``tensorflow ≥ 2.10``
-- Optional: ``matplotlib``, ``seaborn`` (for visualization)
 
 Install from source
 -------------------
@@ -37,13 +37,13 @@ The LMGEC training loop uses TensorFlow.  If it's not already installed:
 Optional dependencies
 ---------------------
 
+Declared as extras in ``pyproject.toml``:
+
 .. code-block:: bash
 
-   # Visualization
-   pip install matplotlib seaborn
-
-   # Documentation (for contributors)
-   pip install sphinx furo myst-parser sphinx-copybutton sphinx-autodoc-typehints
+   pip install -e ".[dev]"     # pytest, coverage, ruff, build
+   pip install -e ".[docs]"    # sphinx, furo, myst-parser, copybutton
+   pip install -e ".[umap]"    # UMAP projection for plot_clusters
 
 Verify
 ------
@@ -51,7 +51,7 @@ Verify
 .. code-block:: python
 
    import pymv
-   print(pymv.__version__)   # e.g. "1.0.0"
+   print(pymv.__version__)   # e.g. "1.1.0"
 
    from pymv.data import list_datasets
    print(list_datasets())    # ['acm', 'amazon_photos', ...]

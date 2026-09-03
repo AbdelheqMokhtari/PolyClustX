@@ -99,7 +99,7 @@ Compare multiple model configurations across multiple datasets:
        datasets=["acm", "dblp", "imdb"],
        models=[m1, m2, m3],
        metrics=[clustering_accuracy, nmi_score, ari_score],
-       n_runs=10,
+       runs=10,
        verbose=1,
    ).run()
 

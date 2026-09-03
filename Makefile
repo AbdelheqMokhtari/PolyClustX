@@ -1,8 +1,39 @@
-.PHONY: release bump version help cli run search list-datasets list-models
+.PHONY: help guide cli run search list-datasets list-models \
+        install test lint format build docs clean version bump release
+
+# ── Help ──────────────────────────────────────────────────────────
+
+help:            ## Show this list of targets
+	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
+		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
+
+# ── Development ───────────────────────────────────────────────────
+
+install:         ## Editable install with dev + docs extras
+	pip install -e ".[dev,docs]"
+
+test:            ## Run the test suite
+	pytest -q
+
+lint:            ## Lint with ruff
+	ruff check src/ tests/
+
+format:          ## Auto-fix lint issues
+	ruff check --fix src/ tests/
+
+build:           ## Build wheel and sdist
+	python -m build
+
+docs:            ## Build the HTML documentation
+	python -m sphinx -b html docs docs/_build/html
+
+clean:           ## Remove build, cache and docs artifacts
+	rm -rf build dist *.egg-info src/*.egg-info docs/_build .pytest_cache .ruff_cache .coverage
+	find . -name __pycache__ -type d -prune -exec rm -rf {} +
 
 # ── CLI helpers ───────────────────────────────────────────────────
 
-help:            ## Show the pymv-cli quick-start guide
+guide:           ## Show the pymv-cli quick-start guide
 	@pymv-cli
 
 cli:             ## Run pymv-cli with forwarded arguments   →  make cli ARGS="--dataset acm"

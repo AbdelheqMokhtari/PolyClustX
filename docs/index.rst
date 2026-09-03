@@ -7,7 +7,7 @@
      <h2>pymv</h2>
      <p><strong>A comparative framework for multi-view &amp; multi-modal clustering in Python</strong></p>
      <p>Benchmark · Compare · Publish — in a few lines of code</p>
-     <span class="version-badge">v 1.0.0</span>
+     <span class="version-badge">v 1.1.0</span>
    </div>
 
    <!-- Badges -->
@@ -15,7 +15,7 @@
      <a href="https://github.com/AbdelheqMokhtari/pymv"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-repo-blue?logo=github"></a>
      <img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-blue?logo=python&logoColor=white">
      <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-green">
-     <img alt="Version" src="https://img.shields.io/badge/version-1.0.0-orange">
+     <img alt="Version" src="https://img.shields.io/badge/version-1.1.0-orange">
    </div>
 
    <hr class="landing-divider">
@@ -26,8 +26,8 @@
        <div class="card-icon">🧠</div>
        <h3>Clustering Models</h3>
        <p>Drop-in model classes with a <code>fit</code> / <code>fit_predict</code> API.
-          Ships <strong>LMGEC</strong> and the modular <strong>LMGECplus</strong>
-          research framework.</p>
+          Ships <strong>LMGEC</strong>, and a registry so you can add your own
+          in one decorator.</p>
      </div>
      <div class="feature-card">
        <div class="card-icon">📦</div>
@@ -38,7 +38,7 @@
      <div class="feature-card">
        <div class="card-icon">🔬</div>
        <h3>Experiment Framework</h3>
-       <p>Run <em>datasets × models × metrics × n_runs</em> in one call.
+       <p>Run <em>datasets × models × metrics × runs</em> in one call.
           Pretty tables on the console, full logs on disk.</p>
      </div>
      <div class="feature-card">
@@ -120,7 +120,7 @@ Run a full comparative experiment in 10 lines:
            LMGEC(n_clusters=3, embedding_dim=32, temperature=5.0),
        ],
        metrics=[clustering_accuracy, nmi_score, ari_score],
-       n_runs=10,
+       runs=10,
    ).run()
 
 ➡ See :doc:`user_guide/examples` for 8 more in-depth examples.
@@ -137,15 +137,6 @@ Run a full comparative experiment in 10 lines:
    user_guide/quickstart
    user_guide/examples
    user_guide/changelog
-
-.. toctree::
-   :maxdepth: 2
-   :caption: 🔬 Design Notes
-
-   LMGECplus_theory
-   LMGEC_modular_architecture
-   LMGEC_extensions
-   LMGECplus_experiments
 
 .. toctree::
    :maxdepth: 2

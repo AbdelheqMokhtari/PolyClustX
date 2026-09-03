@@ -4,6 +4,110 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog,
 and this project adheres to Semantic Versioning.
 
+## v1.1.0 (2026-09-02)
+
+### Removed
+
+- **models**: the `LMGECplus` modular research framework and its component
+  registry. `pymv.models` now exports `LMGEC` only, so imports of `LMGECplus`,
+  `pymv.models.lmgecplus`, `register_component` or `build_ablation_suite` will
+  no longer resolve. The last release containing it is `v1.0.0`.
+
+### Changed
+
+- Configs moved from `configs/` to `src/pymv/configs/`, so `default`,
+  `experiment`, `minimal` and `random_search` ship with the wheel and resolve
+  by shorthand name from any working directory.
+- README rewritten and cut to a single readable pass over the public API.
+- Notebooks reduced to four (`00`-`03`), each self-contained and executing
+  offline in seconds; `03_experiments_and_tuning` replaces the two removed
+  LMGECplus notebooks.
+
+### Added
+
+- Sphinx documentation site with API reference and user guide, plus a
+  ReadTheDocs configuration.
+- `LMGEC.alphas_` is now initialised in `__init__` and documented alongside
+  the other post-fit attributes.
+
+### Fixed
+
+- Docs and README passed `n_runs=` to `Experiment`, which has no such
+  parameter — corrected to `runs=`.
+- Installation docs listed `networkx`, `pandas` and `seaborn` as core
+  dependencies; none are required.
+- Stated Python floor corrected from 3.8 to 3.9, matching `pyproject.toml`.
+
+## v1.0.0 (2026-07-20)
+
+### Feat
+
+- **ablation**: change the entire library to fix errors and change the logic to improve implementation
+- **dataset**: upgrading the dataloader by adding extra datasets
+- **alphas**: Log alpha values once since they are fixed a priori
+- **lmgec**: adding normalized intertia to avoid view collapsing
+
+### Fix
+
+- **intertia**: modify the log to print the intertia during the expirements
+- **update_W**: modify the update W method to match exactly the original implementation
+
+## v0.5.0 (2026-04-10)
+
+### Feat
+
+- **data**: add embedding variants (clip, resnet_minilm, vit_minilm, vit_sbert) for pascal, coco_all, and coco_cross
+- **data**: add embedding variants (clip, resnet_minilm, vit_minilm, vit_sbert) for pascal, coco_all, and coco_cross
+- **data**: add flickr30k, iaprtc12, nus_wide, and esp_game dataset loaders
+
+### Fix
+
+- **preprocessing**: correct order of normalization and scaling in LMGEC pipeline
+- **experiment**: fix tqdm progress bar to update in place instead of printing every line
+- **ci**: update py_compile path from src/graphs to src/pymv
+- **lint**: fix all flake8 violations (W292, W291, W293, W391, F401, F841, E221, E302, E303)
+- **markdown**: adding horizontal scrollbar to fix wrapping problem in the notebook output
+
+## v0.4.0 (2026-04-01)
+
+### Feat
+
+- add model registry, pytest suite, and CI workflow
+- **tracking**: add expirement tracking system for saving configs and results
+- **models**: add models registry system for dynamic model management
+- add CLI, config-based experiments, and core framework improvements #2
+- **core**: add version endpoint to expose library version
+- **cli**: add config-based experiment system using yaml/json
+- **cli**: add command-line interface for running experiments
+- **experiements**: improve configuration table formatting and conditional display
+
+### Refactor
+
+- **git**: modify .gitignore for experiments and temorary files
+- **cli**: adding the verbose details with cli
+- **dataloader**: standardize dataset outputs with unified structure
+- **preprocessing**: modify some typos in the code in preprocessing folder
+- **metrics**: modify some typos in the code in metrics folder
+- **experiment**: modify some typos in the code in expirement folder
+
+## v0.3.3 (2026-03-16)
+
+## v0.3.2 (2026-03-10)
+
+## v0.3.1 (2026-03-09)
+
+## v0.3.0 (2026-03-09)
+
+## v0.2.2 (2026-02-16)
+
+## v0.2.1 (2026-01-06)
+
+## v0.2.0 (2026-01-02)
+
+## v0.1.0 (2025-12-01)
+
+## Detailed history (pre-1.0)
+
 ## [0.3.3] - 2026-03-11 *(in progress)*
 ### Fixed
 - **LMGEC: GPU out-of-memory (OOM) crash.**
@@ -167,70 +271,3 @@ and this project adheres to Semantic Versioning.
 - Division-by-zero guard when all view alphas sum to zero.
 - `embedding_dim >= n_features` edge case handled with a warning and identity fallback instead of a crash.
 
-## v1.0.0 (2026-07-20)
-
-### Feat
-
-- **ablation**: change the entire library to fix errors and change the logic to improve implementation
-- **dataset**: upgrading the dataloader by adding extra datasets
-- **alphas**: Log alpha values once since they are fixed a priori
-- **lmgec**: adding normalized intertia to avoid view collapsing
-
-### Fix
-
-- **intertia**: modify the log to print the intertia during the expirements
-- **update_W**: modify the update W method to match exactly the original implementation
-
-## v0.5.0 (2026-04-10)
-
-### Feat
-
-- **data**: add embedding variants (clip, resnet_minilm, vit_minilm, vit_sbert) for pascal, coco_all, and coco_cross
-- **data**: add embedding variants (clip, resnet_minilm, vit_minilm, vit_sbert) for pascal, coco_all, and coco_cross
-- **data**: add flickr30k, iaprtc12, nus_wide, and esp_game dataset loaders
-
-### Fix
-
-- **preprocessing**: correct order of normalization and scaling in LMGEC pipeline
-- **experiment**: fix tqdm progress bar to update in place instead of printing every line
-- **ci**: update py_compile path from src/graphs to src/pymv
-- **lint**: fix all flake8 violations (W292, W291, W293, W391, F401, F841, E221, E302, E303)
-- **markdown**: adding horizontal scrollbar to fix wrapping problem in the notebook output
-
-## v0.4.0 (2026-04-01)
-
-### Feat
-
-- add model registry, pytest suite, and CI workflow
-- **tracking**: add expirement tracking system for saving configs and results
-- **models**: add models registry system for dynamic model management
-- add CLI, config-based experiments, and core framework improvements #2
-- **core**: add version endpoint to expose library version
-- **cli**: add config-based experiment system using yaml/json
-- **cli**: add command-line interface for running experiments
-- **experiements**: improve configuration table formatting and conditional display
-
-### Refactor
-
-- **git**: modify .gitignore for experiments and temorary files
-- **cli**: adding the verbose details with cli
-- **dataloader**: standardize dataset outputs with unified structure
-- **preprocessing**: modify some typos in the code in preprocessing folder
-- **metrics**: modify some typos in the code in metrics folder
-- **experiment**: modify some typos in the code in expirement folder
-
-## v0.3.3 (2026-03-16)
-
-## v0.3.2 (2026-03-10)
-
-## v0.3.1 (2026-03-09)
-
-## v0.3.0 (2026-03-09)
-
-## v0.2.2 (2026-02-16)
-
-## v0.2.1 (2026-01-06)
-
-## v0.2.0 (2026-01-02)
-
-## v0.1.0 (2025-12-01)

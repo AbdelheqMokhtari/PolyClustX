@@ -102,14 +102,15 @@ class TestMultiViewDataset:
 # These tests actually download/load data.  Skip if data unavailable.
 
 
+@pytest.fixture(scope="module")
+def acm():
+    from pymv.data import load_dataset
+
+    return load_dataset("acm")
+
+
 class TestLoadRealDataset:
     """Validate structure of a real loaded dataset (ACM)."""
-
-    @pytest.fixture(scope="class")
-    def acm(self):
-        from pymv.data import load_dataset
-
-        return load_dataset("acm")
 
     def test_returns_multiview_dataset(self, acm):
         from pymv.data.dataset import MultiViewDataset

@@ -357,8 +357,7 @@ def cmd_run_experiment(args):
         kwargs["preprocess"] = defaults["preprocess"]
 
     # Pass through every other registered model parameter.  Config
-    # files can set params that have no dedicated CLI flag (e.g. the
-    # LMGECplus component specs: reconstruction_loss, clustering, …);
+    # files can set params that have no dedicated CLI flag;
     # merge_config_with_cli attaches them to `args`, so pick them up
     # here and fall back to the registry default otherwise.
     for key, default in defaults.items():

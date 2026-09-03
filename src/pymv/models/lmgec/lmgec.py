@@ -257,6 +257,7 @@ class LMGEC(BaseModel):
         self.centroids_ = None
         self.embedding_ = None
         self.loss_history_ = None
+        self.alphas_ = None
 
     # helpers
 
@@ -380,25 +381,17 @@ class LMGEC(BaseModel):
         alphas = np.zeros(n_views, dtype=np.float64)
         XW_consensus = np.zeros((Hs[0].shape[0], m), dtype=np.float64)
 
-        # Why collapse happens: On large datasets, inertia scales with dataset size N. 
-        # This large raw inertia score dominates the exponential function, pushing one view's alpha 
-        # towards 1 while others collapse towards 0.
-        # Why normalization helps: Normalization by sqrt(N) makes the scale invariant to dataset size, 
-        # preventing the exponential collapse.
-        # Alpha evolution can be used for debugging: tracking these values ensures the model retains
-        # multi-view balance instead of deteriorating into single-view representation.
+        # Inertia is normalized by sqrt(N) so the softmax scale is invariant
+        # to dataset size.  Without it, large N makes the exponential collapse
+        # onto a single view and the model stops being multi-view.
         for v in range(n_views):
             Wv = _init_W(Hs[v], m, random_state=self.random_state)
             XWv = Hs[v] @ Wv
             Gv, Fv = _init_G_F(XWv, k, random_state=self.random_state)
-            inertia = np.linalg.norm(XWv - Fv[Gv])
-            
-            # Normalize inertia by sqrt(N) to make the scale invariant to dataset size.
-            # This prevents the exponential from collapsing to 100/0 on large datasets!
-            normalized_inertia = inertia / np.sqrt(XWv.shape[0])
-            logger.info(f"[View {v}] Normalized Inertia: {normalized_inertia:.4f}")
-            
-            alphas[v] = np.exp(-normalized_inertia / self.temperature)
+            inertia = np.linalg.norm(XWv - Fv[Gv]) / np.sqrt(XWv.shape[0])
+            logger.info("[View %d] normalized inertia: %.4f", v, inertia)
+
+            alphas[v] = np.exp(-inertia / self.temperature)
             XW_consensus += alphas[v] * XWv
 
         alpha_sum = alphas.sum()

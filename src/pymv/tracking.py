@@ -60,11 +60,6 @@ class ExperimentTracker:
         Base directory for experiments.  Defaults to
         ``./experiments`` relative to the current working directory.
 
-    Attributes
-    ----------
-    experiment_dir : str
-        Absolute path to the experiment folder (created lazily
-        on first artifact save).
     """
 
     def __init__(
@@ -81,7 +76,7 @@ class ExperimentTracker:
 
     @property
     def experiment_dir(self) -> str:
-        """Absolute path to the experiment folder (created on access)."""
+        """Absolute path to the experiment folder (created lazily on access)."""
         if self._dir is None:
             self._dir = self._resolve_dir()
         return self._dir

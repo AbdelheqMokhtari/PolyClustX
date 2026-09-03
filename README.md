@@ -1,44 +1,87 @@
-# pymv
+<h1 align="center">pymv</h1>
 
-**A comparative framework for multi-view and multi-modal clustering in Python.**
+<p align="center">
+  <strong>A comparative framework for multi-view and multi-modal clustering in Python.</strong>
+</p>
 
-`pymv` makes it easy to **benchmark**, **compare**, and **develop** multi-view clustering algorithms.
-It provides a growing collection of models, **55 built-in dataset loaders** (auto-downloaded from Zenodo), a full **experiment / hyper-parameter-search harness**, and standard **clustering metrics** — all designed so you can go from idea to publishable results table in a few lines of code.
+<p align="center">
+  <img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-blue?logo=python&logoColor=white">
+  <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-green">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.1.0-orange">
+</p>
 
-> **Currently implemented:**
-> - **LMGEC** — Linear Multi-view Graph Embedding Clustering (the reference baseline).
-> - **LMGECplus** — a modular research framework where every stage (loss,
->   normalization, propagation, attention, view weighting, alignment,
->   clustering head, optimizer) is an independently replaceable component,
->   with built-in ablation support.
->
-> More algorithms are on the roadmap — the architecture is ready for drop-in additions.
+`pymv` makes it easy to **benchmark**, **compare** and **develop** multi-view
+clustering algorithms. It ships a reference model, **55 dataset loaders** that
+auto-download from Zenodo, an experiment and hyper-parameter-search harness,
+and the standard clustering metrics — so you can go from an idea to a results
+table in a few lines.
+
+**Implemented model:** `LMGEC` — Linear Multi-view Graph Embedding Clustering.
+New models drop in through a one-decorator registry; see
+[Adding a model](#adding-a-model).
+
+---
+
+## Contents
+
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Datasets](#datasets)
+- [The LMGEC model](#the-lmgec-model)
+- [Preprocessing](#preprocessing)
+- [Metrics](#metrics)
+- [Experiments](#experiments)
+- [Random search](#random-search)
+- [Visualization](#visualization)
+- [Command-line interface](#command-line-interface)
+- [Config files](#config-files)
+- [Adding a model](#adding-a-model)
+- [Notebooks](#notebooks)
+- [Development](#development)
+- [License](#license)
+
+---
+
+## Installation
+
+Requires **Python ≥ 3.9**.
+
+```bash
+git clone https://github.com/AbdelheqMokhtari/pymv.git
+cd pymv
+pip install -e .
+```
+
+Core dependencies (`numpy`, `scipy`, `scikit-learn`, `matplotlib`,
+`tensorflow>=2.10`, `pyyaml`, `tqdm`, `requests`) install automatically.
+
+```bash
+pip install -e ".[dev]"     # + pytest, coverage, ruff, build
+pip install -e ".[docs]"    # + sphinx and the docs theme
+pip install -e ".[umap]"    # + UMAP projection for plot_clusters
+```
 
 ---
 
 ## Quick start
-
-### 30-second example
 
 ```python
 from pymv.data import load_acm
 from pymv.models import LMGEC
 from pymv.metrics import clustering_accuracy, nmi_score
 
-Xs, As, y = load_acm()                          # auto-downloads on first call
+Xs, As, y = load_acm()                       # auto-downloads on first call
 
 labels = LMGEC(n_clusters=3, embedding_dim=16).fit_predict(Xs, As)
 
-print("ACC:", clustering_accuracy(y, labels))    # e.g. 0.91
-print("NMI:", nmi_score(y, labels))              # e.g. 0.68
+print("ACC:", clustering_accuracy(y, labels))
+print("NMI:", nmi_score(y, labels))
 ```
 
-### Compare configurations with one call
+Compare configurations across datasets in one call:
 
 ```python
 from pymv.experiment import Experiment
-from pymv.models import LMGEC
-from pymv.metrics import clustering_accuracy, nmi_score
 
 Experiment(
     datasets=["acm", "dblp", "imdb"],
@@ -47,675 +90,111 @@ Experiment(
         LMGEC(n_clusters=3, embedding_dim=16, temperature=10.0),
     ],
     metrics=[clustering_accuracy, nmi_score],
-).run()
-```
-
-The console prints **two clean tables** — model configuration + per-dataset results.
-Everything else (loading, per-run scores, errors) is saved to a log file in `./logs/`.
-
-### Run on a single view
-
-pymv always expects **lists** of views. To run the algorithm on just one
-view, wrap the single feature matrix (and adjacency) in a list:
-
-```python
-from pymv.data import load_flickr30k
-from pymv.models import LMGEC
-from pymv.experiment import Experiment
-from pymv.metrics import clustering_accuracy, nmi_score, ari_score
-
-data = load_flickr30k()
-Xs, As, labels = data
-
-# ⚠ Wrap the single view in a list — [Xs[0]], not Xs[0]
-model = LMGEC(
-    n_clusters=data.n_clusters,
-    embedding_dim=data.n_clusters + 1,
-    preprocess=True,
-    tf_idf=False,
-    center=True,
-    scale=False,
-)
-model.name = "LMGEC base"
-
-result = Experiment(
-    datasets={"flickr30k_view0": ([Xs[0]], [As[0]], labels)},
-    models=model,
-    metrics=[clustering_accuracy, nmi_score, ari_score],
-    runs=5,
-    verbose=2,
-).run()
-```
-
-> **Key point:** `([Xs[0]], [As[0]], labels)` — square brackets turn
-> the single array into a one-element list, which is what the model and
-> the Experiment expect. Writing `(Xs[0], As[0], labels)` without the
-> wrapping lists will raise an error.
-
----
-
-## Table of contents
-
-1. [Installation](#installation)
-2. [Package structure](#package-structure)
-3. [Quickstart — in depth](#quickstart--in-depth)
-4. [Tutorial — full workflow with per-view preprocessing](#tutorial--full-workflow-with-per-view-preprocessing)
-5. [Datasets](#datasets)
-6. [Models](#models)
-7. [Preprocessing](#preprocessing)
-8. [Metrics](#metrics)
-9. [Experiment framework](#experiment-framework)
-10. [Random search](#random-search)
-11. [Visualization](#visualization)
-12. [Command-line interface](#command-line-interface)
-13. [Config-based experiments](#config-based-experiments)
-14. [Algorithm — LMGEC intuition](#algorithm--lmgec-intuition)
-15. [Tips & troubleshooting](#tips--troubleshooting)
-16. [License](#license)
-
----
-
-## Installation
-
-Requires **Python >= 3.8**.
-
-```bash
-pip install -e .            # editable / development install
-```
-
-Core dependencies (`numpy`, `scipy`, `scikit-learn`, `networkx`, `pandas`, `tensorflow >= 2.10`) are declared in `pyproject.toml`.
-
-```bash
-# CPU-only TensorFlow (if not already installed)
-pip install "tensorflow>=2.10"
-
-# Optional — for visualization
-pip install matplotlib seaborn
-```
-
----
-
-## Package structure
-
-```
-pyproject.toml
-src/pymv/
-    __init__.py                     # top-level exports, __version__
-    cli.py                          # pymv-cli command-line interface
-    core/
-        base_model.py               # BaseModel ABC (all models inherit this)
-    models/
-        lmgec/lmgec.py              # LMGEC (first algorithm — more coming)
-    data/
-        dataset.py                  # MultiViewDataset container class
-        registry.py                 # dataset catalog: one DatasetSpec per dataset,
-                                    # load_dataset() / list_datasets() / load_<name>()
-        readers.py                  # generic .mat readers (one per file layout)
-        downloader.py               # Zenodo auto-download helper (atomic, cached)
-        base.py                     # cache dir (~/.pymv_datasets, or $PYMV_DATA_DIR)
-    preprocessing/
-        features.py                 # normalize, propagate, TF-IDF, center/scale
-    metrics/
-        clustering.py               # ACC, F1, NMI, ARI, Silhouette, CH, DB
-    experiment/
-        experiment.py               # Experiment runner
-        random_search.py            # RandomSearchExperiment
-        result.py                   # Result containers + table formatting
-        logger.py                   # dual file + console logging
-    visualization/
-        visualizer.py               # t-SNE / PCA cluster plots
-```
-
----
-
-## Quickstart — in depth
-
-### Example 1 — Load, fit, evaluate (3 lines)
-
-The simplest workflow: load a dataset, fit a model, evaluate.
-
-```python
-from pymv.data import load_acm
-from pymv.models import LMGEC
-from pymv.metrics import clustering_accuracy, nmi_score, ari_score
-
-# 1. Load data - returns a MultiViewDataset (tuple unpacking still works)
-Xs, As, y = load_acm()
-
-# 2. Fit and predict
-model = LMGEC(n_clusters=3, embedding_dim=16)
-labels = model.fit_predict(Xs, As)
-
-# 3. Evaluate
-print("ACC:", clustering_accuracy(y, labels))
-print("NMI:", nmi_score(y, labels))
-print("ARI:", ari_score(y, labels))
-```
-
-You can also use named attribute access:
-
-```python
-data = load_acm()
-print(data)  # MultiViewDataset('acm', n_samples=3025, n_views=2, ...)
-
-model = LMGEC(n_clusters=data.n_clusters, embedding_dim=16)
-labels = model.fit_predict(data.Xs, data.As)
-print("ACC:", clustering_accuracy(data.labels, labels))
-```
-
-### Example 2 — Per-view preprocessing options
-
-LMGEC can apply different preprocessing to each view. Pass lists to `beta` and `tf_idf`:
-
-```python
-model = LMGEC(
-    n_clusters=3,
-    embedding_dim=16,
-    tf_idf=[True, False],      # TF-IDF on view 0, plain L2 on view 1
-    beta=[1.0, 0.5],           # different self-loop weights per view
-    center=True,               # center features after propagation
-)
-labels = model.fit_predict(Xs, As)
-```
-
-### Example 3 — Bring your own preprocessed views
-
-Set `preprocess=False` to skip all internal preprocessing and pass your own pre-computed feature matrices:
-
-```python
-from pymv.preprocessing import get_propagated_features, preprocess_features
-
-# Propagate manually
-H0 = get_propagated_features(X0, A0, beta=1.0, tf_idf=True)
-H1 = get_propagated_features(X1, A1, beta=0.5, tf_idf=False)
-
-# Optionally center / scale
-Hs = preprocess_features([H0, H1], center=True, scale=False)
-
-# Fit — no adjacency needed
-model = LMGEC(n_clusters=3, embedding_dim=16, preprocess=False)
-labels = model.fit_predict(Hs)
-```
-
-### Example 4 — Feature-only clustering (no graphs)
-
-If your data has no natural graph structure, just pass the raw feature matrices:
-
-```python
-model = LMGEC(n_clusters=5, embedding_dim=32, preprocess=False)
-labels = model.fit_predict([X_view1, X_view2, X_view3])
-```
-
-### Example 5 — Full comparative experiment
-
-Compare multiple model configurations across multiple datasets with automatic logging:
-
-```python
-from pymv.experiment import Experiment
-from pymv.models import LMGEC
-from pymv.metrics import clustering_accuracy, nmi_score, ari_score
-
-# Name your configs for clearer tables
-m1 = LMGEC(n_clusters=3, embedding_dim=16, temperature=1.0)
-m1.name = "LMGEC-T1"
-
-m2 = LMGEC(n_clusters=3, embedding_dim=16, temperature=10.0)
-m2.name = "LMGEC-T10"
-
-m3 = LMGEC(n_clusters=3, embedding_dim=32, temperature=5.0, tf_idf=True)
-m3.name = "LMGEC-d32-tfidf"
-
-result = Experiment(
-    datasets=["acm", "dblp", "imdb"],
-    models=[m1, m2, m3],
-    metrics=[clustering_accuracy, nmi_score, ari_score],
-    n_runs=10,        # 10 independent runs -> mean +/- std
-    verbose=1,        # tables only (default)
-).run()
-
-# Access results programmatically
-print(result.config_table())     # model hyper-parameters
-print(result.results_tables())   # per-dataset results
-```
-
-**Console output** (verbose=1):
-
-| Table | Content |
-|---|---|
-| **Model Configuration** | One row per model, columns = hyper-parameters |
-| **Results — acm** | Rows = models, columns = metrics + Time, best marked with `*` |
-| **Results — dblp** | ... |
-| **Results — imdb** | ... |
-
-> **Smart config table:** When all models have `preprocess=False`, preprocessing-only
-> parameters (`beta`, `tf_idf`, `center`, `scale`) are automatically hidden from the
-> configuration table since they have no effect in that mode.
-
-### Example 6 — Hyper-parameter search
-
-Find the best configuration for a single dataset:
-
-```python
-from pymv.experiment import RandomSearchExperiment
-from pymv.models import LMGEC
-from pymv.metrics import clustering_accuracy, nmi_score
-
-rs = RandomSearchExperiment(
-    model_class=LMGEC,
-    param_distributions={
-        "n_clusters": [3],
-        "embedding_dim": [4, 8, 16, 32, 64],
-        "temperature": [0.1, 0.5, 1.0, 5.0, 10.0],
-        "beta": [0.1, 0.5, 1.0, 2.0],
-        "max_iter": [30],
-    },
-    dataset="acm",
-    metrics=[clustering_accuracy, nmi_score],
-    best_metric="clustering_accuracy",
-    n_iter=30,
-)
-result = rs.run()
-
-print("Best params:", result.best_params)
-print("Best ACC:   ", result.best_score)
-print("All metrics:", result.best_metrics)
-```
-
-### Example 7 — Using custom / pre-loaded data with the Experiment
-
-You don't have to use the built-in loaders. Pass your own data:
-
-```python
-from pymv.experiment import Experiment
-from pymv.models import LMGEC
-from pymv.metrics import clustering_accuracy
-
-# Option A: pre-loaded tuple (still works)
-my_data = (Xs, As, y)
-
-# Option B: pass a MultiViewDataset directly
-data = load_acm()
-
-result = Experiment(
-    datasets={"my_dataset": my_data},      # dict with custom name
-    models=[LMGEC(n_clusters=5, embedding_dim=16)],
-    metrics=[clustering_accuracy],
-).run()
-
-# Or pass the dataset object directly
-result = Experiment(
-    datasets=data,                         # uses data.name automatically
-    models=[LMGEC(n_clusters=data.n_clusters, embedding_dim=16)],
-    metrics=[clustering_accuracy],
-).run()
-```
-
-### Example 8 — Visualize the consensus embedding
-
-```python
-from pymv.data import load_acm
-from pymv.models import LMGEC
-from pymv.visualization.visualizer import plot_clusters
-
-Xs, As, y = load_acm()
-model = LMGEC(n_clusters=3, embedding_dim=16)
-model.fit(Xs, As)
-
-# t-SNE plot colored by predicted clusters
-plot_clusters(model.embedding_, model.labels_, method="tsne", title="LMGEC on ACM")
-
-# PCA (faster, deterministic)
-plot_clusters(model.embedding_, y, method="pca", title="Ground truth on ACM")
-```
-
----
-
-## Tutorial — full workflow with per-view preprocessing
-
-This tutorial walks through the **complete pymv workflow** — from loading
-raw data to running a full comparative experiment — using **only pymv
-functions** (no external libraries needed).
-
-We use **Flickr30k** as an example. It has two views (image embeddings
-and text embeddings) with no graph structure.
-
-### Step 1 — Load the dataset
-
-```python
-from pymv.data import load_flickr30k
-
-# Auto-downloads from Zenodo on first call
-data = load_flickr30k()
-print(data)
-# MultiViewDataset('flickr30k', n_samples=12154, n_views=2, ...)
-
-# Unpack into views, adjacencies, and labels
-Xs, As, labels = data
-# Xs = [img_features (12154 × 100), txt_features (12154 × 100)]
-# As = [None, None]  (no graph structure)
-```
-
-### Step 2 — Per-view preprocessing
-
-`pymv.preprocessing` gives you full control over each view independently.
-Here we build **new** preprocessed arrays without modifying the originals.
-
-**Goal:**
-| View | Normalization | Centering | Scaling |
-|---|---|---|---|
-| View 0 (image) | L2 | ✓ | ✓ |
-| View 1 (text) | L2 | ✓ | ✗ |
-
-```python
-from pymv.preprocessing import normalize_features, preprocess_features
-
-# ---- View 0 (image): L2 normalization + centering + scaling ----
-H0 = normalize_features(Xs[0], tf_idf=False)          # L2 row-normalization
-H0 = preprocess_features(H0, center=True, scale=True)  # center + scale
-
-# ---- View 1 (text): L2 normalization + centering only ----
-H1 = normalize_features(Xs[1], tf_idf=False)           # L2 row-normalization
-H1 = preprocess_features(H1, center=True, scale=False)  # center only
-
-# Group preprocessed views into a new list
-Hs = [H0, H1]
-```
-
-> **Tip:** `normalize_features` applies L2 normalization (each row has
-> unit norm). Set `tf_idf=True` for TF-IDF + L2 if your features are
-> raw term-frequency counts.
-
-### Step 3 — Declare the model
-
-Since we already preprocessed manually, set `preprocess=False` so LMGEC
-skips its internal normalization / propagation:
-
-```python
-from pymv.models import LMGEC
-
-model = LMGEC(
-    n_clusters=data.n_clusters,   # auto-detected from labels
-    embedding_dim=16,
-    temperature=1.0,
-    max_iter=30,
-    preprocess=False,              # we already preprocessed
-)
-```
-
-### Step 4 — Fit and evaluate
-
-```python
-from pymv.metrics import clustering_accuracy, nmi_score, ari_score
-
-# Fit with the preprocessed views
-pred_labels = model.fit_predict(Hs)
-
-# Evaluate
-print("ACC:", clustering_accuracy(labels, pred_labels))
-print("NMI:", nmi_score(labels, pred_labels))
-print("ARI:", ari_score(labels, pred_labels))
-```
-
-### Step 5 — Compare configurations with Experiment
-
-Wrap everything into an `Experiment` to compare multiple configurations
-and get clean result tables automatically.
-
-We pass the preprocessed `Hs` as a custom dataset. There are **several
-ways** to do this:
-
-```python
-from pymv.experiment import Experiment
-
-# Define model variants — all with preprocess=False
-m1 = LMGEC(n_clusters=data.n_clusters, embedding_dim=16, temperature=1.0, preprocess=False)
-m1.name = "LMGEC-T1"
-
-m2 = LMGEC(n_clusters=data.n_clusters, embedding_dim=16, temperature=10.0, preprocess=False)
-m2.name = "LMGEC-T10"
-
-m3 = LMGEC(n_clusters=data.n_clusters, embedding_dim=32, temperature=5.0, preprocess=False)
-m3.name = "LMGEC-d32"
-
-metrics = [clustering_accuracy, nmi_score, ari_score]
-models  = [m1, m2, m3]
-
-# ── Option A: named dict with a (Xs, As, labels) tuple ──
-result = Experiment(
-    datasets={"flickr30k_preprocessed": (Hs, As, labels)},
-    models=models,
-    metrics=metrics,
-    runs=5,
-    verbose=2,
-).run()
-
-# ── Option B: anonymous tuple (auto-named "dataset") ──
-result = Experiment(
-    datasets=(Hs, As, labels),
-    models=models,
-    metrics=metrics,
-    runs=5,
-).run()
-
-# ── Option C: build a MultiViewDataset from the preprocessed views ──
-from pymv.data.dataset import MultiViewDataset
-
-preprocessed_data = MultiViewDataset(Hs, As, labels, name="flickr30k_preprocessed")
-result = Experiment(
-    datasets=preprocessed_data,       # uses .name automatically
-    models=models,
-    metrics=metrics,
     runs=5,
 ).run()
 ```
 
-This prints a **model configuration table** and a **results table** with
-mean ± std over 5 runs, with the best values highlighted.
+The console prints a model-configuration table and a per-dataset results
+table with mean ± std; per-run detail goes to a log file.
 
-### Step 6 — Hyper-parameter search
-
-Find the best configuration automatically using the preprocessed views:
-
-```python
-from pymv.experiment import RandomSearchExperiment
-
-rs = RandomSearchExperiment(
-    model_class=LMGEC,
-    param_distributions={
-        "n_clusters": [data.n_clusters],
-        "embedding_dim": [4, 8, 16, 32, 64],
-        "temperature": [0.1, 0.5, 1.0, 5.0, 10.0],
-        "max_iter": [30],
-        "preprocess": [False],
-    },
-    dataset={"flickr30k_preprocessed": (Hs, As, labels)},
-    metrics=[clustering_accuracy, nmi_score, ari_score],
-    best_metric="ACC",
-    n_iter=20,
-    verbose=2,
-)
-result = rs.run()
-
-print("Best params:", result.best_params)
-print("Best ACC:   ", result.best_score)
-```
-
-### Putting it all together
-
-Here is the complete script in one block:
-
-```python
-# ── pymv: Full workflow with per-view preprocessing ──────────────
-
-# 1. Load
-from pymv.data import load_flickr30k
-
-data = load_flickr30k()
-Xs, As, labels = data
-
-# 2. Per-view preprocessing (into new variables)
-from pymv.preprocessing import normalize_features, preprocess_features
-
-# View 0 (image): L2 + center + scale
-H0 = normalize_features(Xs[0], tf_idf=False)
-H0 = preprocess_features(H0, center=True, scale=True)
-
-# View 1 (text): L2 + center only
-H1 = normalize_features(Xs[1], tf_idf=False)
-H1 = preprocess_features(H1, center=True, scale=False)
-
-Hs = [H0, H1]
-
-# 3. Declare model
-from pymv.models import LMGEC
-
-model = LMGEC(
-    n_clusters=data.n_clusters,
-    embedding_dim=16,
-    temperature=1.0,
-    preprocess=False,
-)
-
-# 4. Fit & evaluate
-from pymv.metrics import clustering_accuracy, nmi_score, ari_score
-
-pred = model.fit_predict(Hs)
-print("ACC:", clustering_accuracy(labels, pred))
-print("NMI:", nmi_score(labels, pred))
-print("ARI:", ari_score(labels, pred))
-
-# 5. Full experiment (compare configurations)
-from pymv.experiment import Experiment
-
-m1 = LMGEC(n_clusters=data.n_clusters, embedding_dim=16, temperature=1.0, preprocess=False)
-m1.name = "LMGEC-T1"
-
-m2 = LMGEC(n_clusters=data.n_clusters, embedding_dim=16, temperature=10.0, preprocess=False)
-m2.name = "LMGEC-T10"
-
-m3 = LMGEC(n_clusters=data.n_clusters, embedding_dim=32, temperature=5.0, preprocess=False)
-m3.name = "LMGEC-d32"
-
-Experiment(
-    datasets={"flickr30k_preprocessed": (Hs, As, labels)},
-    models=[m1, m2, m3],
-    metrics=[clustering_accuracy, nmi_score, ari_score],
-    n_runs=5,
-    verbose=2,
-).run()
-```
+> **Views are always lists.** To cluster a single view, wrap it:
+> `([Xs[0]], [As[0]], y)` — not `(Xs[0], As[0], y)`.
 
 ---
 
 ## Datasets
 
-All loaders return a `MultiViewDataset` object containing feature matrices, adjacency matrices, and ground-truth labels. Datasets are downloaded automatically from Zenodo on first use.
-
-**Tuple unpacking still works** (backward compatible):
+Every loader returns a `MultiViewDataset`, which also unpacks as a
+`(Xs, As, labels)` tuple.
 
 ```python
-Xs, As, y = load_acm()          # classic 3-tuple unpacking
+from pymv.data import load_dataset, list_datasets, get_dataset_info
+
+print(list_datasets())            # 55 names
+print(get_dataset_info("acm"))    # views, samples, clusters, source
+
+data = load_dataset("acm")
+data.Xs            # list of feature matrices, one per view
+data.As            # list of adjacency matrices (entries may be None)
+data.labels        # ground-truth labels
+data.n_samples, data.n_views, data.n_clusters
+data.feature_dims  # [dim_v0, dim_v1, ...]
+data.has_graphs    # True if any adjacency is present
+print(data.summary())
 ```
 
-**Named attribute access** (new):
+Datasets are downloaded on first use and cached under `~/.pymv_datasets`
+(override with the `PYMV_DATA_HOME` environment variable).
+
+| Kind | Examples |
+|---|---|
+| Attributed graphs | `acm`, `dblp`, `imdb`, `cora`, `citeseer`, `wiki`, `webkb`, `amazon_photos` |
+| Multi-view features | `100leaves`, `3sources`, `bbcsport`, `bdgp`, `caltech101_7`, `handwritten`, `msrc_v5`, `prokaryotic`, `uci`, `yale` |
+| Multi-modal | `coco_all`, `coco_cross`, `pascal`, `flickr30k`, `nus_wide`, `esp_game`, `iaprtc12`, `wikipedia` |
+
+Several multi-modal datasets have **encoder variants** — the same samples
+with different feature extractors:
 
 ```python
-data = load_acm()
-data.Xs                          # list of feature matrices
-data.As                          # list of adjacency matrices (or Nones)
-data.labels                      # ground-truth label vector
-data.n_samples                   # number of samples
-data.n_views                     # number of views
-data.n_clusters                  # number of unique labels
-data.feature_dims                # [dim_v0, dim_v1, ...]
-data.has_graphs                  # True if any adjacency is not None
-print(data)                      # one-line summary
-print(data.summary())            # multi-line summary
-```
+from pymv.data import load_pascal, load_dataset
 
-| Function | Dataset | Type |
-|---|---|---|
-| `load_acm()` | ACM | Attributed graph (2 meta-paths) |
-| `load_amazon_photos()` | Amazon Photos | Attributed graph |
-| `load_bdgp()` | BDGP | Multi-view features |
-| `load_coco_all()` | COCO (all views) | Multi-view features |
-| `load_coco_cross()` | COCO (cross-modal) | Multi-view features |
-| `load_dblp()` | DBLP | Attributed graph (3 meta-paths) |
-| `load_imdb()` | IMDB | Attributed graph (2 meta-paths) |
-| `load_pascal()` | Pascal | Multi-view features |
-| `load_prokaryotic()` | Prokaryotic | Multi-view features |
-| `load_wiki()` | Wikipedia | Attributed graph |
-
-**Unified access:**
-
-```python
-from pymv.data import load_dataset, list_datasets
-
-print(list_datasets())
-# ['acm', 'amazon_photos', 'bdgp', 'coco_all', 'coco_cross',
-#  'dblp', 'imdb', 'pascal', 'prokaryotic', 'wiki']
-
-data = load_dataset("acm")     # returns MultiViewDataset
-Xs, As, y = load_dataset("acm")  # tuple unpacking also works
+load_pascal(variant="clip")           # explicit variant
+load_dataset("pascal_clip")           # or as a registry name
+load_dataset("coco_all_vit_sbert")
 ```
 
 ---
 
-## Models
-
-All models inherit from `pymv.core.BaseModel` and expose `fit()` / `fit_predict()`.
-
-> The framework is designed to host many algorithms. Currently **LMGEC** is the first — contributions and new models are welcome.
-
-### LMGEC
-
-```python
-from pymv.models import LMGEC
-```
-
-**Constructor:**
+## The LMGEC model
 
 ```python
 LMGEC(
-    n_clusters: int,
-    embedding_dim: int,
-    temperature: float = 1.0,
-    beta: float | list[float] = 1.0,
-    tf_idf: bool | list[bool] = False,
-    center: bool = False,
-    scale: bool = False,
-    preprocess: bool = True,
-    max_iter: int = 30,
+    n_clusters,                     # number of clusters k
+    embedding_dim,                  # latent dimension m
+    temperature=1.0,                # softmax temperature for view weights
+    beta=1.0,                       # self-loop weight (float or per-view list)
+    tf_idf=False,                   # TF-IDF + L2 vs plain L2 (bool or list)
+    center=False,                   # center features
+    scale=False,                    # scale features to unit variance
+    preprocess=True,                # master switch for internal preprocessing
+    max_iter=30,                    # alternating-optimisation iterations
+    random_state=None,              # seed the SVD/KMeans initialisation
 )
 ```
 
-| Parameter | Description |
-|---|---|
-| `n_clusters` | Number of clusters *k*. |
-| `embedding_dim` | Latent dimension *m* for per-view projections. |
-| `temperature` | Softmax temperature for view-weight alpha. Lower = sharper weighting. |
-| `beta` | Self-loop weight for graph propagation. `float` (all views) or `list[float]` (per-view). |
-| `tf_idf` | Normalization mode. `True` = TF-IDF + L2; `False` = plain L2. `bool` or `list[bool]` (per-view). |
-| `center` / `scale` | Center / scale features after propagation. |
-| `preprocess` | `True` (default): internal preprocessing. `False`: user provides pre-processed views; `As`, `beta`, `tf_idf`, `center`, `scale` are all ignored. |
-| `max_iter` | Alternating-optimisation iterations. |
+**How it works.** Each view is normalized and propagated through its graph
+(`H = S·X`). LMGEC then alternates three closed-form updates: an orthogonal
+projection `W` per view (via SVD), a consensus embedding weighted by per-view
+coefficients `α`, and cluster assignments `G` with centroids `F`. The `α` come
+from a softmax over each view's initial KMeans inertia — noisier views get
+down-weighted automatically. `temperature` controls how sharp that weighting
+is.
 
-**Methods:**
+**`preprocess=False`** turns off all internal preprocessing: views are fed
+straight into the optimiser, `As` is ignored, and `beta` / `tf_idf` /
+`center` / `scale` have no effect. Use it when you prepare views yourself.
 
-| Method | Returns | Description |
-|---|---|---|
-| `fit(Xs, As=None)` | `self` | Fit the model. |
-| `fit_predict(Xs, As=None)` | `np.ndarray` | Fit and return cluster labels. |
+```python
+from pymv.preprocessing import get_propagated_features
 
-**Attributes (after fit):**
+H0 = get_propagated_features(X0, A0, beta=1.0, tf_idf=True)
+H1 = get_propagated_features(X1, A1, beta=0.5, tf_idf=False)
+
+LMGEC(n_clusters=3, embedding_dim=16, preprocess=False).fit([H0, H1])
+```
+
+**Attributes after `fit`:**
 
 | Attribute | Shape | Description |
 |---|---|---|
-| `labels_` | `(n,)` | Cluster assignments. |
-| `centroids_` | `(k, m)` | Cluster centroids in consensus space. |
-| `embedding_` | `(n, m)` | Consensus embedding. |
-| `loss_history_` | `(max_iter,)` | Loss per iteration. |
-| `name` | `str` | Display name (get/set), used in experiment tables. |
+| `labels_` | `(n,)` | Cluster assignments |
+| `centroids_` | `(k, m)` | Centroids in consensus space |
+| `embedding_` | `(n, m)` | Consensus embedding |
+| `loss_history_` | `(max_iter,)` | Reconstruction loss per iteration |
+| `alphas_` | `(n_views,)` | Normalized per-view weights |
+| `embedding_dim_` | `int` | Dimension actually used (capped by the lowest-rank view) |
+
+`model.name` is settable and is what appears in experiment tables.
 
 ---
 
@@ -723,19 +202,16 @@ LMGEC(
 
 ```python
 from pymv.preprocessing import (
-    get_propagated_features,   # full pipeline: normalize -> propagate
-    preprocess_features,       # center / scale one or more views
-    preprocess_graph,          # build S = D^-1(A + beta*I)
-    normalize_features,        # TF-IDF or L2 normalization
+    get_propagated_features,   # normalize -> propagate: H = S·X
+    normalize_features,        # TF-IDF + L2, or plain L2
+    preprocess_graph,          # S = D⁻¹(A + beta·I)
+    preprocess_features,       # center and/or scale
 )
 ```
 
-| Function | Description |
-|---|---|
-| `get_propagated_features(X, A, beta, tf_idf)` | Normalize features, build propagation matrix S, return H = S*X. |
-| `preprocess_features(Xs, center, scale)` | Center and/or scale features. Accepts a single matrix or a list. |
-| `preprocess_graph(A, beta)` | Row-normalized propagation matrix S = D^-1(A + beta*I). |
-| `normalize_features(X, tf_idf)` | TF-IDF + L2 or plain L2 normalization. |
+The order inside `get_propagated_features` is center/scale (column-wise) →
+L2 normalize (row-wise) → propagate, so feature distributions are aligned
+before being projected onto the unit sphere.
 
 ---
 
@@ -743,96 +219,65 @@ from pymv.preprocessing import (
 
 ```python
 from pymv.metrics import (
-    # External (require ground truth)
-    clustering_accuracy,       # ACC — Hungarian alignment
-    clustering_f1_score,       # F1  — Hungarian alignment
-    nmi_score,                 # Normalized Mutual Information
-    ari_score,                 # Adjusted Rand Index
-    # Internal (no ground truth)
-    silhouette_score,          # Silhouette Coefficient  [-1, 1] higher is better
-    calinski_harabasz_score,   # Variance Ratio Criterion  higher is better
-    davies_bouldin_score,      # Davies-Bouldin Index  lower is better
+    clustering_accuracy, clustering_f1_score, nmi_score, ari_score,
+    silhouette_score, calinski_harabasz_score, davies_bouldin_score,
 )
 ```
 
-### External metrics
+| Function | Range | Needs labels | Better |
+|---|---|---|---|
+| `clustering_accuracy(y_true, y_pred)` | [0, 1] | yes | higher |
+| `clustering_f1_score(y_true, y_pred, average="macro")` | [0, 1] | yes | higher |
+| `nmi_score(y_true, y_pred)` | [0, 1] | yes | higher |
+| `ari_score(y_true, y_pred)` | [-1, 1] | yes | higher |
+| `silhouette_score(X, labels)` | [-1, 1] | no | higher |
+| `calinski_harabasz_score(X, labels)` | [0, ∞) | no | higher |
+| `davies_bouldin_score(X, labels)` | [0, ∞) | no | lower |
 
-| Function | Range | Notes |
-|---|---|---|
-| `clustering_accuracy(y_true, y_pred)` | [0, 1] | Label alignment via Hungarian algorithm. Higher is better. |
-| `clustering_f1_score(y_true, y_pred, average="macro")` | [0, 1] | F1 after alignment. Supports `macro`, `micro`, `weighted`. |
-| `nmi_score(y_true, y_pred)` | [0, 1] | Alignment-free; shared information. Higher is better. |
-| `ari_score(y_true, y_pred)` | [-1, 1] | Alignment-free; chance-corrected. Higher is better. |
-
-### Internal metrics
-
-| Function | Range | Notes |
-|---|---|---|
-| `silhouette_score(X, labels)` | [-1, 1] | Mean silhouette coefficient. Higher is better. |
-| `calinski_harabasz_score(X, labels)` | [0, inf) | Between / within dispersion ratio. Higher is better. |
-| `davies_bouldin_score(X, labels)` | [0, inf) | Average max cluster similarity. Lower is better. |
+ACC and F1 align predicted to true labels with the Hungarian algorithm.
 
 ---
 
-## Experiment framework
-
-```python
-from pymv.experiment import Experiment
-```
+## Experiments
 
 ```python
 Experiment(
-    datasets,          # str | list[str] | list[callable] | dict | tuple
-    models,            # BaseModel | list[BaseModel]
-    metrics,           # callable | list[callable] | dict[str, callable]
-    n_runs: int = 1,
-    verbose: int = 1,  # 0=silent  1=tables  2=progress+tables  3=debug
-    log_dir: str = "./logs",
-)
+    datasets,               # names, tuples, MultiViewDataset, or a {name: data} dict
+    models,                 # a model or a list of them
+    metrics,                # metric callables
+    runs=1,                 # independent re-fits per model
+    verbose=1,              # 0 silent · 1 tables · 2 progress · 3 debug
+    save_markdown=False,    # write a Markdown report
+    experiment_name=None,
+    save_path=None,         # default ./experiments
+    log=False,
+    log_dir=None,
+).run()
 ```
 
-### Flexible inputs
+`datasets` is flexible — all of these work:
 
 ```python
-# Datasets — any of these work
-datasets = ["acm", "dblp"]                         # names
-datasets = [load_acm, load_dblp]                   # callables
-datasets = {"acm": load_acm, "mine": (Xs, As, y)}  # dict mix
-datasets = "acm"                                   # single string
-datasets = (Xs, As, y)                             # single tuple
-
-# Models
-models = model                         # single
-models = [model_a, model_b]            # list
-
-# Metrics
-metrics = clustering_accuracy          # single
-metrics = [clustering_accuracy, nmi_score]
-metrics = {"ACC": clustering_accuracy} # dict with custom names
+datasets=["acm", "dblp"]                        # registry names
+datasets=(Xs, As, y)                            # one anonymous tuple
+datasets={"my_data": (Xs, As, y)}               # named
+datasets=[load_acm(), load_dblp()]              # MultiViewDataset objects
 ```
 
-### Verbose levels
-
-| Level | Console output |
-|---|---|
-| `0` | Silent |
-| `1` | Config table + result tables only **(default)** |
-| `2` | One-liner progress per (dataset x model) + tables |
-| `3` | Full debug (same detail as the log file) |
-
-### Logging
-
-- All execution details go to timestamped log files in `log_dir` (default `./logs/`).
-- Data-loader messages (downloading, loading, sample counts) are **log-file only** — they never clutter the console.
-
-### Result object
+Each run deep-copies the model, so runs are independent. `run()` returns an
+`ExperimentResult`:
 
 ```python
-result = exp.run()
+result = Experiment(...).run()
 
-print(result)                    # config table + all result tables
-print(result.config_table())     # model hyper-parameters only
-print(result.results_tables())   # per-dataset results only
+for dataset_name, rows in result.all_results.items():
+    for r in rows:
+        print(dataset_name, r.model_name,
+              r.metric_avg["clustering_accuracy"],
+              r.metric_std["clustering_accuracy"])
+
+print(result.config_table())      # the printed tables, as strings
+print(result.results_tables())
 ```
 
 ---
@@ -842,170 +287,107 @@ print(result.results_tables())   # per-dataset results only
 ```python
 from pymv.experiment import RandomSearchExperiment
 
-result = RandomSearchExperiment(
+search = RandomSearchExperiment(
     model_class=LMGEC,
-    param_distributions={...},
+    param_distributions={
+        "n_clusters": [3],
+        "embedding_dim": [8, 16, 32, 64],
+        "temperature": [0.1, 1.0, 10.0, 100.0],
+        "beta": [0.5, 1.0, 2.0],
+        "tf_idf": [True, False],
+    },
     dataset="acm",
     metrics=[clustering_accuracy, nmi_score],
     best_metric="clustering_accuracy",
-    n_iter=30,
+    n_iter=20,
+    seed=42,
 ).run()
 
-print(result.best_params)     # best hyper-parameter dict
-print(result.best_score)      # best value of the target metric
-print(result.best_metrics)    # all metrics for the best trial
+print(search.best_params, search.best_score)
+best_model = LMGEC(**search.best_params).fit(Xs, As)
 ```
+
+A list is sampled uniformly; a `(low, high)` tuple samples from that range;
+a callable is called for each trial.
 
 ---
 
 ## Visualization
 
 ```python
-from pymv.visualization.visualizer import plot_clusters
+from pymv.visualization import plot_clusters, plot_loss
 
-plot_clusters(model.embedding_, model.labels_, method="tsne", title="LMGEC clusters")
-plot_clusters(model.embedding_, model.labels_, method="pca",  title="LMGEC clusters (PCA)")
+plot_clusters(model.embedding_, model.labels_, method="tsne", title="LMGEC")
+plot_clusters(model.embedding_, model.labels_, method="pca")   # faster, deterministic
+plot_loss(model.loss_history_)
 ```
-
-Requires `matplotlib` (`pip install matplotlib`).
 
 ---
 
-## Dataset variants
-
-```python
-# Via the variant parameter directly
-from pymv.data import load_pascal
-ds = load_pascal(variant="clip")
-
-# Via the registry (load_dataset)
-from pymv.data import load_dataset
-ds = load_dataset("pascal_clip")
-ds = load_dataset("coco_all_vit_sbert")
-ds = load_dataset("coco_cross_resnet_minilm")
-```
-
 ## Command-line interface
-
-`pymv` ships with **`pymv-cli`** — run experiments directly from the terminal without writing Python code.
-
-### Setup
-
-The CLI is installed automatically with `pymv`:
-
-```bash
-pip install -e .          # editable install
-pymv-cli --help           # verify
-```
-
-### Discover available datasets and models
 
 ```bash
 pymv-cli --list-datasets
 pymv-cli --list-models
-```
 
-### Run an experiment
-
-```bash
-# Simplest — default parameters, 1 run
-pymv-cli --dataset acm
-
-# Custom parameters
-pymv-cli --dataset dblp --beta 2 --temperature 100 --tf-idf true
-
-# Multiple runs (shows mean ± std)
-pymv-cli --dataset acm --beta 2 --temperature 100 --runs 3
-
-# Choose metrics (short names: acc, nmi, ari, f1)
-pymv-cli --dataset acm --metrics acc nmi f1
-
-# Set number of clusters explicitly
-pymv-cli --dataset acm -k 3 --embedding-dim 32
-
-# Skip internal preprocessing
+pymv-cli --dataset acm                                   # defaults, 1 run
+pymv-cli --dataset dblp --beta 2 --temperature 100 --runs 3
+pymv-cli --dataset acm --metrics acc nmi f1 -k 3 --embedding-dim 32
 pymv-cli --dataset acm --no-preprocess
-```
 
-### Random hyper-parameter search
-
-```bash
-# Search 20 random configs (default)
-pymv-cli --dataset acm --random-search
-
-# More trials, fixed seed
 pymv-cli --dataset acm --random-search --n-trials 50 --seed 42
-
-# Fix some params, search others
-pymv-cli --dataset dblp --random-search --beta 2 --n-trials 30
-
-# Optimise by NMI instead of ACC
 pymv-cli --dataset acm --random-search --best-metric nmi
+
+pymv-cli --dataset acm --save --name acm_baseline        # Markdown report
 ```
-
-### Save results
-
-```bash
-# Save Markdown report + log to experiments/ folder
-pymv-cli --dataset acm --beta 2 --temperature 100 --save
-
-# With a custom experiment name
-pymv-cli --dataset acm --save --name acm_baseline
-
-# Write a log file only (no Markdown)
-pymv-cli --dataset acm --log
-```
-
-### Parameter reference
 
 | Flag | Short | Description | Default |
 |---|---|---|---|
-| `--dataset` | `-d` | Dataset name | *(required)* |
+| `--dataset` | `-d` | Dataset name | *required* |
 | `--model` | `-m` | Model name | `lmgec` |
-| `--n-clusters` | `-k` | Number of clusters | auto-detected |
+| `--n-clusters` | `-k` | Number of clusters | auto |
 | `--embedding-dim` | | Latent dimension | `16` |
 | `--temperature` | | Softmax temperature | `1.0` |
-| `--beta` | | Self-loop weight (scalar or list) | `1.0` |
-| `--tf-idf` | | TF-IDF normalization | `false` |
-| `--center` | | Center features | `false` |
-| `--scale` | | Scale features | `false` |
-| `--no-preprocess` | | Disable preprocessing | off |
-| `--max-iter` | | Max iterations | `30` |
+| `--beta` | | Self-loop weight | `1.0` |
+| `--tf-idf` / `--center` / `--scale` | | Preprocessing switches | `false` |
+| `--no-preprocess` | | Disable internal preprocessing | off |
+| `--max-iter` | | Iterations | `30` |
 | `--runs` | `-r` | Independent runs | `1` |
-| `--metrics` | | Metrics to report | `acc nmi ari` |
-| `--verbose` | `-v` | Verbosity (0–3) | `1` |
+| `--metrics` | | `acc` `nmi` `ari` `f1` | `acc nmi ari` |
+| `--verbose` | `-v` | 0–3 | `1` |
 | `--random-search` | | Enable random search | off |
-| `--n-trials` | | Random search trials | `20` |
+| `--n-trials` | | Search trials | `20` |
 | `--best-metric` | | Metric to optimise | `acc` |
 | `--seed` | | Random seed | none |
-| `--save` | | Save Markdown report | off |
-| `--name` | | Experiment folder name | auto |
-| `--log` | | Write log file | off |
-| `--config` | `-c` | Path to YAML/JSON config file | none |
+| `--save` / `--name` / `--save-path` | | Markdown report output | off |
+| `--log` | | Write a log file | off |
+| `--config` | `-c` | YAML/JSON config file | none |
 
 ---
 
-## Config-based experiments
+## Config files
 
-Instead of passing every flag on the command line, you can define your
-experiment in a **YAML** (or JSON) config file and run it with a single
-command:
+Put the whole experiment in YAML and run it with one flag. Four configs ship
+with the package and are addressable by shorthand name:
 
 ```bash
-pymv-cli --config configs/experiment.yaml
+pymv-cli --config default
+pymv-cli --config experiment
+pymv-cli --config random_search
+pymv-cli --config minimal
+
+pymv-cli --config experiment --dataset dblp --runs 5   # CLI flags override
 ```
 
-### Config file format
-
 ```yaml
-# configs/experiment.yaml
 dataset: acm
 
 model:
   name: lmgec
   params:
-    beta: 2
+    embedding_dim: 16
     temperature: 100
+    beta: 2
     tf_idf: true
     preprocess: true
     max_iter: 30
@@ -1020,143 +402,92 @@ output:
   name: acm_tuned
 ```
 
-All sections except `dataset` are optional — sensible defaults are used
-for anything you don't specify.
-
-### Minimal config
-
-```yaml
-# configs/minimal.yaml
-dataset: dblp
-```
-
-This is equivalent to `pymv-cli --dataset dblp`.
-
-### Random search via config
-
-```yaml
-# configs/random_search.yaml
-dataset: acm
-
-model:
-  name: lmgec
-
-experiment:
-  random_search: true
-  n_trials: 20
-  best_metric: acc
-  seed: 42
-  metrics: [acc, nmi, ari]
-
-search_space:
-  embedding_dim: [4, 8, 16, 32, 64]
-  temperature: [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
-  beta: [0.1, 0.5, 1.0, 2.0, 5.0]
-  tf_idf: [true, false]
-
-output:
-  save: true
-  name: acm_search
-```
-
-```bash
-pymv-cli --config configs/random_search.yaml
-```
-
-### CLI overrides
-
-CLI flags **always take priority** over config values, so you can reuse
-the same config for multiple datasets:
-
-```bash
-# Config says dataset: acm, but we override to dblp
-pymv-cli --config configs/experiment.yaml --dataset dblp
-
-# Override runs
-pymv-cli --config configs/experiment.yaml --runs 5
-
-# Override beta and add verbose
-pymv-cli --config configs/experiment.yaml --beta 5 -v 2
-```
-
-### Shorthand names
-
-If your config is inside the `configs/` directory, you can skip the
-path and just use the filename (without extension):
-
-```bash
-pymv-cli --config default           # → configs/default.yaml
-pymv-cli --config experiment        # → configs/experiment.yaml
-pymv-cli --config random_search     # → configs/random_search.yaml
-```
-
-### Config field reference
-
-| Section | Field | Description | Default |
-|---|---|---|---|
-| *(top)* | `dataset` | Dataset name | *(required)* |
-| `model` | `name` | Model name | `lmgec` |
-| `model.params` | `embedding_dim` | Latent dimension | `16` |
-| `model.params` | `temperature` | Softmax temperature | `1.0` |
-| `model.params` | `beta` | Self-loop weight | `1.0` |
-| `model.params` | `tf_idf` | TF-IDF normalization | `false` |
-| `model.params` | `center` | Center features | `false` |
-| `model.params` | `scale` | Scale features | `false` |
-| `model.params` | `preprocess` | Enable preprocessing | `true` |
-| `model.params` | `max_iter` | Max iterations | `30` |
-| `experiment` | `runs` | Independent runs | `1` |
-| `experiment` | `metrics` | Metrics list | `[acc, nmi, ari]` |
-| `experiment` | `verbose` | Verbosity (0–3) | `1` |
-| `experiment` | `random_search` | Enable random search | `false` |
-| `experiment` | `n_trials` | Random search trials | `20` |
-| `experiment` | `best_metric` | Metric to optimise | `acc` |
-| `experiment` | `seed` | Random seed | none |
-| `output` | `save` | Save Markdown report | `false` |
-| `output` | `name` | Experiment folder name | auto |
-| `output` | `log` | Write log file | `false` |
-| `search_space` | `<param>` | List of values to sample | *(built-in ranges)* |
+For a search, add `random_search: true` under `experiment` and a
+`search_space:` block mapping each parameter to its candidate values.
+Only `dataset:` is required; everything else falls back to defaults.
 
 ---
 
-## Algorithm — LMGEC intuition
+## Adding a model
 
-LMGEC (Linear Multi-view Graph Embedding Clustering) jointly learns a shared low-dimensional representation and cluster assignments across multiple views.
+Subclass `BaseModel`, decorate it, and add one import — nothing else in the
+framework needs to change. The CLI, config system and `Experiment` pick it up
+automatically.
 
-**Pipeline.** Given *V* views with features X_v and adjacencies A_v:
+```python
+# src/pymv/models/mymodel/mymodel.py
+from pymv.core import BaseModel
+from pymv.models.registry import register_model
 
-1. **Propagate** — build S_v = D_v^{-1}(A_v + beta * I), compute H_v = S_v * X_v.
-2. **Project** — learn orthonormal W_v via SVD (Procrustes).
-3. **Consensus** — weighted combination: XW = sum_v alpha_v * (H_v * W_v), where alpha_v is proportional to exp(-inertia_v / tau).
-4. **Cluster** — assign by nearest centroid in the consensus space.
-5. **Alternate** — repeat projection, assignment, centroid updates for `max_iter` iterations.
+
+@register_model("mymodel")
+class MyModel(BaseModel):
+    def __init__(self, n_clusters, embedding_dim=16):
+        self.n_clusters = n_clusters
+        self.embedding_dim = embedding_dim
+
+    def fit(self, Xs, As=None):
+        ...
+        self.labels_ = ...
+        return self
+```
+
+Then add `from .mymodel import MyModel` to `src/pymv/models/__init__.py`.
+Constructor defaults become the CLI/config defaults automatically.
 
 ---
 
-## Tips & troubleshooting
+## Notebooks
 
-| Issue | Solution |
+Four runnable notebooks in [`notebooks/`](notebooks/) — each executes offline
+in seconds on synthetic data, with a commented line to swap in a real
+benchmark.
+
+| # | Notebook | Stage |
+|---|---|---|
+| 00 | [`00_quickstart.ipynb`](notebooks/00_quickstart.ipynb) | the whole pipeline at a glance |
+| 01 | [`01_data_and_preprocessing.ipynb`](notebooks/01_data_and_preprocessing.ipynb) | the dataset catalog, normalize → propagate |
+| 02 | [`02_lmgec_baseline.ipynb`](notebooks/02_lmgec_baseline.ipynb) | LMGEC step by step |
+| 03 | [`03_experiments_and_tuning.ipynb`](notebooks/03_experiments_and_tuning.ipynb) | repeated comparisons + random search |
+
+---
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+
+pytest -q                    # test suite
+ruff check src/ tests/       # lint
+python -m build              # wheel + sdist
+```
+
+`make help` lists the shortcuts. CI runs lint, the test suite on Python
+3.9/3.10/3.11, and a packaging check on every push to `main` and `develop`.
+
+Docs are built with Sphinx:
+
+```bash
+pip install -e ".[docs]"
+cd docs && make html
+```
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
 |---|---|
-| `ModuleNotFoundError: tensorflow` | `pip install "tensorflow>=2.10"` |
-| Slow on large datasets | Reduce `max_iter`; use `preprocess=False` with pre-computed views |
-| GPU acceleration | Install `tensorflow[and-cuda]` |
-| Visualization missing | `pip install matplotlib seaborn` |
-| Log files filling up | Change `log_dir` or set `verbose=0` |
-| Data download fails | Check internet; files are on Zenodo |
-
----
-
-## Roadmap
-
-- [ ] More multi-view clustering algorithms (spectral, deep, contrastive, ...)
-- [ ] Multi-modal support (text + image, graph + tabular, ...)
-- [ ] Benchmark tables on all built-in datasets
-- [ ] Pre-built configurations for reproducible paper comparisons
-- [ ] PyPI release
-
-Contributions are welcome! See [issues](https://github.com/AbdelheqMokhtari/pymv/issues).
+| `TypeError` about array shapes on one view | Views must be lists: `[Xs[0]]`, not `Xs[0]`. |
+| `embedding_dim exceeds the rank limit` warning | The dimension is capped by the lowest-rank view; lower `embedding_dim`. |
+| One `alpha` near 1, the rest near 0 | Raise `temperature` to soften the view weighting. |
+| Noisy TensorFlow / CUDA logs | `export TF_CPP_MIN_LOG_LEVEL=3`, or use `--verbose 1`. |
+| Download failure on first load | Check the network; delete the partial file in `~/.pymv_datasets` and retry. |
 
 ---
 
 ## License
 
-MIT License — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).
