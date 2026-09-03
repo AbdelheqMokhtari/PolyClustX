@@ -6,17 +6,19 @@ with the expected number of views, 1-D labels matching the sample count,
 and feature matrices that agree on that count.  Multimodal datasets must
 additionally report ``has_graphs`` and carry square adjacency matrices.
 
-Each loader is exercised through its public ``load_<name>`` function and
-through the registry, so both entry points stay in sync.
+Loading a dataset downloads it from Zenodo, so the loader tests are marked
+``network`` and deselected by default.  Run them with ``pytest -m network``.
+The registry check needs no network and always runs.
 """
 
 from __future__ import annotations
 
 import pytest
 
-import pymv.data as pymv_data
 from pymv.data import list_datasets
 from pymv.data.dataset import MultiViewDataset
+
+from .helpers import load_or_skip
 
 # name -> expected number of views
 STANDARD_DATASETS = {
@@ -64,10 +66,6 @@ def _param(name):
     return pytest.param(name, marks=marks, id=name)
 
 
-def _load(name):
-    return getattr(pymv_data, f"load_{name}")()
-
-
 def _check_common(ds, expected_views):
     assert isinstance(ds, MultiViewDataset)
     assert ds.n_views == expected_views
@@ -78,16 +76,18 @@ def _check_common(ds, expected_views):
         assert X.shape[0] == ds.n_samples
 
 
+@pytest.mark.network
 @pytest.mark.parametrize("name", [_param(n) for n in STANDARD_DATASETS])
 def test_standard_dataset(name):
-    ds = _load(name)
+    ds = load_or_skip(name)
     _check_common(ds, STANDARD_DATASETS[name])
     assert ds.has_graphs is False
 
 
+@pytest.mark.network
 @pytest.mark.parametrize("name", [_param(n) for n in MULTIMODAL_DATASETS])
 def test_multimodal_dataset(name):
-    ds = _load(name)
+    ds = load_or_skip(name)
     _check_common(ds, expected_views=2)
     assert ds.has_graphs is True
     for A in ds.As:

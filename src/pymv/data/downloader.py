@@ -1,4 +1,5 @@
 import logging
+import time
 from pathlib import Path
 
 import requests
@@ -6,13 +7,22 @@ from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
+_RETRY_WAIT = 5  # seconds, multiplied by the attempt number
 
-def download_file(url: str, destination, timeout: int = 30) -> Path:
+
+def download_file(
+    url: str,
+    destination,
+    timeout: int = 60,
+    retries: int = 3,
+) -> Path:
     """Download ``url`` to ``destination``, reusing a cached copy if present.
 
-    The file is written to a temporary ``.part`` path and moved into
-    place only after the download completes, so an interrupted or
-    failed download never leaves a corrupt file in the cache.
+    The body streams into a temporary ``.part`` file that is moved into
+    place only once the transfer is complete, so an interrupted download
+    never leaves a corrupt file in the cache.  A dropped connection is
+    retried, and each retry resumes from the bytes already on disk when
+    the server supports range requests.
     """
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -24,25 +34,49 @@ def download_file(url: str, destination, timeout: int = 30) -> Path:
     logger.info("Downloading dataset to: %s", destination)
     tmp_path = destination.with_suffix(destination.suffix + ".part")
 
-    try:
-        response = requests.get(url, stream=True, timeout=timeout)
-        response.raise_for_status()
+    for attempt in range(1, retries + 1):
+        try:
+            _stream_to(url, tmp_path, timeout)
+            tmp_path.replace(destination)
+            logger.info("Download completed.")
+            return destination
+        except (requests.RequestException, OSError) as exc:
+            if attempt == retries:
+                tmp_path.unlink(missing_ok=True)
+                raise
+            wait = _RETRY_WAIT * attempt
+            logger.warning(
+                "Download failed (%s: %s) — retrying in %ds (attempt %d/%d).",
+                type(exc).__name__, exc, wait, attempt + 1, retries,
+            )
+            time.sleep(wait)
 
-        total_size = int(response.headers.get("content-length", 0))
-        with open(tmp_path, "wb") as f, tqdm(
-            total=total_size,
-            unit="B",
-            unit_scale=True,
-            desc="Downloading",
-        ) as progress:
-            for chunk in response.iter_content(8192):
-                f.write(chunk)
-                progress.update(len(chunk))
 
-        tmp_path.replace(destination)
-    except BaseException:
-        tmp_path.unlink(missing_ok=True)
-        raise
+def _stream_to(url: str, tmp_path: Path, timeout: int) -> None:
+    """Stream *url* into *tmp_path*, resuming from any partial data."""
+    resume_from = tmp_path.stat().st_size if tmp_path.exists() else 0
+    headers = {"Range": f"bytes={resume_from}-"} if resume_from else {}
 
-    logger.info("Download completed.")
-    return destination
+    response = requests.get(url, stream=True, timeout=timeout, headers=headers)
+    response.raise_for_status()
+
+    # 206 means the range was honoured; anything else restarts from byte 0.
+    if resume_from and response.status_code != 206:
+        resume_from = 0
+
+    total = resume_from + int(response.headers.get("content-length", 0))
+
+    with open(tmp_path, "ab" if resume_from else "wb") as f, tqdm(
+        total=total or None,
+        initial=resume_from,
+        unit="B",
+        unit_scale=True,
+        desc="Downloading",
+    ) as progress:
+        for chunk in response.iter_content(65536):
+            f.write(chunk)
+            progress.update(len(chunk))
+
+    written = tmp_path.stat().st_size
+    if total and written != total:
+        raise OSError(f"incomplete download: got {written} of {total} bytes")

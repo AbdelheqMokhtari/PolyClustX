@@ -104,11 +104,12 @@ class TestMultiViewDataset:
 
 @pytest.fixture(scope="module")
 def acm():
-    from pymv.data import load_dataset
+    from .helpers import load_or_skip
 
-    return load_dataset("acm")
+    return load_or_skip("acm")
 
 
+@pytest.mark.network
 class TestLoadRealDataset:
     """Validate structure of a real loaded dataset (ACM)."""
 

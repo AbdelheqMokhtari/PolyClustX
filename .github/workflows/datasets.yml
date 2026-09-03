@@ -1,0 +1,33 @@
+name: Dataset smoke test
+
+# Live loader tests depend on Zenodo and some datasets are larger than 1 GB.
+# Keep them out of required CI and provide a manual smoke test for the small
+# ACM dataset. The complete catalog can still be checked locally with
+# `pytest -m network`.
+
+on:
+  workflow_dispatch:
+
+env:
+  TF_CPP_MIN_LOG_LEVEL: "3"
+  CUDA_VISIBLE_DEVICES: ""
+
+jobs:
+  loaders:
+    name: ACM loader
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Load and validate ACM from Zenodo
+        run: pytest tests/test_dataloader.py -m network -rs
