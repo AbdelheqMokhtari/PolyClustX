@@ -9,8 +9,6 @@ every test can use without downloading real data.
 from __future__ import annotations
 
 import os
-import shutil
-import tempfile
 from collections import OrderedDict
 
 import numpy as np

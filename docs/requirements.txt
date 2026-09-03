@@ -1,0 +1,14 @@
+# Sphinx documentation build dependencies
+# Used by Read the Docs (.readthedocs.yaml) and CI
+sphinx>=7.0
+furo
+myst-parser
+sphinx-copybutton
+sphinx-autodoc-typehints
+
+# Runtime deps needed for autodoc import
+numpy
+scipy
+scikit-learn
+requests
+tqdm

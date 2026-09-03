@@ -59,15 +59,19 @@ def _update_rule_G(XW, F):
 
 # method to initialise W, G, and F
 
-def _init_W(X, n_components):
-    n_components = min(n_components, min(X.shape) - 1)
-    svd = TruncatedSVD(n_components=n_components)
+def _max_embedding_dim(X) -> int:
+    """Largest number of components TruncatedSVD can extract from *X*."""
+    return min(X.shape) - 1
+
+
+def _init_W(X, n_components, random_state=None):
+    svd = TruncatedSVD(n_components=n_components, random_state=random_state)
     svd.fit(X)
     return svd.components_.T
 
 
-def _init_G_F(XW, k):
-    km = KMeans(n_clusters=k, n_init=10)
+def _init_G_F(XW, k, random_state=None):
+    km = KMeans(n_clusters=k, n_init=10, random_state=random_state)
     km.fit(XW)
     return km.labels_.astype(np.int32), km.cluster_centers_
 
@@ -133,6 +137,7 @@ def _get_train_loop(n_views):
     "scale": False,
     "preprocess": True,
     "max_iter": 30,
+    "random_state": None,
 })
 class LMGEC(BaseModel):
     """Linear Multi-view Graph Embedding Clustering.
@@ -184,6 +189,11 @@ class LMGEC(BaseModel):
     max_iter : int, default=30
         Maximum number of alternating-optimisation iterations.
 
+    random_state : int or None, default=None
+        Seed for the randomized initialisation (TruncatedSVD for W,
+        KMeans for G/F).  Set it to make a fit reproducible; leave it
+        as *None* for a different initialisation on every call.
+
     Examples
     --------
     **Let the model preprocess (default):**
@@ -228,6 +238,7 @@ class LMGEC(BaseModel):
         scale: bool = False,
         preprocess: bool = True,
         max_iter: int = 30,
+        random_state: int | None = None,
     ):
         self.n_clusters = n_clusters
         self.embedding_dim = embedding_dim
@@ -238,8 +249,10 @@ class LMGEC(BaseModel):
         self.scale = scale
         self.preprocess = preprocess
         self.max_iter = max_iter
+        self.random_state = random_state
 
         # Filled after fit()
+        self.embedding_dim_ = None
         self.labels_ = None
         self.centroids_ = None
         self.embedding_ = None
@@ -296,7 +309,10 @@ class LMGEC(BaseModel):
         -------
         self
             The fitted model with ``labels_``, ``centroids_``,
-            ``embedding_``, and ``loss_history_`` attributes set.
+            ``embedding_``, ``loss_history_`` and ``embedding_dim_``
+            attributes set.  ``embedding_dim_`` is the dimension
+            actually used, which is capped by the rank of the
+            lowest-rank view.
         """
 
         n_views = len(Xs)
@@ -346,7 +362,19 @@ class LMGEC(BaseModel):
 
         # Initialisation
 
-        m = self.embedding_dim
+        # Every view must project into the *same* latent space, so the
+        # embedding dimension is capped by the lowest-rank view — not
+        # per view, which would make the consensus shapes disagree.
+        max_dim = min(_max_embedding_dim(H) for H in Hs)
+        m = min(self.embedding_dim, max_dim)
+        if m < self.embedding_dim:
+            logger.warning(
+                "embedding_dim=%d exceeds the rank limit of the smallest "
+                "view — using %d components instead.",
+                self.embedding_dim, m,
+            )
+        self.embedding_dim_ = m
+
         k = self.n_clusters
 
         alphas = np.zeros(n_views, dtype=np.float64)
@@ -360,9 +388,9 @@ class LMGEC(BaseModel):
         # Alpha evolution can be used for debugging: tracking these values ensures the model retains
         # multi-view balance instead of deteriorating into single-view representation.
         for v in range(n_views):
-            Wv = _init_W(Hs[v], m)
+            Wv = _init_W(Hs[v], m, random_state=self.random_state)
             XWv = Hs[v] @ Wv
-            Gv, Fv = _init_G_F(XWv, k)
+            Gv, Fv = _init_G_F(XWv, k, random_state=self.random_state)
             inertia = np.linalg.norm(XWv - Fv[Gv])
             
             # Normalize inertia by sqrt(N) to make the scale invariant to dataset size.
@@ -379,7 +407,7 @@ class LMGEC(BaseModel):
         else:
             XW_consensus /= n_views
 
-        G_init, F_init = _init_G_F(XW_consensus, k)
+        G_init, F_init = _init_G_F(XW_consensus, k, random_state=self.random_state)
 
         # run training loop (with automatic GPU → CPU fallback on OOM)
 

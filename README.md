@@ -3,9 +3,15 @@
 **A comparative framework for multi-view and multi-modal clustering in Python.**
 
 `pymv` makes it easy to **benchmark**, **compare**, and **develop** multi-view clustering algorithms.
-It provides a growing collection of models, **10 built-in dataset loaders** (auto-downloaded from Zenodo), a full **experiment / hyper-parameter-search harness**, and standard **clustering metrics** — all designed so you can go from idea to publishable results table in a few lines of code.
+It provides a growing collection of models, **55 built-in dataset loaders** (auto-downloaded from Zenodo), a full **experiment / hyper-parameter-search harness**, and standard **clustering metrics** — all designed so you can go from idea to publishable results table in a few lines of code.
 
-> **Currently implemented:** LMGEC (Linear Multi-view Graph Embedding Clustering).
+> **Currently implemented:**
+> - **LMGEC** — Linear Multi-view Graph Embedding Clustering (the reference baseline).
+> - **LMGECplus** — a modular research framework where every stage (loss,
+>   normalization, propagation, attention, view weighting, alignment,
+>   clustering head, optimizer) is an independently replaceable component,
+>   with built-in ablation support.
+>
 > More algorithms are on the roadmap — the architecture is ready for drop-in additions.
 
 ---

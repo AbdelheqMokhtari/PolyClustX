@@ -13,7 +13,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-
 # ── Component unit tests ─────────────────────────────────────────
 
 
@@ -83,8 +82,9 @@ class TestComponents:
         assert u[0] < u[1:].mean()
 
     def test_controlled_propagation_endpoints(self):
-        from pymv.models.lmgecplus import components as C
         import scipy.sparse as sp
+
+        from pymv.models.lmgecplus import components as C
 
         rng = np.random.RandomState(5)
         Hn = rng.randn(12, 4)
@@ -111,9 +111,9 @@ class TestComponents:
 class TestBackwardCompat:
     def test_all_off_matches_lmgec(self, mock_dataset):
         """LMGECplus with every extension disabled reproduces LMGEC."""
+        from pymv.metrics import clustering_accuracy, nmi_score
         from pymv.models.lmgec import LMGEC
         from pymv.models.lmgecplus import LMGECplus
-        from pymv.metrics import clustering_accuracy, nmi_score
 
         k = mock_dataset.n_clusters
         base = LMGEC(n_clusters=k, embedding_dim=4, max_iter=20)

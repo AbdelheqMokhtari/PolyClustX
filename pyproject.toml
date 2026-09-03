@@ -7,7 +7,7 @@ name = "pymv"
 version = "1.0.0"
 description = "Python package for multi-view graph clustering and representation learning algorithms."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = { file = "LICENSE" }
 
 authors = [
@@ -24,7 +24,9 @@ keywords = [
 
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Operating System :: OS Independent",
     "License :: OSI Approved :: MIT License"
 ]
@@ -33,11 +35,27 @@ dependencies = [
     "numpy>=1.21.0",
     "scipy>=1.7.0",
     "scikit-learn>=1.0.0",
-    "networkx>=2.6.0",
-    "pandas>=1.3.0",
+    "matplotlib>=3.5.0",
+    "requests>=2.25.0",
     "tensorflow>=2.10.0",
     "tqdm>=4.60.0",
     "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+umap = ["umap-learn>=0.5.0"]
+dev = [
+    "pytest>=7.0",
+    "coverage>=7.0",
+    "ruff>=0.5",
+    "build>=1.0",
+]
+docs = [
+    "sphinx>=7.0",
+    "furo",
+    "myst-parser",
+    "sphinx-copybutton",
+    "sphinx-autodoc-typehints",
 ]
 
 [project.urls]
@@ -49,9 +67,16 @@ pymv-cli = "pymv_cli_entry:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+# Top-level module holding the console-script entry point.  It must be
+# listed explicitly — packages.find only discovers packages, not
+# single-file modules, so without this `pymv-cli` breaks on install.
+py-modules = ["pymv_cli_entry"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+pymv = ["configs/*.yaml"]
 
 
 [tool.commitizen]
@@ -66,9 +91,13 @@ version_files = [
 update_changelog_on_bump = true
 changelog_file = "CHANGELOG.md"
 
-[tool.isort]
-profile = "black"
-line_length = 120
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
 
-[tool.flake8]
-max-line-length = 120
+[tool.ruff.lint]
+# pycodestyle, pyflakes, isort — the checks CI enforces.
+select = ["E", "F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pymv"]

@@ -8,9 +8,6 @@ import csv
 import json
 import os
 
-import pytest
-
-
 # ── ExperimentTracker basic ───────────────────────────────────────
 
 
@@ -306,6 +303,7 @@ class TestSaveAll:
 class TestBuildExperimentConfig:
     def test_builds_config_from_args(self):
         import argparse
+
         from pymv.tracking import build_experiment_config
 
         args = argparse.Namespace(
@@ -402,6 +400,7 @@ class TestBuildMetricsCsvRows:
 class TestToPython:
     def test_numpy_int(self):
         import numpy as np
+
         from pymv.tracking import _to_python
 
         assert isinstance(_to_python(np.int64(42)), int)
@@ -409,18 +408,21 @@ class TestToPython:
 
     def test_numpy_float(self):
         import numpy as np
+
         from pymv.tracking import _to_python
 
         assert isinstance(_to_python(np.float64(3.14)), float)
 
     def test_numpy_bool(self):
         import numpy as np
+
         from pymv.tracking import _to_python
 
         assert isinstance(_to_python(np.bool_(True)), bool)
 
     def test_numpy_array(self):
         import numpy as np
+
         from pymv.tracking import _to_python
 
         arr = np.array([1, 2, 3])

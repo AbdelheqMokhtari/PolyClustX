@@ -7,7 +7,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-
 # ── Model initialisation ─────────────────────────────────────────
 
 
@@ -249,3 +248,63 @@ class TestModelRegistry:
             @register_model("lmgec")
             class Dummy:
                 pass
+
+
+class TestLMGECReproducibility:
+    """LMGEC must be seedable — the baseline is compared against
+    LMGECplus, which already accepts ``random_state``."""
+
+    def test_same_seed_gives_same_labels(self, mock_dataset):
+        from pymv.models.lmgec import LMGEC
+
+        def _run():
+            return LMGEC(
+                n_clusters=mock_dataset.n_clusters,
+                embedding_dim=4,
+                max_iter=3,
+                preprocess=False,
+                random_state=42,
+            ).fit_predict(mock_dataset.Xs)
+
+        assert np.array_equal(_run(), _run())
+
+    def test_random_state_is_a_registered_default(self):
+        from pymv.models import get_model_info
+
+        assert "random_state" in get_model_info("lmgec")["defaults"]
+
+
+class TestLMGECEmbeddingDimClamp:
+    """``embedding_dim`` above a view's rank used to allocate a
+    consensus buffer wider than the per-view projections, raising a
+    broadcast ValueError."""
+
+    def test_oversized_embedding_dim_fits(self, mock_dataset):
+        from pymv.models.lmgec import LMGEC
+
+        m = LMGEC(
+            n_clusters=mock_dataset.n_clusters,
+            embedding_dim=99,          # views are 8- and 6-dimensional
+            max_iter=3,
+            preprocess=False,
+            random_state=0,
+        )
+        m.fit(mock_dataset.Xs)
+
+        # Capped by the lowest-rank view (6 features → 5 components).
+        assert m.embedding_dim_ == 5
+        assert m.embedding_.shape == (mock_dataset.n_samples, 5)
+        assert m.labels_.shape == (mock_dataset.n_samples,)
+
+    def test_effective_dim_reported_when_not_clamped(self, mock_dataset):
+        from pymv.models.lmgec import LMGEC
+
+        m = LMGEC(
+            n_clusters=mock_dataset.n_clusters,
+            embedding_dim=4,
+            max_iter=3,
+            preprocess=False,
+            random_state=0,
+        )
+        m.fit(mock_dataset.Xs)
+        assert m.embedding_dim_ == 4

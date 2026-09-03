@@ -20,6 +20,7 @@ The full catalog lives in :mod:`pymv.data.registry`; adding a dataset
 is a single ``DatasetSpec`` entry there.
 """
 
+from . import registry as _registry
 from .base import get_data_home
 from .dataset import MultiViewDataset
 from .registry import (
@@ -34,8 +35,6 @@ from .registry import (
 # (load_acm, load_dblp, …) so `from pymv.data import load_acm` works.
 # load_pascal / load_coco_all / load_coco_cross come through as their
 # variant-aware wrappers.
-from . import registry as _registry
-
 _globals = globals()
 for _name in DATASETS:
     _globals[f"load_{_name}"] = getattr(_registry, f"load_{_name}")
