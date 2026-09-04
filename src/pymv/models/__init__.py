@@ -3,6 +3,7 @@
 # and add a single import line here.
 from .lmgec import LMGEC
 from .registry import get_model, get_model_info, list_models, list_models_info, register_model
+from .scm import SCM
 
 __all__ = [
     "register_model",
@@ -11,4 +12,5 @@ __all__ = [
     "list_models",
     "list_models_info",
     "LMGEC",
+    "SCM",
 ]
