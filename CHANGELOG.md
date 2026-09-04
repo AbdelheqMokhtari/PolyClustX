@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog,
 and this project adheres to Semantic Versioning.
 
+## v1.2.0 (2026-09-04)
+
+### Feat
+
+- add SCM clustering model
+
 ## v1.1.1 (2026-09-03)
 
 ### Fixed
