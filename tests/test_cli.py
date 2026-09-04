@@ -55,6 +55,7 @@ class TestCLIDiscovery:
         result = _run_cli("--list-models")
         assert result.returncode == 0
         assert "lmgec" in result.stdout
+        assert "scm" in result.stdout
 
     def test_no_args_shows_quick_start(self):
         result = _run_cli()

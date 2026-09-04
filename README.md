@@ -199,6 +199,34 @@ LMGEC(n_clusters=3, embedding_dim=16, preprocess=False).fit([H0, H1])
 
 ---
 
+## The SCM model
+
+```python
+from pymv.models import SCM
+
+model = SCM(
+    n_clusters=3,
+    embedding_dim=256,
+    projection_dim=128,
+    max_iter=50,
+    random_state=42,
+)
+labels = model.fit_predict(Xs)
+```
+
+SCM concatenates aligned views, creates missing-view and Gaussian-noise
+augmentations, and learns a shared representation with a symmetric
+contrastive objective. The learned representation is available as
+`embedding_`; `labels_` and `centroids_` come from K-means in that space.
+SCM accepts `As` for compatibility with the common model API but does not use
+graph structure. It is also available from the CLI:
+
+```bash
+pymv-cli --dataset acm --model scm --max-iter 50 --seed 42
+```
+
+---
+
 ## Preprocessing
 
 ```python

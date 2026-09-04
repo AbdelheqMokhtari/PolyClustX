@@ -1,6 +1,12 @@
 Models
 ======
 
+SCM
+---
+
+.. autoclass:: pymv.models.scm.SCM
+   :members:
+
 LMGEC
 -----
 

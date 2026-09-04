@@ -346,15 +346,20 @@ def cmd_run_experiment(args):
     }
 
     for key, cli_val in param_map.items():
+        # Model registries are heterogeneous: only pass parameters declared
+        # by the selected implementation.
+        if key not in defaults:
+            continue
         if cli_val is not None:
             kwargs[key] = _coerce(str(cli_val), defaults[key])
         else:
             kwargs[key] = defaults[key]
 
-    if args.no_preprocess:
-        kwargs["preprocess"] = False
-    else:
-        kwargs["preprocess"] = defaults["preprocess"]
+    if "preprocess" in defaults:
+        if args.no_preprocess:
+            kwargs["preprocess"] = False
+        else:
+            kwargs["preprocess"] = defaults["preprocess"]
 
     # Pass through every other registered model parameter.  Config
     # files can set params that have no dedicated CLI flag;
@@ -365,6 +370,9 @@ def cmd_run_experiment(args):
             continue
         val = getattr(args, key, None)
         kwargs[key] = default if val is None else val
+
+    if "random_state" in defaults and args.seed is not None:
+        kwargs["random_state"] = args.seed
 
     model = model_info["class"](**kwargs)
     metrics = _resolve_metrics(args.metrics or _DEFAULT_METRICS)
@@ -427,20 +435,22 @@ def cmd_random_search(args):
         distributions["temperature"] = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]
 
     # Beta
-    if args.beta is not None:
-        distributions["beta"] = [_coerce(str(args.beta), defaults["beta"])]
-    elif "beta" in config_space:
-        distributions["beta"] = _ensure_list(config_space["beta"])
-    else:
-        distributions["beta"] = [0.1, 0.5, 1.0, 2.0, 5.0]
+    if "beta" in defaults:
+        if args.beta is not None:
+            distributions["beta"] = [_coerce(str(args.beta), defaults["beta"])]
+        elif "beta" in config_space:
+            distributions["beta"] = _ensure_list(config_space["beta"])
+        else:
+            distributions["beta"] = [0.1, 0.5, 1.0, 2.0, 5.0]
 
     # TF-IDF
-    if args.tf_idf is not None:
-        distributions["tf_idf"] = [_coerce(str(args.tf_idf), defaults["tf_idf"])]
-    elif "tf_idf" in config_space:
-        distributions["tf_idf"] = _ensure_list(config_space["tf_idf"])
-    else:
-        distributions["tf_idf"] = [True, False]
+    if "tf_idf" in defaults:
+        if args.tf_idf is not None:
+            distributions["tf_idf"] = [_coerce(str(args.tf_idf), defaults["tf_idf"])]
+        elif "tf_idf" in config_space:
+            distributions["tf_idf"] = _ensure_list(config_space["tf_idf"])
+        else:
+            distributions["tf_idf"] = [True, False]
 
     # Max iter
     if args.max_iter is not None:
@@ -451,10 +461,20 @@ def cmd_random_search(args):
         distributions["max_iter"] = [defaults["max_iter"]]
 
     # Preprocess
-    if args.no_preprocess:
-        distributions["preprocess"] = [False]
-    else:
-        distributions["preprocess"] = [defaults["preprocess"]]
+    if "preprocess" in defaults:
+        if args.no_preprocess:
+            distributions["preprocess"] = [False]
+        else:
+            distributions["preprocess"] = [defaults["preprocess"]]
+
+    # Model-specific parameters can be supplied through config search_space;
+    # otherwise keep their registered defaults fixed during the search.
+    for key, default in defaults.items():
+        if key in distributions:
+            continue
+        distributions[key] = (
+            _ensure_list(config_space[key]) if key in config_space else [default]
+        )
 
     metrics = _resolve_metrics(args.metrics or _DEFAULT_METRICS)
 
