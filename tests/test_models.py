@@ -307,3 +307,51 @@ class TestLMGECEmbeddingDimClamp:
         )
         m.fit(mock_dataset.Xs)
         assert m.embedding_dim_ == 4
+
+
+class TestSCM:
+    def _model(self, n_clusters=3, random_state=7):
+        from pymv.models.scm import SCM
+
+        return SCM(
+            n_clusters=n_clusters,
+            embedding_dim=12,
+            projection_dim=5,
+            hidden_dims=(16, 16),
+            batch_size=11,
+            max_iter=2,
+            random_state=random_state,
+        )
+
+    def test_registered_and_exported(self):
+        from pymv.models import SCM, get_model, list_models
+
+        assert get_model("scm") is SCM
+        assert "scm" in list_models()
+
+    def test_fit_contract(self, mock_dataset):
+        model = self._model(mock_dataset.n_clusters)
+        assert model.fit(mock_dataset.Xs, mock_dataset.As) is model
+        assert model.labels_.shape == (mock_dataset.n_samples,)
+        assert model.embedding_.shape == (mock_dataset.n_samples, 5)
+        assert model.centroids_.shape == (mock_dataset.n_clusters, 5)
+        assert model.loss_history_.shape == (2,)
+        assert np.all(np.isfinite(model.loss_history_))
+        assert model.embedding_dim_ == 5
+
+    def test_sparse_views_and_fit_predict(self, mock_dataset):
+        import scipy.sparse as sp
+
+        labels = self._model().fit_predict([sp.csr_matrix(x) for x in mock_dataset.Xs])
+        assert labels.shape == (mock_dataset.n_samples,)
+        assert np.issubdtype(labels.dtype, np.integer)
+
+    def test_reproducible_with_seed(self, mock_dataset):
+        first = self._model().fit_predict(mock_dataset.Xs)
+        second = self._model().fit_predict(mock_dataset.Xs)
+        assert np.array_equal(first, second)
+
+    def test_invalid_view_lengths_raise(self, mock_dataset):
+        model = self._model()
+        with pytest.raises(ValueError, match="same number"):
+            model.fit([mock_dataset.Xs[0], mock_dataset.Xs[1][:-1]])
