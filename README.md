@@ -1,3 +1,4 @@
+<p align="center"><img src="src/pymv/assets/logo.png" width="120" alt="pymv symbol"></p>
 <h1 align="center">pymv</h1>
 
 <p align="center">
@@ -12,12 +13,12 @@
 </p>
 
 `pymv` makes it easy to **benchmark**, **compare** and **develop** multi-view
-clustering algorithms. It ships a reference model, **55 dataset loaders** that
+clustering algorithms. It ships **LMGEC and SCM**, a variant-aware dataset catalog that
 auto-download from Zenodo, an experiment and hyper-parameter-search harness,
 and the standard clustering metrics — so you can go from an idea to a results
 table in a few lines.
 
-**Implemented model:** `LMGEC` — Linear Multi-view Graph Embedding Clustering.
+**Implemented models:** `LMGEC` and `SCM` (Simple Contrastive Multi-view Clustering).
 New models drop in through a one-decorator registry; see
 [Adding a model](#adding-a-model).
 
@@ -60,6 +61,8 @@ Core dependencies (`numpy`, `scipy`, `scikit-learn`, `matplotlib`,
 pip install -e ".[dev]"     # + pytest, ruff, build
 pip install -e ".[docs]"    # + sphinx and the docs theme
 pip install -e ".[umap]"    # + UMAP projection for plot_clusters
+pip install -e ".[display]" # integrated scientific workbench
+pymv-display
 ```
 
 ---
@@ -111,8 +114,8 @@ Every loader returns a `MultiViewDataset`, which also unpacks as a
 ```python
 from pymv.data import load_dataset, list_datasets, get_dataset_info
 
-print(list_datasets())            # 55 names
-print(get_dataset_info("acm"))    # views, samples, clusters, source
+print(list_datasets())            # canonical dataset families
+print(get_dataset_info("acm"))    # variants, setting, views and source
 
 data = load_dataset("acm")
 data.Xs            # list of feature matrices, one per view
@@ -129,20 +132,32 @@ Datasets are downloaded on first use and cached under `~/.pymv_datasets`
 
 | Kind | Examples |
 |---|---|
-| Attributed graphs | `acm`, `dblp`, `imdb`, `cora`, `citeseer`, `wiki`, `webkb`, `amazon_photos` |
-| Multi-view features | `100leaves`, `3sources`, `bbcsport`, `bdgp`, `caltech101_7`, `handwritten`, `msrc_v5`, `prokaryotic`, `uci`, `yale` |
-| Multi-modal | `coco_all`, `coco_cross`, `pascal`, `flickr30k`, `nus_wide`, `esp_game`, `iaprtc12`, `wikipedia` |
+| Attributed graph / multi-view | `acm`, `dblp`, `imdb`, `wiki`, `amazon_photos` |
+| Attributed graph / multimodal | `arts_multimodal`, `grocery_multimodal`, `reddit_multimodal` |
+| Multi-view features | `100leaves`, `3sources`, `bbcsport`, `caltech101_7`, `handwritten`, `cora`, `citeseer`, `webkb` |
+| Multimodal features | `coco_all`, `coco_cross`, `pascal`, `flickr30k`, `bdgp`, `prokaryotic`, `wikipedia` |
 
 Several multi-modal datasets have **encoder variants** — the same samples
 with different feature extractors:
 
 ```python
-from pymv.data import load_pascal, load_dataset
+from pymv.data import load_data, list_variants
 
-load_pascal(variant="clip")           # explicit variant
-load_dataset("pascal_clip")           # or as a registry name
-load_dataset("coco_all_vit_sbert")
+load_data("pascal", variant="clip")
+load_data("coco_all", variant="vit_sbert")
+list_variants("acm")  # default (graphs), 5view (features)
 ```
+
+Labels are optional. `MultiViewDataset` stores sample IDs, an observation mask,
+modality annotations, and zero/one/multiple graph relations per view. Use
+`data.fit(model)` to preserve mask checks and fuse relations explicitly.
+`load_data("acm", 0.2, random_state=42)` simulates missing sample-view pairs;
+current models require an explicit `impute_missing(data)` baseline before fitting.
+
+The integrated `pymv.display` interface supports editable independent experiments,
+manual K sweeps, optional benchmark evaluation, internal metrics, and session
+history exports. See [the workbench guide](docs/user_guide/workbench.md),
+[data imports](docs/user_guide/data.md), and [model contributions](docs/contributing/models.md).
 
 ---
 

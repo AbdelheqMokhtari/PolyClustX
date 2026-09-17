@@ -1,14 +1,12 @@
-# Sphinx documentation build dependencies
-# Used by Read the Docs (.readthedocs.yaml) and CI
-sphinx>=7.0
-furo
+# Keep aligned with the project docs extra. TensorFlow is mocked for autodoc.
+sphinx>=7,<9
+sphinx-rtd-theme>=3,<4
 myst-parser
 sphinx-copybutton
-sphinx-autodoc-typehints
-
-# Runtime deps needed for autodoc import
 numpy
 scipy
 scikit-learn
+matplotlib
 requests
 tqdm
+pyyaml

@@ -1,61 +1,54 @@
-Quick Start
+Quick start
 ===========
 
-This page shows the two most common workflows — use them to get up and
-running in under a minute.
-
-Load → Fit → Evaluate
----------------------
+Clustering without labels
+-------------------------
 
 .. code-block:: python
 
-   from pymv.data import load_acm
+   import numpy as np
+   from pymv.data import MultiViewDataset
    from pymv.models import LMGEC
-   from pymv.metrics import clustering_accuracy, nmi_score
-
-   # 1. Load data (auto-downloads on first call)
-   Xs, As, y = load_acm()
-
-   # 2. Fit and predict
-   model = LMGEC(n_clusters=3, embedding_dim=16)
-   labels = model.fit_predict(Xs, As)
-
-   # 3. Evaluate
-   print("ACC:", clustering_accuracy(y, labels))
-   print("NMI:", nmi_score(y, labels))
-
-Every dataset loader returns the same triple:
-
-- ``Xs`` — ``list`` of feature matrices (one per view)
-- ``As`` — ``list`` of adjacency matrices (one per view)
-- ``y``  — ground-truth label vector
-
-Comparative experiment
-----------------------
-
-Compare multiple configurations across multiple datasets in one call:
-
-.. code-block:: python
-
+   from pymv.metrics import silhouette_score
    from pymv.experiment import Experiment
-   from pymv.models import LMGEC
-   from pymv.metrics import clustering_accuracy, nmi_score
+
+   rng = np.random.default_rng(42)
+   data = MultiViewDataset(
+       [rng.normal(size=(60, 8)), rng.normal(size=(60, 5))],
+       view_names=["shape", "texture"],
+       modalities=["image", "image"],
+       name="My measurements",
+   )
+   model = data.fit(LMGEC(n_clusters=3, embedding_dim=4, random_state=42))
+   print(model.labels_.shape)      # (60,)
+   print(model.embedding_.shape)   # consensus representation
 
    Experiment(
-       datasets=["acm", "dblp", "imdb"],
-       models=[
-           LMGEC(n_clusters=3, embedding_dim=16, temperature=1.0),
-           LMGEC(n_clusters=3, embedding_dim=16, temperature=10.0),
-       ],
-       metrics=[clustering_accuracy, nmi_score],
+       datasets=data,
+       models=[LMGEC(n_clusters=k, embedding_dim=4, random_state=42)
+               for k in [2, 3, 5]],
+       metrics={"Silhouette": silhouette_score},
+       benchmark=False,
    ).run()
 
-The console prints **two clean tables**: model configuration and per-dataset
-results (with best values marked ``*``).  All detailed logs go to ``./logs/``.
+You choose K. Labels are neither required nor supplied to the model. Internal
+metrics evaluate the learned embedding, not agreement with a hidden ground truth.
 
-What's next?
-------------
+A labeled benchmark
+-------------------
 
-- :doc:`examples` — 8 in-depth examples covering every feature.
-- :doc:`/api/models` — full LMGEC API reference.
-- :doc:`/api/experiment` — Experiment & RandomSearchExperiment docs.
+.. code-block:: python
+
+   from pymv.data import load_data
+   from pymv.metrics import nmi_score
+
+   data = load_data("acm")
+   model = data.fit(LMGEC(n_clusters=3, embedding_dim=8, random_state=42))
+   print("NMI:", nmi_score(data.labels, model.labels_))
+
+All loaders return a :class:`~pymv.data.MultiViewDataset`, with optional labels,
+a sample order, an observation mask, and one graph entry per view. Legacy
+``Xs, As, y = data`` unpacking still works, but loses the IDs and missing mask.
+Prefer ``data.fit(model)`` when handling incomplete or multi-relational data.
+
+Continue with :doc:`data`, :doc:`examples`, and :doc:`workbench`.

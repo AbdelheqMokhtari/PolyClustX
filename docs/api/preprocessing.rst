@@ -9,3 +9,8 @@ available as a public API for custom pipelines.
    :undoc-members:
    :show-inheritance:
    :member-order: bysource
+
+Graph relation fusion
+---------------------
+
+.. autofunction:: pymv.preprocessing.fuse_graphs
