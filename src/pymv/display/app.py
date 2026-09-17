@@ -711,50 +711,60 @@ def _record_selector(workspace, key):
 
 def render_results(workspace):
     st.header("Results")
-    record = _record_selector(workspace, "results_record")
-    if record is None:
+    if not workspace.records:
+        st.info("No experiments have been run in this session.")
         return
-    st.caption(
-        f"{record.dataset_summary['name']} · {len(record.rows)} fits · "
-        f"fingerprint {record.dataset_summary['fingerprint'][:12]}"
-    )
-    st.subheader("Repeated-run summary")
-    st.dataframe(pd.DataFrame(aggregate_results(record)), hide_index=True, use_container_width=True)
-    failed = [row for row in record.rows if row["status"] == "failed"]
-    if failed:
-        st.warning(f"{len(failed)} fit(s) failed. Expand detailed runs to inspect their errors.")
-    with st.expander("Detailed runs"):
-        st.dataframe(
-            pd.DataFrame(record.rows).drop(columns=["params"], errors="ignore"),
-            hide_index=True, use_container_width=True,
-        )
-    with st.expander("Recipe and provenance"):
-        st.json({"recipe": asdict(record.spec), "dataset": record.dataset_summary})
-    left, right = st.columns(2)
-    if left.button("Use these settings for a new experiment"):
-        dataset_id = record.spec.dataset_id
-        if dataset_id in workspace.datasets:
-            draft = _draft(workspace, dataset_id, workspace.load_dataset(dataset_id))
-            draft.update(
-                model=record.spec.model,
-                params=copy.deepcopy(record.spec.params),
-                clusters=copy.deepcopy(record.spec.clusters),
-                repeats=record.spec.repeats,
-                seed=record.spec.seed,
-                benchmark=record.spec.benchmark,
-                metrics=copy.deepcopy(record.spec.metrics),
-                search_space=copy.deepcopy(record.spec.search_space),
-                trials=record.spec.trials,
+    st.caption("Newest first. Every experiment keeps its own immutable recipe, runs, and artifacts.")
+    for position, record in enumerate(list(workspace.records)):
+        title = f"{record.spec.name} · {record.spec.model.upper()} · {record.created_at[:19]}"
+        with st.expander(title, expanded=position == 0):
+            st.caption(
+                f"{record.dataset_summary['name']} · {len(record.rows)} fits · "
+                f"fingerprint {record.dataset_summary['fingerprint'][:12]}"
             )
-            workspace.preprocessing[dataset_id] = copy.deepcopy(record.spec.preprocessing or PreprocessingSpec())
-            st.session_state.selected_dataset = dataset_id
-            _set_page("Model")
-            st.rerun()
-        else:
-            st.error("The source dataset was removed. Results remain available, but the experiment cannot be rerun.")
-    if right.button("Delete this result"):
-        workspace.delete_record(record.id)
-        st.rerun()
+            st.subheader("Repeated-run summary")
+            st.dataframe(pd.DataFrame(aggregate_results(record)), hide_index=True, use_container_width=True)
+            failed = [row for row in record.rows if row["status"] == "failed"]
+            if failed:
+                st.warning(f"{len(failed)} fit(s) failed. Expand detailed runs to inspect their errors.")
+            with st.expander("Detailed runs"):
+                st.dataframe(
+                    pd.DataFrame(record.rows).drop(columns=["params"], errors="ignore"),
+                    hide_index=True,
+                    use_container_width=True,
+                )
+            with st.expander("Recipe and provenance"):
+                st.json({"recipe": asdict(record.spec), "dataset": record.dataset_summary})
+            left, right = st.columns(2)
+            if left.button("Use these settings for a new experiment", key=f"duplicate_{record.id}"):
+                dataset_id = record.spec.dataset_id
+                if dataset_id in workspace.datasets:
+                    draft = _draft(workspace, dataset_id, workspace.load_dataset(dataset_id))
+                    draft.update(
+                        model=record.spec.model,
+                        params=copy.deepcopy(record.spec.params),
+                        clusters=copy.deepcopy(record.spec.clusters),
+                        repeats=record.spec.repeats,
+                        seed=record.spec.seed,
+                        benchmark=record.spec.benchmark,
+                        metrics=copy.deepcopy(record.spec.metrics),
+                        search_space=copy.deepcopy(record.spec.search_space),
+                        trials=record.spec.trials,
+                    )
+                    workspace.preprocessing[dataset_id] = copy.deepcopy(
+                        record.spec.preprocessing or PreprocessingSpec()
+                    )
+                    st.session_state.selected_dataset = dataset_id
+                    _set_page("Model")
+                    st.rerun()
+                else:
+                    st.error(
+                        "The source dataset was removed. Results remain available, "
+                        "but the experiment cannot be rerun."
+                    )
+            if right.button("Delete this result", key=f"delete_{record.id}"):
+                workspace.delete_record(record.id)
+                st.rerun()
 
 
 def _scatter_figure(projected, labels, title, method):
