@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import io
 import json
 from dataclasses import asdict
 from pathlib import Path
@@ -343,29 +344,61 @@ def render_history(workspace):
                     st.bar_chart(counts, color="#8A1538")
                     if "loss" in artifact and artifact["loss"].ndim == 1:
                         st.line_chart(artifact["loss"], color="#8A1538")
-                    if st.button("Show PCA projection", key=f"plot_{record.id}"):
-                        import plotly.express as px
-                        from sklearn.decomposition import PCA
+                    method = st.selectbox("Projection", ["PCA", "t-SNE", "UMAP"], key=f"projection_{record.id}")
+                    cache_key = f"projection_result_{record.id}_{idx}_{method}"
+                    if st.button("Compute projection", key=f"plot_{record.id}"):
+                        from pymv.display.projection import project_embedding
 
-                        z = artifact["embedding"]
-                        if z.shape[1] >= 2 and len(z) >= 2:
-                            projected = PCA(n_components=2).fit_transform(z)
-                            fig = px.scatter(
-                                x=projected[:, 0],
-                                y=projected[:, 1],
-                                color=artifact["labels"].astype(str),
-                                labels={"x": "PC 1", "y": "PC 2", "color": "Cluster"},
-                                color_discrete_sequence=["#8A1538", "#475569", "#64748B", "#376D72", "#947D64"],
+                        try:
+                            st.session_state[cache_key] = project_embedding(
+                                artifact["embedding"], method, random_state=record.spec.seed
                             )
-                            st.plotly_chart(fig, use_container_width=True)
-                            st.download_button(
-                                "Download interactive plot",
-                                fig.to_html(),
-                                "projection.html",
-                                key=f"plot_download_{record.id}",
+                        except ValueError as exc:
+                            st.error(str(exc))
+                    if cache_key in st.session_state:
+                        import plotly.express as px
+                        from matplotlib.figure import Figure
+
+                        projected, rows = st.session_state[cache_key]
+                        colors = ["#8A1538", "#475569", "#64748B", "#376D72", "#947D64"]
+                        predicted = artifact["labels"][rows]
+                        fig = px.scatter(
+                            x=projected[:, 0],
+                            y=projected[:, 1],
+                            color=predicted.astype(str),
+                            labels={"x": f"{method} 1", "y": f"{method} 2", "color": "Cluster"},
+                            color_discrete_sequence=colors,
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                        st.caption(
+                            f"Showing {len(rows)} uniformly selected samples at most. "
+                            "Projection does not alter clustering or metric calculations."
+                        )
+                        st.download_button(
+                            "Download interactive plot",
+                            fig.to_html(),
+                            "projection.html",
+                            key=f"plot_download_{record.id}",
+                        )
+                        png = Figure(figsize=(7, 5), layout="constrained")
+                        ax = png.subplots()
+                        for j, cluster in enumerate(np.unique(predicted)):
+                            mask = predicted == cluster
+                            ax.scatter(
+                                projected[mask, 0],
+                                projected[mask, 1],
+                                s=12,
+                                color=colors[j % len(colors)],
+                                label=str(cluster),
+                                alpha=0.8,
                             )
-                        else:
-                            st.info("A 2D projection requires at least two embedding dimensions.")
+                        ax.set(xlabel=f"{method} 1", ylabel=f"{method} 2", title=record.spec.name)
+                        ax.legend(title="Cluster", frameon=False)
+                        output = io.BytesIO()
+                        png.savefig(output, format="png", dpi=200)
+                        st.download_button(
+                            "Download PNG", output.getvalue(), "projection.png", "image/png", key=f"png_{record.id}"
+                        )
 
 
 def main():

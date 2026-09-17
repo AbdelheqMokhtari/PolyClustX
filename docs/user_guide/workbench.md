@@ -70,7 +70,9 @@ precedes model preprocessing and is recorded in the recipe.
 ## Inspect and export
 
 Explore a successful trial's cluster counts, loss history when available, and
-PCA projection. A 2D visualization is not evidence of clustering correctness.
+PCA, t-SNE or optional UMAP projection. Projections are capped at 5,000 uniformly
+sampled points and can be downloaded as PNG or interactive HTML. This does not
+change clustering or scores. A 2D visualization is not evidence of correctness.
 Download an experiment ZIP containing:
 
 - `experiment.json`: recipe, fingerprint, IDs, masks, version, timestamps,

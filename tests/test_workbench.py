@@ -87,3 +87,30 @@ def test_streamlit_create_run_duplicate_delete():
     assert len(at.session_state["workspace"].records) == 2
     next(b for b in at.button if b.label == "Delete result").click().run()
     assert len(at.session_state["workspace"].records) == 1
+
+
+def test_projection_sampling():
+    from pymv.display.projection import project_embedding
+
+    x = np.random.default_rng(1).normal(size=(20, 4))
+    projected, rows = project_embedding(x, max_samples=10)
+    assert projected.shape == (10, 2) and len(set(rows)) == 10
+    np.testing.assert_array_equal(rows, project_embedding(x, max_samples=10)[1])
+    with pytest.raises(ValueError, match="Choose"):
+        project_embedding(x, "invalid")
+
+
+def test_streamlit_benchmark_toggle_removes_external_metrics():
+    pytest.importorskip("streamlit")
+    from streamlit.testing.v1 import AppTest
+    app = Path(__file__).resolve().parents[1] / "src/pymv/display/app.py"
+    at = AppTest.from_file(str(app), default_timeout=60).run()
+    at.radio[0].set_value("Synthetic example").run()
+    next(c for c in at.checkbox if c.label == "Include evaluation labels").check()
+    next(b for b in at.button if b.label == "Create example").click().run()
+    at.checkbox(key="benchmark").check().run()
+    at.multiselect(key="metrics").set_value(["ACC", "NMI", "Silhouette"]).run()
+    at.checkbox(key="benchmark").uncheck().run()
+    assert not at.exception
+    assert at.multiselect(key="metrics").value == ["Silhouette"]
+    assert "ACC" not in at.multiselect(key="metrics").options
