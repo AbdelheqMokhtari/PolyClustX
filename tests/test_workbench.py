@@ -9,6 +9,7 @@ import pytest
 from pymv.data import MultiViewDataset
 from pymv.display.preprocessing import PreprocessingSpec, ViewPreprocessing, prepare_dataset
 from pymv.display.profiles import dataset_profile
+from pymv.display.results import aggregate_results, compact_confusion
 from pymv.display.synthetic import SyntheticSpec, generate_synthetic
 from pymv.display.workspace import ExperimentSpec, Workspace, export_record
 from tests.test_unsupervised_experiments import DummyModel
@@ -117,6 +118,19 @@ def test_dataset_profile_and_configurable_synthetic_data():
     assert profile["labels"]["imbalance_ratio"] > 1
     assert len(profile["views"]) == 3 and len(profile["graphs"]) == 6
     assert profile["memory_bytes"] > 0
+
+
+def test_aggregate_repeated_results_and_compact_confusion(workspace):
+    key = next(iter(workspace.datasets))
+    record = workspace.run(ExperimentSpec(key, clusters=[2], repeats=2, metrics=["Silhouette"]))
+    aggregated = aggregate_results(record)
+    assert aggregated[0]["successful runs"] == 2
+    assert "±" in aggregated[0]["Silhouette"]
+    truth = np.arange(80)
+    predicted = np.arange(80)
+    matrix, rows, columns = compact_confusion(truth, predicted, max_labels=12)
+    assert matrix.shape == (13, 13)
+    assert rows[-1] == "Other classes" and columns[-1] == "Other clusters"
 
 
 def test_streamlit_create_run_duplicate_delete():
