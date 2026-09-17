@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from pymv.data import MultiViewDataset
+from pymv.display.preprocessing import PreprocessingSpec, ViewPreprocessing, prepare_dataset
 from pymv.display.workspace import ExperimentSpec, Workspace, export_record
 from tests.test_unsupervised_experiments import DummyModel
 
@@ -61,6 +62,41 @@ def test_single_double_many_and_missing_imputation(monkeypatch):
                 workspace.run(ExperimentSpec(key, missing_rate=0.2))
         spec = ExperimentSpec(key, clusters=[2], missing_rate=0.2 if views > 1 else 0, imputation="mean")
         assert workspace.run(spec).rows[0]["status"] == "complete"
+
+
+def test_lazy_resources_unload_other_datasets():
+    workspace = Workspace()
+    calls = []
+
+    def loader(name):
+        calls.append(name)
+        return MultiViewDataset([np.ones((4, 2))], name=name)
+
+    first = workspace.add_lazy_dataset("first", lambda: loader("first"))
+    second = workspace.add_lazy_dataset("second", lambda: loader("second"))
+    assert not workspace.datasets[first].loaded
+    workspace.load_dataset(first)
+    workspace.load_dataset(second)
+    assert calls == ["first", "second"]
+    assert not workspace.datasets[first].loaded and workspace.datasets[second].loaded
+    workspace.remove_dataset(first)
+    assert first not in workspace.datasets
+
+
+def test_selected_view_preprocessing_and_missing_imputation():
+    data = MultiViewDataset(
+        [np.array([[3.0, 4.0], [6.0, 8.0]]), np.array([[1.0], [2.0]])],
+        name="example",
+    )
+    recipe = PreprocessingSpec(
+        mode="selected",
+        selected_views=[0],
+        shared=ViewPreprocessing(normalize=True),
+    )
+    prepared = prepare_dataset(data, recipe)
+    np.testing.assert_allclose(np.linalg.norm(prepared.Xs[0], axis=1), 1)
+    np.testing.assert_array_equal(prepared.Xs[1], data.Xs[1])
+    assert prepared is not data
 
 
 def test_streamlit_create_run_duplicate_delete():

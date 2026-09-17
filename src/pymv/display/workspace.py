@@ -13,11 +13,11 @@ import uuid
 import zipfile
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+from typing import Callable
 
 import numpy as np
 from scipy import sparse
 
-from pymv.data import impute_missing, simulate_missing_views
 from pymv.metrics import (
     ari_score,
     calinski_harabasz_score,
@@ -28,6 +28,8 @@ from pymv.metrics import (
 )
 from pymv.metrics.evaluation import evaluate_metrics, validate_metrics
 from pymv.models import get_model
+
+from .preprocessing import PreprocessingSpec, prepare_dataset
 
 METRICS = {
     "Silhouette": silhouette_score,
@@ -62,6 +64,7 @@ class ExperimentSpec:
     scale: bool = False
     search_space: dict = field(default_factory=dict)
     trials: int = 1
+    preprocessing: PreprocessingSpec | None = None
 
 
 @dataclass
@@ -72,6 +75,44 @@ class ExperimentRecord:
     dataset_summary: dict
     rows: list = field(default_factory=list)
     artifacts: list = field(default_factory=list)
+
+
+@dataclass
+class DatasetResource:
+    """A session dataset that can release its materialized matrices from RAM."""
+
+    id: str
+    name: str
+    loader: Callable
+    source: str = "memory"
+    hint: dict = field(default_factory=dict)
+    _data: object | None = field(default=None, repr=False)
+
+    @property
+    def loaded(self):
+        return self._data is not None
+
+    def load(self):
+        if self._data is None:
+            self._data = self.loader()
+        return self._data
+
+    def unload(self):
+        self._data = None
+
+    def __getattr__(self, name):
+        # Keeps read-only compatibility with the former datasets mapping.
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return getattr(self.load(), name)
+
+    def __setattr__(self, name, value):
+        fields = {"id", "name", "loader", "source", "hint", "_data"}
+        data = self.__dict__.get("_data")
+        if name not in fields and data is not None and hasattr(data, name):
+            setattr(data, name, value)
+            return
+        object.__setattr__(self, name, value)
 
 
 def fingerprint(data):
@@ -111,11 +152,48 @@ class Workspace:
     def __init__(self):
         self.datasets = {}
         self.records = []
+        self.experiment_counter = 0
+        self.preprocessing = {}
 
-    def add_dataset(self, data):
+    def add_dataset(self, data, *, source="memory"):
         key = uuid.uuid4().hex
-        self.datasets[key] = copy.deepcopy(data)
+        snapshot = copy.deepcopy(data)
+        self.datasets[key] = DatasetResource(
+            key,
+            data.name or "Dataset",
+            loader=lambda value=snapshot: copy.deepcopy(value),
+            source=source,
+            hint={
+                "n_samples": data.n_samples,
+                "n_views": data.n_views,
+                "n_clusters": data.n_clusters,
+                "complete": data.is_complete,
+                "category": data.category,
+            },
+            _data=snapshot,
+        )
         return key
+
+    def add_lazy_dataset(self, name, loader, *, source="catalog", hint=None):
+        key = uuid.uuid4().hex
+        self.datasets[key] = DatasetResource(key, name, loader, source=source, hint=hint or {})
+        return key
+
+    def load_dataset(self, dataset_id, *, unload_others=True):
+        if dataset_id not in self.datasets:
+            raise KeyError("This dataset is no longer in the session")
+        if unload_others:
+            for key, resource in self.datasets.items():
+                if key != dataset_id:
+                    resource.unload()
+        return self.datasets[dataset_id].load()
+
+    def unload_dataset(self, dataset_id):
+        self.datasets[dataset_id].unload()
+
+    def remove_dataset(self, dataset_id):
+        self.preprocessing.pop(dataset_id, None)
+        self.datasets.pop(dataset_id)
 
     def delete_record(self, record_id):
         self.records = [r for r in self.records if r.id != record_id]
@@ -132,7 +210,7 @@ class Workspace:
             raise ValueError("Cluster counts must be a nonempty list of integers")
         if spec.repeats < 1 or spec.trials < 1:
             raise ValueError("Repeats and trials must be positive")
-        source = self.datasets[spec.dataset_id]
+        source = self.load_dataset(spec.dataset_id)
         if any(k < 1 or k > source.n_samples for k in spec.clusters):
             raise ValueError("Each K must be between 1 and the number of samples")
         if "n_clusters" in spec.params or "n_clusters" in spec.search_space:
@@ -145,25 +223,23 @@ class Workspace:
             raise ValueError("Each random-search parameter needs a nonempty JSON list")
         metric_fns = {name: METRICS[name] for name in spec.metrics}
         validate_metrics(metric_fns, source.labels, benchmark=spec.benchmark)
-        data = (
-            simulate_missing_views(source, spec.missing_rate, random_state=spec.seed)
-            if spec.missing_rate
-            else copy.deepcopy(source)
+        recipe = spec.preprocessing or PreprocessingSpec(
+            missing_rate=spec.missing_rate,
+            missing_seed=spec.seed,
+            imputation=spec.imputation,
+            fusion=spec.fusion,
+            relation_weights={int(k): v for k, v in spec.relation_weights.items()},
+            mode="all" if spec.center or spec.scale else "none",
         )
-        if spec.imputation:
-            data = impute_missing(data, spec.imputation)
+        if spec.preprocessing is None:
+            recipe.shared.center = spec.center
+            recipe.shared.scale = spec.scale
+        data = prepare_dataset(source, recipe)
         if not data.is_complete and not getattr(cls, "supports_missing_views", False):
             raise ValueError(f"{cls.__name__} does not support missing views. Choose explicit mean/zero imputation.")
         original_mask = source.observed_mask.tolist()
         if "missing_simulation" in data.metadata:
             original_mask = data.metadata.get("imputation", {}).get("observed_mask", data.observed_mask.tolist())
-        data.As = data.fused_graphs(spec.fusion, {int(k): v for k, v in spec.relation_weights.items()})
-        if spec.center or spec.scale:
-            if not data.is_complete:
-                raise ValueError("Generic scaling requires explicit imputation for incomplete data")
-            from pymv.preprocessing import preprocess_features
-
-            data.Xs = preprocess_features(data.Xs, center=spec.center, scale=spec.scale)
         summary = {
             "name": source.name,
             "fingerprint": fingerprint(source),
@@ -181,6 +257,7 @@ class Workspace:
         }
         record = ExperimentRecord(uuid.uuid4().hex, datetime.now(timezone.utc).isoformat(), spec, summary)
         self.records.insert(0, record)
+        self.experiment_counter += 1
         rng = np.random.default_rng(spec.seed)
         configurations = []
         for _ in range(spec.trials if spec.search_space else 1):
@@ -213,6 +290,8 @@ class Workspace:
                         loss = getattr(model, "loss_history_", None)
                         if loss is not None:
                             artifact["loss"] = np.asarray(loss)
+                        if spec.benchmark and data.labels is not None:
+                            artifact["true_labels"] = np.asarray(data.labels).copy()
                     except Exception as exc:
                         row.update(status="failed", error=f"{type(exc).__name__}: {exc}")
                     row["seconds"] = time.perf_counter() - started
