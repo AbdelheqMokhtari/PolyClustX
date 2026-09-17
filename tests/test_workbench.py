@@ -8,6 +8,8 @@ import pytest
 
 from pymv.data import MultiViewDataset
 from pymv.display.preprocessing import PreprocessingSpec, ViewPreprocessing, prepare_dataset
+from pymv.display.profiles import dataset_profile
+from pymv.display.synthetic import SyntheticSpec, generate_synthetic
 from pymv.display.workspace import ExperimentSpec, Workspace, export_record
 from tests.test_unsupervised_experiments import DummyModel
 
@@ -97,6 +99,24 @@ def test_selected_view_preprocessing_and_missing_imputation():
     np.testing.assert_allclose(np.linalg.norm(prepared.Xs[0], axis=1), 1)
     np.testing.assert_array_equal(prepared.Xs[1], data.Xs[1])
     assert prepared is not data
+
+
+def test_dataset_profile_and_configurable_synthetic_data():
+    spec = SyntheticSpec(
+        n_samples=80,
+        n_classes=4,
+        dimensions=[5, 7, 3],
+        distributions=["Gaussian", "Heavy-tailed", "Nonlinear"],
+        class_balance="Strongly imbalanced",
+        graph_relations=2,
+    )
+    data = generate_synthetic(spec)
+    profile = dataset_profile(data)
+    assert data.n_views == 3 and data.feature_dims == [5, 7, 3]
+    assert data.n_clusters == 4 and all(len(graphs) == 2 for graphs in data.As)
+    assert profile["labels"]["imbalance_ratio"] > 1
+    assert len(profile["views"]) == 3 and len(profile["graphs"]) == 6
+    assert profile["memory_bytes"] > 0
 
 
 def test_streamlit_create_run_duplicate_delete():
