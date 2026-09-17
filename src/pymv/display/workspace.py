@@ -86,6 +86,7 @@ class DatasetResource:
     loader: Callable
     source: str = "memory"
     hint: dict = field(default_factory=dict)
+    cleanup: Callable | None = field(default=None, repr=False)
     _data: object | None = field(default=None, repr=False)
 
     @property
@@ -107,7 +108,7 @@ class DatasetResource:
         return getattr(self.load(), name)
 
     def __setattr__(self, name, value):
-        fields = {"id", "name", "loader", "source", "hint", "_data"}
+        fields = {"id", "name", "loader", "source", "hint", "cleanup", "_data"}
         data = self.__dict__.get("_data")
         if name not in fields and data is not None and hasattr(data, name):
             setattr(data, name, value)
@@ -193,7 +194,10 @@ class Workspace:
 
     def remove_dataset(self, dataset_id):
         self.preprocessing.pop(dataset_id, None)
-        self.datasets.pop(dataset_id)
+        resource = self.datasets.pop(dataset_id)
+        resource.unload()
+        if resource.cleanup:
+            resource.cleanup()
 
     def delete_record(self, record_id):
         self.records = [r for r in self.records if r.id != record_id]
@@ -305,9 +309,10 @@ class Workspace:
 def export_record(record):
     """Downloadable ZIP: JSON recipe/provenance, CSV scores, per-trial NPZ outputs.
 
-    Original feature data and ground-truth labels are not exported. Reload the
-    original dataset (checking its fingerprint) to reproduce a run. Session IDs
-    are local identifiers, not paths to persisted datasets.
+    Original feature matrices are not exported. Benchmark artifacts include the
+    evaluation labels needed for confusion matrices. Reload the original dataset
+    (checking its fingerprint) to reproduce a run. Session IDs are local
+    identifiers, not paths to persisted datasets.
     """
     from pymv import __version__
 
