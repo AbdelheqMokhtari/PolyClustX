@@ -1,0 +1,45 @@
+# Multiple graph relations per view
+
+The outer graph list follows feature-view order. Each entry is `None`, one
+adjacency, or several relations assigned to that view.
+
+```python
+import numpy as np
+from pymv.data import MultiViewDataset
+from pymv.models import LMGEC
+
+rng = np.random.default_rng(9)
+image, text = rng.normal(size=(30, 6)), rng.normal(size=(30, 8))
+spatial = np.eye(30)
+similarity = np.ones((30, 30)) - np.eye(30)
+data = MultiViewDataset([image, text], As=[[spatial, similarity], None],
+                       modalities=["image", "text"])
+model = data.fit(LMGEC(n_clusters=3, embedding_dim=4, random_state=42),
+                 fusion="sum", weights={0: [0.3, 0.7]})
+```
+
+Weighted sum computes $A_{\mathrm{fused}} = \sum_r w_r A_r$.
+Weights must be finite and nonnegative, one per relation, with at least one
+positive value. Defaults are all one: a **sum**, not an automatic average.
+
+`fusion="hadamard"` computes the elementwise product
+$A_{\mathrm{fused}} = A_1 \odot A_2 \odot \cdots$.
+An edge must appear in every relation to survive. Hadamard fusion rejects weights.
+Relations must have identical shapes and sample order.
+
+```python
+from pymv.preprocessing import fuse_graphs, get_propagated_features
+
+a = fuse_graphs([spatial, similarity], weights=[0.3, 0.7])
+h = get_propagated_features(image, adj=a, beta=1.0)
+```
+
+Fusion precedes self-loops and row normalization:
+$S = D^{-1}(A_{\mathrm{fused}} + \beta I)$, then $H = SX$.
+Sparse graph inputs stay sparse through fusion; feature propagation may yield
+dense features.
+
+Direct LMGEC calls sum nested relation lists by default. Use `data.fit` for
+custom weighting. Shared graphs must be repeated explicitly, such as `As=[A, A]`;
+the last graph is no longer silently assigned to unmentioned views.
+SCM ignores graphs, and LMGEC uses them only with preprocessing enabled.

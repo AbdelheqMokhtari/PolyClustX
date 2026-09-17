@@ -342,7 +342,7 @@ def _write_experiment_markdown(result, folder: str, now: str):
 
         bold_cells: set[tuple[int, int]] = set()
         if len(results) > 1:
-            best_map = _find_best_per_col(raw_data)
+            best_map = result._find_best(results)
             for col_i, row_i in best_map.items():
                 bold_cells.add((row_i, col_i + 1))
 
@@ -443,7 +443,8 @@ def _write_random_search_markdown(result, folder: str, now: str):
     lines.append(f"- **Model**: {result.model_name}")
     lines.append(f"- **Dataset**: {result.dataset_name}")
     lines.append(f"- **Trials**: {len(result.trials)}")
-    lines.append(f"- **Optimizing**: {result.best_metric_name} (↑ higher is better)")
+    direction = "↑ higher is better" if result.higher_is_better else "↓ lower is better"
+    lines.append(f"- **Optimizing**: {result.best_metric_name} ({direction})")
     lines.append("")
 
     if not result.trials:

@@ -7,8 +7,10 @@ from .clustering import (
     nmi_score,
     silhouette_score,
 )
+from .evaluation import evaluate_metrics
 
 __all__ = [
+    "evaluate_metrics",
     "clustering_accuracy",
     "clustering_f1_score",
     "nmi_score",

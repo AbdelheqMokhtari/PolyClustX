@@ -1,57 +1,48 @@
 Installation
 ============
 
-Requirements
-------------
+Python 3.9 or newer is supported by the framework; dependency versions available
+for your Python version determine the supported TensorFlow/Streamlit releases.
+Python 3.11 is a convenient choice for a new environment.
 
-- **Python ≥ 3.9**
-- Core: ``numpy``, ``scipy``, ``scikit-learn``, ``matplotlib``,
-  ``requests``, ``pyyaml``, ``tqdm``
-- Model backend: ``tensorflow ≥ 2.10``
+.. code-block:: bash
 
-Install from source
--------------------
+   python -m venv .venv
+   source .venv/bin/activate
+   python -m pip install --upgrade pip
+   pip install pymv-clustering
+
+On Windows, activate with ``.venv\Scripts\activate``.
+The distribution is named **pymv-clustering**, while Python imports use **pymv**.
+
+Interactive interface
+---------------------
+
+.. code-block:: bash
+
+   pip install "pymv-clustering[display]"
+   pymv-display
+   # Equivalent:
+   python -m pymv.display
+
+The interface is part of the same distribution. No separate pymv-display
+package or repository is required. See :doc:`workbench`.
+
+Development checkout
+--------------------
+
+Until this branch is published, install the local checkout to use these changes:
 
 .. code-block:: bash
 
    git clone https://github.com/AbdelheqMokhtari/pymv.git
    cd pymv
-   pip install -e .
+   # Check out the feature branch after its author has pushed it.
+   pip install -e ".[dev,docs,display]"
+   pytest
+   sphinx-build -W --keep-going -b html docs docs/_build/html
 
-This installs ``pymv`` in *editable* mode — any code changes take effect
-immediately without reinstalling.
+Dataset downloads are cached in ``~/.pymv_datasets``. Set ``PYMV_DATA_DIR``
+to choose a different location. Listing the catalog does not download data.
 
-TensorFlow
-----------
-
-The LMGEC training loop uses TensorFlow.  If it's not already installed:
-
-.. code-block:: bash
-
-   # CPU-only
-   pip install "tensorflow>=2.10"
-
-   # GPU (NVIDIA)
-   pip install "tensorflow[and-cuda]>=2.10"
-
-Optional dependencies
----------------------
-
-Declared as extras in ``pyproject.toml``:
-
-.. code-block:: bash
-
-   pip install -e ".[dev]"     # pytest, ruff, build
-   pip install -e ".[docs]"    # sphinx, furo, myst-parser, copybutton
-   pip install -e ".[umap]"    # UMAP projection for plot_clusters
-
-Verify
-------
-
-.. code-block:: python
-
-   import pymv
-   print(pymv.__version__)   # e.g. "1.1.1"
-
-   from pymv.data import list_datasets
-   print(list_datasets())    # ['acm', 'amazon_photos', ...]
+UMAP visualizations are optional: ``pip install "pymv-clustering[umap]"``.

@@ -22,6 +22,8 @@ class BaseModel(ABC):
         learned consensus embedding.
     """
 
+    supports_missing_views = False
+
     @abstractmethod
     def fit(self, Xs, As=None):
         """Fit the model on a list of views.

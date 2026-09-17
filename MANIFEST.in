@@ -1,0 +1,6 @@
+include README.md LICENSE .readthedocs.yaml
+recursive-include docs *.rst *.md *.py *.txt *.css Makefile make.bat
+prune docs/_build
+recursive-include examples *.py
+recursive-include tests *.py
+recursive-include src/pymv/assets *.md *.png *.css

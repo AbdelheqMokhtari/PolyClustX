@@ -1,145 +1,29 @@
-/* pymv custom styles — scikit-learn-inspired landing page */
-
-/* ── Hero banner ─────────────────────────────────────────── */
-.hero-banner {
-    background: linear-gradient(135deg, #1a237e 0%, #2962ff 60%, #448aff 100%);
-    color: #fff;
-    padding: 3.5rem 2rem 3rem;
-    border-radius: 12px;
-    margin-bottom: 2.5rem;
-    text-align: center;
-}
-
-.hero-banner h2 {
-    font-size: 2.2rem;
-    font-weight: 700;
-    margin: 0 0 0.6rem;
-    color: #fff !important;
-}
-
-.hero-banner p {
-    font-size: 1.15rem;
-    margin: 0.3rem 0;
-    opacity: 0.92;
-    color: #e8eaf6;
-}
-
-.hero-banner .version-badge {
-    display: inline-block;
-    background: rgba(255, 255, 255, 0.2);
-    padding: 0.25rem 0.9rem;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    margin-top: 1rem;
-    letter-spacing: 0.03em;
-}
-
-/* ── Badge row ───────────────────────────────────────────── */
-.badge-row {
-    text-align: center;
-    margin-bottom: 2rem;
-}
-.badge-row a {
-    text-decoration: none;
-}
-.badge-row img {
-    margin: 0 3px;
-    vertical-align: middle;
-}
-
-/* ── Feature cards grid ──────────────────────────────────── */
-.feature-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 1.3rem;
-    margin: 2rem 0 2.5rem;
-}
-
-.feature-card {
-    border: 1px solid var(--color-background-border, #e0e0e0);
-    border-radius: 10px;
-    padding: 1.6rem 1.4rem 1.3rem;
-    background: var(--color-background-secondary, #fafafa);
-    transition: box-shadow 0.2s ease, transform 0.15s ease;
-}
-
-.feature-card:hover {
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-    transform: translateY(-2px);
-}
-
-.feature-card .card-icon {
-    font-size: 1.8rem;
-    margin-bottom: 0.5rem;
-}
-
-.feature-card h3 {
-    font-size: 1.05rem;
-    font-weight: 600;
-    margin: 0 0 0.45rem;
-    color: var(--color-brand-primary, #2962ff);
-}
-
-.feature-card p {
-    font-size: 0.92rem;
-    margin: 0;
-    line-height: 1.55;
-    color: var(--color-foreground-secondary, #555);
-}
-
-/* ── Quick-start section ─────────────────────────────────── */
-.quickstart-section {
-    background: var(--color-background-secondary, #f5f7fa);
-    border: 1px solid var(--color-background-border, #e0e0e0);
-    border-radius: 10px;
-    padding: 1.8rem 2rem;
-    margin: 2rem 0;
-}
-
-.quickstart-section h2 {
-    font-size: 1.3rem;
-    margin-top: 0;
-}
-
-/* ── Install command box ─────────────────────────────────── */
-.install-box {
-    background: #263238;
-    color: #b2ff59;
-    padding: 0.9rem 1.2rem;
-    border-radius: 8px;
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
-    font-size: 0.95rem;
-    margin: 1.2rem 0;
-    display: inline-block;
-}
-
-/* ── Section separators ──────────────────────────────────── */
-.landing-divider {
-    border: none;
-    border-top: 1px solid var(--color-background-border, #e0e0e0);
-    margin: 2.5rem 0;
-}
-
-/* ── Responsive ──────────────────────────────────────────── */
-@media (max-width: 640px) {
-    .feature-grid {
-        grid-template-columns: 1fr;
-    }
-    .hero-banner {
-        padding: 2rem 1.2rem;
-    }
-    .hero-banner h2 {
-        font-size: 1.5rem;
-    }
-}
-
-/* ── Dark mode adjustments (furo provides CSS vars) ─────── */
-@media (prefers-color-scheme: dark) {
-    .hero-banner {
-        background: linear-gradient(135deg, #0d1b2a 0%, #1565c0 60%, #1e88e5 100%);
-    }
-    .install-box {
-        background: #1a1a2e;
-    }
-}
+:root { --pymv-accent: #8A1538; --pymv-ink: #334155; --pymv-muted: #526174; }
+body, .wy-body-for-nav { color: var(--pymv-ink); background: #F8FAFC; }
+.wy-nav-content { max-width: 1120px; }
+.wy-nav-content-wrap, .wy-nav-content { background: #FFFFFF; }
+.wy-nav-side { background: #F8FAFC; border-right: 1px solid #E2E8F0; }
+.wy-side-nav-search { background: #FFFFFF; color: var(--pymv-ink); border-bottom: 1px solid #E2E8F0; }
+.wy-side-nav-search > a, .wy-side-nav-search > a:hover { color: var(--pymv-accent); background: transparent; }
+.wy-side-nav-search a img.logo { width: 112px; height: 112px; max-width: 112px; padding: 0; border-radius: 0; }
+.wy-side-nav-search input[type=text] { border: 1px solid #CBD5E1; box-shadow: none; }
+.wy-menu-vertical a { color: var(--pymv-ink); }
+.wy-menu-vertical a:hover { background: #EDF0F4; color: var(--pymv-accent); }
+.wy-menu-vertical p.caption { color: var(--pymv-accent); font-weight: 700; }
+.wy-menu-vertical li.current > a { color: var(--pymv-accent); }
+.wy-menu-vertical li.current, .wy-menu-vertical li.current a { background: #F1F5F9; border-color: #E2E8F0; }
+a, a:visited { color: var(--pymv-accent); }
+a:hover { color: #651029; }
+h1, h2, h3 { color: #263447; font-family: inherit; }
+.rst-content code.literal { color: #6B1835; border-color: #E2E8F0; }
+.rst-content .note, .rst-content .admonition { background: #F1F5F9; }
+.rst-content .note .admonition-title, .rst-content .admonition-title { background: #475569; }
+.rst-content .warning { background: #FAF6F7; }
+.rst-content .warning .admonition-title { background: #8A1538; }
+.rst-content dl:not(.docutils) dt { border-top-color: #8A1538; background: #FAF6F7; color: #334155; }
+.rst-content .wy-table-responsive table td, .rst-content .wy-table-responsive table th { white-space: normal; }
+.wy-nav-top { background: #8A1538; }
+footer { color: #526174; }
+.highlight .s, .highlight .s1, .highlight .s2 { color: #7B2946; }
+.highlight .kn, .highlight .k, .highlight .ow { color: #475569; font-weight: 600; }
+.highlight .nn, .highlight .nf, .highlight .nc { color: #376D72; }

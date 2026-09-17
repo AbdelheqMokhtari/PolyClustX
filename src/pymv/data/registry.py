@@ -22,7 +22,10 @@ from __future__ import annotations
 
 import difflib
 import logging
+import math
+import warnings
 from dataclasses import dataclass, field
+from numbers import Real
 from typing import Callable
 
 import scipy.io as io
@@ -202,6 +205,58 @@ _SPECS = [
 
 CATALOG: dict[str, DatasetSpec] = {spec.name: spec for spec in _SPECS}
 
+# Public families resolve to physical artifacts. Existing artifact names remain
+# accepted aliases, so old experiment files remain loadable.
+VARIANTS = {name: {"default": name} for name in CATALOG}
+for _base in ("pascal", "coco_all", "coco_cross"):
+    for _variant in ("clip", "resnet_minilm", "vit_minilm", "vit_sbert"):
+        _artifact = f"{_base}_{_variant}"
+        VARIANTS[_base][_variant] = _artifact
+        VARIANTS.pop(_artifact)
+for _base, _variant, _artifact in (
+    ("acm", "5view", "acm_5view"),
+    ("grocery_multimodal", "small", "grocerys_multimodal"),
+    ("reddit_multimodal", "small", "reddits_multimodal"),
+):
+    VARIANTS[_base][_variant] = _artifact
+    VARIANTS.pop(_artifact)
+ALIASES = {artifact: (base, variant) for base, variants in VARIANTS.items()
+           for variant, artifact in variants.items() if artifact != base}
+
+
+def _resolve(name, variant=None):
+    key = str(name).lower().strip()
+    if key in ALIASES:
+        if variant not in (None, "default"):
+            raise ValueError("Do not combine a legacy variant name with variant=")
+        base, chosen = ALIASES[key]
+        warnings.warn(f"Use load_dataset({base!r}, variant={chosen!r}) instead of {key!r}",
+                      DeprecationWarning, stacklevel=3)
+        return base, chosen, CATALOG[key]
+    if key not in VARIANTS:
+        close = difflib.get_close_matches(key, VARIANTS, n=3, cutoff=0.6)
+        raise ValueError(f"Unknown dataset '{name}'. Did you mean {close}? Available: {sorted(VARIANTS)}")
+    chosen = "default" if variant is None else str(variant).lower().strip()
+    if chosen not in VARIANTS[key]:
+        raise ValueError(f"Unknown {key} variant '{variant}'. Available: {sorted(VARIANTS[key])}")
+    return key, chosen, CATALOG[VARIANTS[key][chosen]]
+
+
+def list_variants(name):
+    """Available variant names, including the default artifact; no downloads."""
+    base, _, _ = _resolve(name)
+    return sorted(VARIANTS[base])
+
+
+def _modalities(spec):
+    if spec.category == "multimodal" or spec.name.startswith(("pascal", "coco_")) or spec.name in {
+        "bdgp", "esp_game", "flickr30k", "iaprtc12", "nus_wide", "wikipedia",
+    }:
+        return ["image", "text"]
+    if spec.name == "prokaryotic":
+        return ["genomic", "text", "proteomic"]
+    return ["features"] * spec.n_views
+
 
 # ── Loading ────────────────────────────────────────────────────────
 
@@ -214,57 +269,74 @@ def _load(spec: DatasetSpec) -> MultiViewDataset:
     Xs, As, labels = spec.reader(data, **spec.kwargs)
 
     logger.info("Dataset loaded: samples=%d, views=%d", Xs[0].shape[0], len(Xs))
-    return MultiViewDataset(Xs, As, labels, name=spec.name)
+    return MultiViewDataset(Xs, As, labels, name=spec.name, modalities=_modalities(spec),
+                            metadata={"source_url": spec.url, "artifact": spec.name})
 
 
-def load_dataset(name: str) -> MultiViewDataset:
+def load_dataset(name: str, missing_rate: float = 0.0, *, variant=None, random_state=0) -> MultiViewDataset:
     """Load a dataset by name (case-insensitive).
 
     See :func:`list_datasets` for the available names.  Files are
     downloaded on first use and cached under ``~/.pymv_datasets``
     (override with the ``PYMV_DATA_DIR`` environment variable).
     """
-    key = str(name).lower().strip()
-    if key not in CATALOG:
-        close = difflib.get_close_matches(key, CATALOG, n=3, cutoff=0.6)
-        hint = f" Did you mean: {', '.join(close)}?" if close else ""
-        raise ValueError(
-            f"Unknown dataset '{name}'.{hint} "
-            f"Available datasets: {sorted(CATALOG)}"
-        )
-    return _load(CATALOG[key])
+    if not isinstance(missing_rate, Real) or not math.isfinite(missing_rate) or not 0 <= missing_rate < 1:
+        raise ValueError("missing_rate must be in [0, 1)")
+    base, chosen, spec = _resolve(name, variant)
+    data = _load(spec)
+    data.name = base
+    data.metadata.update({"variant": chosen, "artifact": spec.name})
+    if missing_rate:
+        from .missing import simulate_missing_views
+        data = simulate_missing_views(data, missing_rate, random_state=random_state)
+    return data
 
 
-def list_datasets(category: str | None = None) -> list[str]:
+load_data = load_dataset
+
+
+def list_datasets(category: str | None = None, *, include_aliases=False) -> list[str]:
     """List available dataset names, optionally filtered by category.
 
     Parameters
     ----------
     category : str, optional
-        One of ``"features"``, ``"graph"``, ``"multimodal"``.
+        One of ``"multiview"``, ``"multimodal"``,
+        ``"attributed_graph_multiview"``, ``"attributed_graph_multimodal"``.
+        Legacy broad filters ``"features"`` and ``"graph"`` are also accepted.
+        A family matches when any variant belongs to that setting.
+    include_aliases : bool, default=False
+        Include deprecated artifact names for migration tooling.
     """
-    names = [
-        name for name, spec in CATALOG.items()
-        if category is None or spec.category == category
-    ]
+    candidates = CATALOG if include_aliases else VARIANTS
+    names = [name for name in candidates if category is None or any(
+        get_dataset_info(name, variant=v)["category"] == category
+        or (category in {"features", "graph"} and CATALOG[artifact].category == category)
+        for v, artifact in (VARIANTS[name].items() if name in VARIANTS else [(None, name)])
+    )]
     return sorted(names)
 
 
-def get_dataset_info(name: str) -> dict:
+def get_dataset_info(name: str, *, variant=None) -> dict:
     """Return metadata about a dataset without loading it.
 
     Keys: ``name``, ``category``, ``n_views``, ``description``,
     ``url``, ``cache_path``, ``cached``.
     """
-    key = str(name).lower().strip()
-    if key not in CATALOG:
-        raise ValueError(
-            f"Unknown dataset '{name}'. Available: {sorted(CATALOG)}"
-        )
-    spec = CATALOG[key]
+    base, chosen, spec = _resolve(name, variant)
+    modalities = _modalities(spec)
+    has_graphs = spec.category in {"graph", "multimodal"}
+    kind = "multimodal" if len(set(modalities)) > 1 else "multiview"
     return {
-        "name": spec.name,
-        "category": spec.category,
+        "name": base,
+        "variant": chosen,
+        "variants": sorted(VARIANTS[base]),
+        "artifact": spec.name,
+        "category": f"attributed_graph_{kind}" if has_graphs else kind,
+        "has_graphs": has_graphs,
+        "modalities": modalities,
+        "complete": True,
+        "availability_note": "Hosted BBC4view artifact is known to be corrupt" if spec.name == "bbc4view" else "",
         "n_views": spec.n_views,
         "description": spec.description,
         "url": spec.url,
@@ -276,8 +348,8 @@ def get_dataset_info(name: str) -> dict:
 # ── Per-dataset convenience loaders (load_acm, load_dblp, …) ──────
 
 def _make_loader(spec: DatasetSpec) -> Callable[[], MultiViewDataset]:
-    def loader() -> MultiViewDataset:
-        return _load(spec)
+    def loader(missing_rate=0.0, *, variant=None, random_state=0) -> MultiViewDataset:
+        return load_dataset(spec.name, missing_rate, variant=variant, random_state=random_state)
 
     loader.__name__ = f"load_{spec.name}"
     loader.__qualname__ = loader.__name__
@@ -311,22 +383,25 @@ def _load_variant(base: str, variant: str | None) -> MultiViewDataset:
     return load_dataset(key)
 
 
-def load_pascal(variant: str | None = None) -> MultiViewDataset:
+def load_pascal(variant: str | None = None, *, missing_rate=0.0, random_state=0) -> MultiViewDataset:
     """Load Pascal VOC. ``variant``: clip, resnet_minilm, vit_minilm, vit_sbert."""
-    return _load_variant("pascal", variant)
+    return load_dataset("pascal", missing_rate, variant=variant, random_state=random_state)
 
 
-def load_coco_all(variant: str | None = None) -> MultiViewDataset:
+def load_coco_all(variant: str | None = None, *, missing_rate=0.0, random_state=0) -> MultiViewDataset:
     """Load MS-COCO (all). ``variant``: clip, resnet_minilm, vit_minilm, vit_sbert."""
-    return _load_variant("coco_all", variant)
+    return load_dataset("coco_all", missing_rate, variant=variant, random_state=random_state)
 
 
-def load_coco_cross(variant: str | None = None) -> MultiViewDataset:
+def load_coco_cross(variant: str | None = None, *, missing_rate=0.0, random_state=0) -> MultiViewDataset:
     """Load MS-COCO (cross). ``variant``: clip, resnet_minilm, vit_minilm, vit_sbert."""
-    return _load_variant("coco_cross", variant)
+    return load_dataset("coco_cross", missing_rate, variant=variant, random_state=random_state)
 
 
 __all__ = [
+    "load_data",
+    "list_variants",
+    "VARIANTS",
     "DATASETS",
     "DatasetSpec",
     "CATALOG",

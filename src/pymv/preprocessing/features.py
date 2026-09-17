@@ -269,6 +269,8 @@ def get_propagated_features(
     tf_idf: bool = False,
     center: bool = False,
     scale: bool = False,
+    fusion: str = "sum",
+    relation_weights=None,
 ):
     r"""Center/scale, normalize, and (optionally) propagate features.
 
@@ -367,6 +369,9 @@ def get_propagated_features(
     if adj is None:
         return X
 
+    if isinstance(adj, (list, tuple)):
+        from .fusion import fuse_graphs
+        adj = fuse_graphs(adj, method=fusion, weights=relation_weights)
     S = preprocess_graph(adj, beta)
 
     H = S.dot(X)

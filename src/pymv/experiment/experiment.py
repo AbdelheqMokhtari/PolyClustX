@@ -121,15 +121,13 @@ def _is_dataset_obj(t) -> bool:
 
 def _load_dataset(entry) -> tuple:
     """Call loader or return pre-loaded tuple / MultiViewDataset."""
-    if _is_dataset_obj(entry):
-        return (entry.Xs, entry.As, entry.labels)
+    from pymv.data import MultiViewDataset
     if callable(entry):
-        result = entry()
-        if _is_dataset_obj(result):
-            return (result.Xs, result.As, result.labels)
-        return result
-    if isinstance(entry, tuple) and _is_data_tuple(entry):
+        entry = entry()
+    if _is_dataset_obj(entry):
         return entry
+    if isinstance(entry, tuple) and _is_data_tuple(entry):
+        return MultiViewDataset(*entry)
     raise TypeError(f"Cannot load dataset from {type(entry)}")
 
 
@@ -147,6 +145,22 @@ def _normalize_models(models) -> list:
         f"models must be a BaseModel or list of BaseModel, "
         f"got {type(models)}"
     )
+
+
+def _dataset_recipe(data):
+    """Preserve built-in artifact and missing-view choices in saved CLI recipes."""
+    if data is None:
+        return {}
+    recipe = {}
+    if "variant" in data.metadata:
+        recipe.update(dataset=data.name, variant=data.metadata["variant"])
+    simulation = data.metadata.get("missing_simulation")
+    if simulation:
+        recipe.update(missing_rate=simulation["requested_rate"], data_seed=simulation["random_state"])
+    imputation = data.metadata.get("imputation")
+    if imputation:
+        recipe["impute"] = imputation["strategy"]
+    return recipe
 
 
 def _normalize_metrics(metrics) -> OrderedDict:
@@ -254,10 +268,13 @@ class Experiment:
         experiment_name: str | None = None,
         log: bool = False,
         save_path: str | None = None,
+        benchmark: bool = True,
     ):
         self.datasets = _normalize_datasets(datasets)
         self.models = _normalize_models(models)
         self.metrics = _normalize_metrics(metrics)
+        self.benchmark = benchmark
+        self._loaded_datasets = {}
         self.runs = max(1, int(runs))
         self.log_dir = log_dir
         self.verbose = verbose
@@ -298,6 +315,9 @@ class Experiment:
 
         # Dataset — single string or list
         config["dataset"] = datasets_list[0] if len(datasets_list) == 1 else datasets_list
+        config["no_benchmark"] = not self.benchmark
+        if len(datasets_list) == 1:
+            config.update(_dataset_recipe(self._loaded_datasets.get(datasets_list[0])))
 
         # Model(s) — use the first model for the config
         if self.models:
@@ -375,7 +395,9 @@ class Experiment:
 
         # Build result container with model info ----
         model_names = [self._model_name(m) for m in self.models]
+        from pymv.metrics.evaluation import evaluate_metrics, higher_is_better, validate_metrics
         self.result = ExperimentResult()
+        self.result.metric_directions = {k: higher_is_better(fn) for k, fn in self.metrics.items()}
         self.result.set_models(self.models, model_names)
 
         total_combos = len(self.datasets) * len(self.models)
@@ -407,16 +429,21 @@ class Experiment:
             if pbar:
                 pbar.set_postfix_str(f"loading {ds_name}…")
 
-            Xs, As, labels = _load_dataset(ds_entry)
-            labels = np.asarray(labels).reshape(-1)
-            n_clusters = len(np.unique(labels))
+            data = _load_dataset(ds_entry)
+            self._loaded_datasets[ds_name] = data
+            Xs, As, labels = data.Xs, data.fused_graphs(), data.labels
+            validate_metrics(self.metrics, labels, benchmark=self.benchmark)
+            n_clusters = data.n_clusters if self.benchmark else None
             logger.debug(
-                "  samples=%d, views=%d, k=%d",
+                "  samples=%d, views=%d, ground_truth_classes=%s",
                 Xs[0].shape[0], len(Xs), n_clusters,
             )
 
             # Collect dataset info for metadata
             datasets_info[ds_name] = {
+                "metadata": data.metadata,
+                "complete": data.is_complete,
+                "category": data.category,
                 "n_samples": int(Xs[0].shape[0]),
                 "n_views": len(Xs),
                 "n_clusters": n_clusters,
@@ -448,11 +475,12 @@ class Experiment:
                     model = copy.deepcopy(model_template)
 
                     t0 = time.perf_counter()
-                    model.fit(Xs, As)
+                    data.fit(model)
                     elapsed = time.perf_counter() - t0
 
                     y_pred = model.labels_
-                    scores = self._evaluate(labels, y_pred)
+                    scores = evaluate_metrics(self.metrics, labels, y_pred,
+                                              getattr(model, "embedding_", None), benchmark=self.benchmark)
 
                     for k, v in scores.items():
                         run_metrics[k].append(v)
