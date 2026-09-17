@@ -59,7 +59,8 @@ class _SCMNetwork(tf.keras.Model):
         return xr, h, z, q
 
 
-@register_model("scm", defaults={
+@register_model("scm", description="Contrastive clustering with concatenated feature views and a shared encoder.",
+                paper="https://www.ijcai.org/proceedings/2024/519", uses_graphs=False, defaults={
     "embedding_dim": 256,
     "projection_dim": 128,
     "temperature": 0.5,

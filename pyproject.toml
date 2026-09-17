@@ -3,7 +3,7 @@ requires = ["setuptools>=77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pymv"
+name = "pymv-clustering"
 version = "1.2.0"
 description = "Python package for multi-view graph clustering and representation learning algorithms."
 readme = "README.md"
@@ -51,11 +51,12 @@ dev = [
 ]
 docs = [
     "sphinx>=7.0",
-    "furo",
+    "sphinx-rtd-theme>=3,<4",
     "myst-parser",
     "sphinx-copybutton",
     "sphinx-autodoc-typehints",
 ]
+display = ["streamlit>=1.40,<2", "pandas>=1.5", "plotly>=5.10"]
 
 [project.urls]
 Homepage = "https://github.com/AbdelheqMokhtari/pymv"
@@ -63,6 +64,7 @@ BugTracker = "https://github.com/AbdelheqMokhtari/pymv/issues"
 
 [project.scripts]
 pymv-cli = "pymv_cli_entry:main"
+pymv-display = "pymv.display:launch"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -75,7 +77,7 @@ py-modules = ["pymv_cli_entry"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-pymv = ["configs/*.yaml"]
+pymv = ["configs/*.yaml", "assets/*.png", "assets/*.css"]
 
 
 [tool.commitizen]

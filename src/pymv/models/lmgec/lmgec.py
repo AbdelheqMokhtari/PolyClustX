@@ -128,7 +128,8 @@ def _get_train_loop(n_views):
 
 # Public model class
 
-@register_model("lmgec", defaults={
+@register_model("lmgec", description="Joint linear representation learning and clustering, with optional graphs.",
+                paper="https://doi.org/10.1145/3539597.3570367", uses_graphs=True, defaults={
     "embedding_dim": 16,
     "temperature": 1.0,
     "beta": 1.0,
