@@ -22,8 +22,10 @@ from __future__ import annotations
 
 import difflib
 import logging
+import math
 import warnings
 from dataclasses import dataclass, field
+from numbers import Real
 from typing import Callable
 
 import scipy.io as io
@@ -278,6 +280,8 @@ def load_dataset(name: str, missing_rate: float = 0.0, *, variant=None, random_s
     downloaded on first use and cached under ``~/.pymv_datasets``
     (override with the ``PYMV_DATA_DIR`` environment variable).
     """
+    if not isinstance(missing_rate, Real) or not math.isfinite(missing_rate) or not 0 <= missing_rate < 1:
+        raise ValueError("missing_rate must be in [0, 1)")
     base, chosen, spec = _resolve(name, variant)
     data = _load(spec)
     data.name = base
@@ -297,12 +301,17 @@ def list_datasets(category: str | None = None, *, include_aliases=False) -> list
     Parameters
     ----------
     category : str, optional
-        One of ``"features"``, ``"graph"``, ``"multimodal"``.
+        One of ``"multiview"``, ``"multimodal"``,
+        ``"attributed_graph_multiview"``, ``"attributed_graph_multimodal"``.
+        Legacy broad filters ``"features"`` and ``"graph"`` are also accepted.
+        A family matches when any variant belongs to that setting.
+    include_aliases : bool, default=False
+        Include deprecated artifact names for migration tooling.
     """
     candidates = CATALOG if include_aliases else VARIANTS
     names = [name for name in candidates if category is None or any(
         get_dataset_info(name, variant=v)["category"] == category
-        or CATALOG[artifact].category == category
+        or (category in {"features", "graph"} and CATALOG[artifact].category == category)
         for v, artifact in (VARIANTS[name].items() if name in VARIANTS else [(None, name)])
     )]
     return sorted(names)

@@ -51,3 +51,14 @@ def test_experiment_preserves_missing_mask():
     incomplete = simulate_missing_views(MultiViewDataset([np.ones((6, 2))] * 2), .2)
     with pytest.raises(ValueError, match="does not support missing views"):
         Experiment(incomplete, DummyModel(), [silhouette_score], verbose=0).run()
+
+
+def test_saved_recipe_preserves_variant_and_evaluation(tmp_path):
+    ds = data()
+    ds.name = "pascal"
+    ds.metadata["variant"] = "clip"
+    experiment = Experiment(ds, DummyModel(), [davies_bouldin_score], benchmark=False,
+                            save_markdown=True, save_path=str(tmp_path), verbose=0)
+    experiment.run()
+    config = experiment._build_reproducible_config()
+    assert config["variant"] == "clip" and config["dataset"] == "pascal" and config["no_benchmark"]

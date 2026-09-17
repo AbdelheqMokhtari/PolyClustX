@@ -126,3 +126,8 @@ def test_validation():
         MultiViewDataset([np.ones((2, 2)), np.ones((2, 1))], [np.eye(2)])
     with pytest.raises(ValueError, match="at least one"):
         MultiViewDataset([np.ones((2, 2))], observed_mask=np.zeros((2, 1), dtype=bool))
+    data = MultiViewDataset([np.ones((2, 2))], As=[[np.eye(2)]])
+    with pytest.raises(ValueError, match="existing"):
+        data.fused_graphs(weights={1: [1]})
+    with pytest.raises(ValueError, match="Hadamard"):
+        data.fused_graphs("hadamard", weights={0: [1]})

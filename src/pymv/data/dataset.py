@@ -119,6 +119,14 @@ class MultiViewDataset:
         """Return one graph per view; weights maps view indices to relation weights."""
         from pymv.preprocessing.fusion import fuse_graphs
         weights = weights or {}
+        if method not in {"sum", "hadamard"}:
+            raise ValueError("method must be 'sum' or 'hadamard'")
+        if method == "hadamard" and weights:
+            raise ValueError("Hadamard fusion does not accept weights")
+        if any(not isinstance(j, int) or j < 0 or j >= self.n_views for j in weights):
+            raise ValueError("Relation weights must refer to existing zero-based view indices")
+        if any(not isinstance(self.As[j], (list, tuple)) for j in weights):
+            raise ValueError("Weights require a list of relations for the selected view")
         return [fuse_graphs(a, method=method, weights=weights.get(j))
                 if isinstance(a, (list, tuple)) else a for j, a in enumerate(self.As)]
 
@@ -126,7 +134,7 @@ class MultiViewDataset:
         """Fit without labels, rejecting unsupported missing views.
 
         Missing-aware models declare supports_missing_views = True and accept
-        fit(Xs, As=None, *, observed_mask=...). The mask is never inferred.
+        ``fit(Xs, As=None, *, observed_mask=...)``. The mask is never inferred.
         """
         kwargs = {}
         if not self.is_complete:

@@ -11,6 +11,9 @@ def test_variants_are_grouped():
     assert get_dataset_info("acm")["category"] == "attributed_graph_multiview"
     assert get_dataset_info("pascal")["category"] == "multimodal"
     assert get_dataset_info("arts_multimodal")["category"] == "attributed_graph_multimodal"
+    assert "arts_multimodal" not in list_datasets(category="multimodal")
+    assert "pascal" in list_datasets(category="multimodal")
+    assert "acm" in list_datasets(category="multiview")  # 5view variant
 
 
 def test_loading_variant_and_missing_rate(monkeypatch):
@@ -26,3 +29,5 @@ def test_loading_variant_and_missing_rate(monkeypatch):
         assert load_data("pascal_clip").metadata["variant"] == "clip"
     with pytest.raises(ValueError, match="Unknown pascal variant"):
         load_data("pascal", variant="unknown")
+    with pytest.raises(ValueError, match="missing_rate"):
+        load_data("acm", float("nan"))  # rejected before any download

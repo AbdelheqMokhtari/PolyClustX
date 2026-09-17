@@ -64,4 +64,5 @@ pymv-cli --dataset acm --no-benchmark --n-clusters 3 \
 For compatibility, CLI benchmark mode can infer K from labels when omitted.
 `--no-benchmark` requires a manual `--n-clusters`. The workbench always uses
 the manual K field in both modes. YAML top-level keys `variant`, `missing_rate`,
-`impute`, and `no_benchmark` correspond to these switches.
+`impute`, and `no_benchmark` correspond to these switches. Use `--data-seed`
+or YAML `data_seed` when missingness and model initialization need separate seeds.

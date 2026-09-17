@@ -168,7 +168,7 @@ def config_to_args(cfg: dict[str, Any]) -> dict[str, Any]:
     # ── Top-level ──
     if "dataset" in cfg:
         flat["dataset"] = cfg["dataset"]
-    for key in ("variant", "missing_rate", "impute", "no_benchmark"):
+    for key in ("variant", "missing_rate", "data_seed", "impute", "no_benchmark"):
         if key in cfg:
             flat[key] = cfg[key]
 

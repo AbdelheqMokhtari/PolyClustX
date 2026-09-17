@@ -219,6 +219,7 @@ def build_parser() -> argparse.ArgumentParser:
     core = p.add_argument_group("core")
     core.add_argument("--variant", default=None, help="Dataset variant; see --list-datasets.")
     core.add_argument("--missing-rate", type=float, default=0.0, help="Simulated missing-view fraction.")
+    core.add_argument("--data-seed", type=int, default=None, help="Separate missingness seed; otherwise use --seed.")
     core.add_argument("--impute", choices=["mean", "zero"], default=None, help="Explicit missing-view baseline.")
     core.add_argument("--no-benchmark", action="store_true", help="Disable all use of ground-truth labels.")
     core.add_argument(
@@ -276,8 +277,8 @@ def build_parser() -> argparse.ArgumentParser:
                     help="Run random hyper-parameter search instead of a fixed experiment.")
     rs.add_argument("--n-trials", type=int, default=20,
                     help="Number of random-search trials (default: 20).")
-    rs.add_argument("--best-metric", default="acc",
-                    help="Metric to optimise in random search (default: acc).")
+    rs.add_argument("--best-metric", default=None,
+                    help="Metric to optimise (default: acc in benchmark mode, silhouette otherwise).")
     rs.add_argument("--seed", type=int, default=None,
                     help="Random seed for reproducibility.")
 
@@ -313,8 +314,10 @@ def cmd_list_datasets():
 
 def _load_cli_data(args):
     from pymv.data import impute_missing, load_dataset
+    data_seed = getattr(args, "data_seed", None)
     data = load_dataset(args.dataset, getattr(args, "missing_rate", 0.0),
-                        variant=getattr(args, "variant", None), random_state=args.seed)
+                        variant=getattr(args, "variant", None),
+                        random_state=args.seed if data_seed is None else data_seed)
     if getattr(args, "impute", None):
         data = impute_missing(data, args.impute)
     if getattr(args, "no_benchmark", False) and args.n_clusters is None:
@@ -498,7 +501,8 @@ def cmd_random_search(args):
     metrics = _resolve_metrics(args.metrics or (_DEFAULT_METRICS if benchmark else ["silhouette", "db", "ch"]))
 
     # Resolve best_metric full name
-    best_full = _METRIC_ALIASES.get(args.best_metric.lower(), args.best_metric.lower())
+    chosen_metric = args.best_metric or ("acc" if benchmark else "silhouette")
+    best_full = _METRIC_ALIASES.get(chosen_metric.lower(), chosen_metric.lower())
 
     result = RandomSearchExperiment(
         model_class=model_info["class"],

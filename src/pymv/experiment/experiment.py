@@ -147,6 +147,22 @@ def _normalize_models(models) -> list:
     )
 
 
+def _dataset_recipe(data):
+    """Preserve built-in artifact and missing-view choices in saved CLI recipes."""
+    if data is None:
+        return {}
+    recipe = {}
+    if "variant" in data.metadata:
+        recipe.update(dataset=data.name, variant=data.metadata["variant"])
+    simulation = data.metadata.get("missing_simulation")
+    if simulation:
+        recipe.update(missing_rate=simulation["requested_rate"], data_seed=simulation["random_state"])
+    imputation = data.metadata.get("imputation")
+    if imputation:
+        recipe["impute"] = imputation["strategy"]
+    return recipe
+
+
 def _normalize_metrics(metrics) -> OrderedDict:
     """
     Accept:
@@ -258,6 +274,7 @@ class Experiment:
         self.models = _normalize_models(models)
         self.metrics = _normalize_metrics(metrics)
         self.benchmark = benchmark
+        self._loaded_datasets = {}
         self.runs = max(1, int(runs))
         self.log_dir = log_dir
         self.verbose = verbose
@@ -298,6 +315,9 @@ class Experiment:
 
         # Dataset — single string or list
         config["dataset"] = datasets_list[0] if len(datasets_list) == 1 else datasets_list
+        config["no_benchmark"] = not self.benchmark
+        if len(datasets_list) == 1:
+            config.update(_dataset_recipe(self._loaded_datasets.get(datasets_list[0])))
 
         # Model(s) — use the first model for the config
         if self.models:
@@ -410,6 +430,7 @@ class Experiment:
                 pbar.set_postfix_str(f"loading {ds_name}…")
 
             data = _load_dataset(ds_entry)
+            self._loaded_datasets[ds_name] = data
             Xs, As, labels = data.Xs, data.fused_graphs(), data.labels
             validate_metrics(self.metrics, labels, benchmark=self.benchmark)
             n_clusters = data.n_clusters if self.benchmark else None
@@ -420,6 +441,9 @@ class Experiment:
 
             # Collect dataset info for metadata
             datasets_info[ds_name] = {
+                "metadata": data.metadata,
+                "complete": data.is_complete,
+                "category": data.category,
                 "n_samples": int(Xs[0].shape[0]),
                 "n_views": len(Xs),
                 "n_clusters": n_clusters,

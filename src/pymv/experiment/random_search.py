@@ -187,6 +187,7 @@ class RandomSearchExperiment:
         self.dataset_name, self._dataset_entry = _resolve_dataset(dataset)
         self.metrics = _normalize_metrics(metrics)
         self.benchmark = benchmark
+        self._loaded_dataset = None
         self.n_iter = n_iter
         self.seed = seed
         self.log_dir = log_dir
@@ -245,6 +246,10 @@ class RandomSearchExperiment:
             },
             "metrics": list(self.metrics.keys()),
         }
+
+        from .experiment import _dataset_recipe
+        config.update(_dataset_recipe(self._loaded_dataset))
+        config["no_benchmark"] = not self.benchmark
 
         # Add best trial params if available
         if self.result and self.result.best_trial:
@@ -306,6 +311,7 @@ class RandomSearchExperiment:
         logger.debug("Loading dataset: %s", self.dataset_name)
         from pymv.metrics.evaluation import evaluate_metrics, higher_is_better, validate_metrics
         data = _load(self._dataset_entry)
+        self._loaded_dataset = data
         Xs, As, labels = data.Xs, data.fused_graphs(), data.labels
         validate_metrics(self.metrics, labels, benchmark=self.benchmark)
         if not data.is_complete and not getattr(self.model_class, "supports_missing_views", False):
@@ -315,6 +321,9 @@ class RandomSearchExperiment:
         # Collect dataset info for metadata
         datasets_info = {
             self.dataset_name: {
+                "metadata": data.metadata,
+                "complete": data.is_complete,
+                "category": data.category,
                 "n_samples": int(Xs[0].shape[0]),
                 "n_views": len(Xs),
                 "n_clusters": n_clusters,

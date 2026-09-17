@@ -23,6 +23,8 @@ def align_views(Xs, view_ids, *, graphs=None, labels=None, label_ids=None, **kwa
     for x, index in zip(Xs, ids):
         if len(index) != x.shape[0] or len(set(index.tolist())) != len(index):
             raise ValueError("Each view needs unique IDs matching its rows")
+        if any(i is None or (isinstance(i, (float, np.floating)) and not np.isfinite(i)) for i in index):
+            raise ValueError("Sample IDs must not be missing or nonfinite")
     union = list(dict.fromkeys(i for index in ids for i in index.tolist()))
     positions = {sample: i for i, sample in enumerate(union)}
     n = len(union)
