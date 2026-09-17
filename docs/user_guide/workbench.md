@@ -1,90 +1,139 @@
-# Interactive scientific workbench
+# Interactive interface
 
-The interface is the optional `pymv.display` subpackage of the same distribution.
+The optional `pymv.display` package provides a local interface for building and
+comparing multi-view clustering experiments.
 
 ```bash
 pip install "pymv-clustering[display]"
 pymv-display
-# Equivalent:
-python -m pymv.display
-# Custom local port:
+```
+
+For a repository checkout, use `pip install -e ".[display]"`. Open the local
+address printed by Streamlit. To choose a port explicitly:
+
+```bash
 pymv-display --server.address=127.0.0.1 --server.port=8502
 ```
 
-For this unpublished branch, install from the checkout with
-`pip install -e ".[display]"`. Open the local URL printed in the terminal.
+## Sidebar workflow
 
-## Three freely accessible tabs
+The seven sidebar steps remain freely accessible. Moving to another step does
+not discard the active dataset, preprocessing recipe, model settings, or saved
+experiments.
 
-**Datasets** loads a catalog family/variant, uploads your files, or creates a
-small synthetic example without network access. Saved datasets are independent
-session snapshots reusable across experiments.
+1. **Dataset** loads data and reports its structure.
+2. **Preprocessing** prepares all views, selected views, or each view separately.
+3. **Model** exposes typed controls for compatible registered methods.
+4. **Experiment** configures repeated runs and evaluation.
+5. **Results** aggregates repetitions as mean ± standard deviation.
+6. **Visualizations** explores loss, embeddings, labels, and confusion.
+7. **Export** downloads reproducible results.
 
-**Experiment workspace** selects a snapshot, model and manual K values. The
-JSON constructor editor exposes registered model defaults. Random-search
-parameters are JSON lists; each sampled configuration is evaluated for every
-K and repeat. Dedicated fields control K and seeds.
+The sidebar selects, unloads, or removes session datasets. Only the active
+dataset is materialized in RAM. Catalog data can be reloaded from its cache,
+synthetic data can be regenerated from its recipe, and uploaded data is staged
+in a session-specific temporary directory. Removing an uploaded dataset also
+removes its temporary source files. Experiment results remain available.
 
-**History** stacks experiments newest-first with recipes, individual trials,
-runtime, metrics, predictions and embeddings. **Edit / duplicate settings**
-prefills the editor without changing the original record. Change any settings
-and run again. **Delete result** removes only that session result.
+## Loading and inspecting data
 
-## Benchmark toggle and manual K sweeps
+Choose one source at a time:
 
-Disable **Benchmark evaluation** for real-world work: external scores disappear
-and labels are not used for evaluation or K selection. With no labels, the
-toggle is disabled. Enable it to opt into external evaluation when labels exist.
-Model training remains unsupervised.
+- **Catalog** selects a dataset family and variant.
+- **Files → One file per view** accepts CSV, TSV, or NPY feature matrices and
+  an optional separate label file. Rows are samples; headers are detected
+  automatically.
+- **Files → NPZ / MATLAB container** first lists every array and shape. Select
+  feature arrays, optional labels, transposes, modalities, sample-ID arrays,
+  and graph relations explicitly.
+- **Synthetic** controls samples, classes, view dimensions, per-view
+  distributions, overlap, imbalance, modality, noise, and graph relations.
 
-Type K values such as `2, 4, 7, 12`. Valid values range from one to the sample
-count, subject to model requirements. Internal indices are undefined at
-degenerate endpoints. Repeat seeds are base seed + zero-based repeat index.
+After validation, the Dataset page reports sample/view/class counts, missing
+pairs, estimated memory, feature density, mean, variance, per-feature variance,
+class imbalance, and graph density/symmetry. This information helps determine
+whether a model and preprocessing choice are appropriate.
 
-## Explicit upload mapping
+For differently sampled views, enable sample-ID alignment in the container
+mode and choose one ID array for each view. Graph matrices follow the local
+order of their associated view. No array name is silently treated as a feature,
+label, ID, or graph.
 
-After uploading NPY, NPZ, numeric CSV/TSV or MATLAB files, inspect keys/shapes
-and select:
+## Preprocessing
 
-1. Feature arrays and optional transposes.
-2. A modality for each view.
-3. Zero, one or several graph relation keys belonging to each view.
-4. Optional labels.
-5. Per-view sample IDs, or an explicit common-order confirmation and optional mask.
+Transformations can be disabled, shared by all views, applied to selected
+views, or configured per view. Available operations are:
 
-With ID alignment, labels also need an ID key and graphs follow their view's
-local ID order. With aligned arrays, supply a samples × views mask or explicitly
-detect wholly NaN rows. The importer never guesses roles from MATLAB names.
+- L2 normalization or TF-IDF + L2;
+- column centering and unit-variance scaling;
+- graph propagation with a configurable self-loop weight;
+- weighted-sum or Hadamard early fusion when a view has several relations.
 
-## Missing views and graph fusion
+Missing-view simulation and explicit mean/zero imputation are configured in
+this step. Simulation retains at least one observed view per sample. The
+original dataset stays unchanged; the complete recipe is copied into each
+experiment record.
 
-Choose a simulation rate to remove sample-view pairs reproducibly. Existing
-models need explicit mean/zero imputation on incomplete views; leaving **None**
-selected produces a validation error.
+If a dataset remains incomplete, methods that require complete views are not
+offered in the Model step. Selecting imputation makes those methods available.
+This prevents an invalid experiment before fitting begins.
 
-Choose weighted sum or Hadamard fusion. Weight JSON uses zero-based view indices,
-for example `{"0": [0.3, 0.7]}`. Model parameters control algorithm-specific
-propagation; SCM ignores graphs. Global centering/scaling, when enabled,
-precedes model preprocessing and is recorded in the recipe.
+## Models and hyperparameters
 
-## Inspect and export
+Model controls change with the selected registry entry. Numeric parameters,
+booleans, and layer dimensions are edited directly; there is no JSON editor.
+If generic feature preprocessing was selected in the preceding step,
+model-internal preprocessing is disabled to prevent applying transformations
+twice.
 
-Explore a successful trial's cluster counts, loss history when available, and
-PCA, t-SNE or optional UMAP projection. Projections are capped at 5,000 uniformly
-sampled points and can be downloaded as PNG or interactive HTML. This does not
-change clustering or scores. A 2D visualization is not evidence of correctness.
-Download an experiment ZIP containing:
+K starts at the number of unique loaded labels when labels exist. This is only
+an editable default: the user may choose another K or compare several K values.
+Labels are never passed into model fitting.
 
-- `experiment.json`: recipe, fingerprint, IDs, masks, version, timestamps,
-  scores and recorded failures.
-- `metrics.csv`: individual trial results.
-- `trial_N.npz`: predictions, embedding and optional loss history.
+Choose **Random search** to mark individual parameters and select their allowed
+candidate values. The interface currently samples discrete candidates. Its
+search-strategy control is designed so additional optimizers can be registered
+later without changing fixed model parameters.
 
-Feature matrices and ground-truth labels are not exported. Keep the original
-data and source revision; reload matching data and check the fingerprint to
-reproduce a recipe. Review sample IDs for sensitivity before sharing archives.
+## Repeated experiments and evaluation
 
-**History is session-local, not a persistent database.** Download records before
-closing or restarting. Runs are synchronous; choose realistic sweep sizes.
-For shared hosting, provide authentication, TLS and resource limits outside
-the app. Do not expose an unauthenticated Streamlit server publicly.
+Experiment names increment automatically (`Experiment 1`, `Experiment 2`, …).
+Each sampled configuration and K can run multiple times with independent seeds.
+The Results page keeps every fit and groups repetitions into mean ± population
+standard deviation.
+
+In real-world mode, choose internal metrics only. Enable benchmark mode when
+ground-truth labels exist to add ACC, NMI, and ARI. Benchmark labels are used
+for evaluation and visual comparison only; clustering remains unsupervised.
+
+Training runs synchronously. Large datasets, deep methods, many K values, large
+searches, and many repetitions multiply runtime, so start with a small trial.
+Failed fits are recorded beside successful fits rather than erasing completed
+work.
+
+## Visualizations
+
+Choose any successful fit to inspect:
+
+- predicted cluster sizes;
+- optimization loss when the model exposes it;
+- PCA, t-SNE, or optional UMAP projections;
+- side-by-side predicted and ground-truth coloring in benchmark mode;
+- a confusion matrix and per-cluster size/purity details.
+
+Projection sampling is capped at 5,000 rows. With more than 20 labels, plots
+switch from a large categorical legend to a compact color scale. Confusion
+matrices show the 30 largest classes/clusters and combine the remainder into an
+`Other` bucket. These limits affect display only, not clustering or metrics.
+
+## Export and deployment safety
+
+The ZIP export contains the recipe, library version, dataset fingerprint,
+sample IDs, observation mask, per-fit metrics, predictions, embeddings, loss,
+and benchmark labels used by the visualizations. Original feature matrices are
+not included. A separate metrics CSV is also available.
+
+Session history is temporary. Download records before restarting the server.
+The default launcher binds locally. Public hosting needs authentication, TLS,
+upload limits, execution limits, and operating-system resource controls; do not
+expose an unauthenticated research server to the internet.

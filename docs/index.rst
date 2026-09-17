@@ -95,5 +95,5 @@ See :doc:`background/algorithms` for original papers and implementation scope.
 The documentation organization takes inspiration from the
 `UMAP documentation <https://umap-learn.readthedocs.io/en/latest/>`_.
 The provisional symbol and restrained burgundy/slate palette are shared with the
-workbench. The mark is independent of, and does not imply endorsement by,
+interface. The mark is independent of, and does not imply endorsement by,
 Université Paris Cité.

@@ -1,13 +1,17 @@
 Changelog
 =========
 
-Unreleased — unified scientific workbench
------------------------------------------
+Unreleased — integrated interface
+---------------------------------
 
 * Integrated optional ``pymv.display`` interface in the ``pymv-clustering``
   distribution; launch with ``pymv-display`` or ``python -m pymv.display``.
-* Independent session experiment history, editable recipes, manual K sweeps,
-  benchmark toggle, internal evaluation, and downloadable results/plots.
+* Freely navigable sidebar steps, lazy session datasets, editable preprocessing
+  recipes, manual K sweeps, and independent experiment history.
+* Direct model parameter and random-search controls, repeated-run mean ± standard
+  deviation, benchmark toggle, internal evaluation, and downloadable results.
+* Dataset diagnostics, configurable synthetic views, loss/projection comparison,
+  compact confusion matrices, and large-class visualization safeguards.
 * Explicit file mapping, optional labels, sample IDs, observation masks,
   constrained missing-view simulation and explicit mean/zero imputation.
 * Multiple graph relations per view with weighted-sum or Hadamard early fusion.
