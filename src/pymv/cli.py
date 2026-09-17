@@ -47,6 +47,9 @@ _METRIC_ALIASES = {
     "f1": "clustering_f1_score",
     "nmi": "nmi_score",
     "ari": "ari_score",
+    "silhouette": "silhouette_score",
+    "db": "davies_bouldin_score",
+    "ch": "calinski_harabasz_score",
 }
 
 _DEFAULT_METRICS = ["acc", "nmi", "ari"]
@@ -214,6 +217,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     # ── Required ──
     core = p.add_argument_group("core")
+    core.add_argument("--variant", default=None, help="Dataset variant; see --list-datasets.")
+    core.add_argument("--missing-rate", type=float, default=0.0, help="Simulated missing-view fraction.")
+    core.add_argument("--impute", choices=["mean", "zero"], default=None, help="Explicit missing-view baseline.")
+    core.add_argument("--no-benchmark", action="store_true", help="Disable all use of ground-truth labels.")
     core.add_argument(
         "--dataset", "-d",
         help="Dataset name (e.g. acm, dblp, prokaryotic).",
@@ -293,7 +300,7 @@ def build_parser() -> argparse.ArgumentParser:
 def cmd_list_datasets():
     from pymv.data import get_dataset_info, list_datasets
     print("Available datasets:")
-    for category in ("graph", "features", "multimodal"):
+    for category in ("attributed_graph_multiview", "attributed_graph_multimodal", "multiview", "multimodal"):
         names = list_datasets(category=category)
         if not names:
             continue
@@ -301,7 +308,18 @@ def cmd_list_datasets():
         for name in names:
             info = get_dataset_info(name)
             cached = "  [cached]" if info["cached"] else ""
-            print(f"    • {name:<26} {info['description']}{cached}")
+            print(f"    {name:<26} {info['description']}{cached} | variants: {', '.join(info['variants'])}")
+
+
+def _load_cli_data(args):
+    from pymv.data import impute_missing, load_dataset
+    data = load_dataset(args.dataset, getattr(args, "missing_rate", 0.0),
+                        variant=getattr(args, "variant", None), random_state=args.seed)
+    if getattr(args, "impute", None):
+        data = impute_missing(data, args.impute)
+    if getattr(args, "no_benchmark", False) and args.n_clusters is None:
+        _die("--no-benchmark requires a manually chosen --n-clusters")
+    return data
 
 
 def cmd_list_models():
@@ -315,7 +333,6 @@ def cmd_list_models():
 
 def cmd_run_experiment(args):
     """Standard experiment: fixed model config → results table."""
-    from pymv.data import load_dataset
     from pymv.experiment import Experiment
 
     registry = _get_model_registry()
@@ -327,7 +344,7 @@ def cmd_run_experiment(args):
         )
 
     # Load dataset to auto-detect n_clusters
-    data = load_dataset(args.dataset)
+    data = _load_cli_data(args)
     n_clusters = args.n_clusters or data.n_clusters
 
     # Build model kwargs
@@ -375,11 +392,13 @@ def cmd_run_experiment(args):
         kwargs["random_state"] = args.seed
 
     model = model_info["class"](**kwargs)
-    metrics = _resolve_metrics(args.metrics or _DEFAULT_METRICS)
+    benchmark = not getattr(args, "no_benchmark", False)
+    metrics = _resolve_metrics(args.metrics or (_DEFAULT_METRICS if benchmark else ["silhouette", "db", "ch"]))
 
     result = Experiment(
         datasets={args.dataset: data},
         models=[model],
+        benchmark=benchmark,
         metrics=metrics,
         runs=args.runs,
         verbose=args.verbose,
@@ -394,7 +413,6 @@ def cmd_run_experiment(args):
 
 def cmd_random_search(args):
     """Random hyper-parameter search."""
-    from pymv.data import load_dataset
     from pymv.experiment import RandomSearchExperiment
 
     registry = _get_model_registry()
@@ -405,7 +423,7 @@ def cmd_random_search(args):
             f"Available: {', '.join(registry)}"
         )
 
-    data = load_dataset(args.dataset)
+    data = _load_cli_data(args)
     n_clusters = args.n_clusters or data.n_clusters
 
     model_info = registry[model_name]
@@ -476,13 +494,15 @@ def cmd_random_search(args):
             _ensure_list(config_space[key]) if key in config_space else [default]
         )
 
-    metrics = _resolve_metrics(args.metrics or _DEFAULT_METRICS)
+    benchmark = not getattr(args, "no_benchmark", False)
+    metrics = _resolve_metrics(args.metrics or (_DEFAULT_METRICS if benchmark else ["silhouette", "db", "ch"]))
 
     # Resolve best_metric full name
     best_full = _METRIC_ALIASES.get(args.best_metric.lower(), args.best_metric.lower())
 
     result = RandomSearchExperiment(
         model_class=model_info["class"],
+        benchmark=benchmark,
         param_distributions=distributions,
         dataset=(args.dataset, data),
         metrics=metrics,
@@ -584,7 +604,7 @@ def main(argv: list[str] | None = None):
 
     # Validate dataset name early (before heavy imports)
     from pymv.data import list_datasets
-    available = list_datasets()
+    available = list_datasets(include_aliases=True)
     if args.dataset.lower() not in available:
         _die(
             f"Unknown dataset '{args.dataset}'.\n"
