@@ -212,8 +212,10 @@ class SCM(BaseModel):
         ).astype(np.float32)
         return masked, noisy
 
-    def fit(self, Xs, As=None):
+    def fit(self, Xs, As=None, *, observed_mask=None):
         """Fit SCM to a list of aligned feature views."""
+        if observed_mask is not None and not np.asarray(observed_mask, dtype=bool).all():
+            raise ValueError("SCM does not support missing views; explicitly impute first")
         del As  # SCM is a feature-level fusion method.
         views = self._validate(Xs)
         fused = np.concatenate(views, axis=1).astype(np.float32, copy=False)

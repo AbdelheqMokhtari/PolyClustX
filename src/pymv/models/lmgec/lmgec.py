@@ -282,7 +282,7 @@ class LMGEC(BaseModel):
 
     # main entry point
 
-    def fit(self, Xs, As=None):
+    def fit(self, Xs, As=None, *, observed_mask=None):
         """Fit the model.
 
         Parameters
@@ -297,14 +297,14 @@ class LMGEC(BaseModel):
               that go directly into the optimisation loop.
 
         As : list[np.ndarray | sp.spmatrix] or None, default=None
-            Adjacency matrices — one per view (or one shared).
+            One entry per view: adjacency, relation list, or None.
 
             * Ignored entirely when ``preprocess=False``.
             * When ``preprocess=True`` and ``As is None``: features
               are normalized but **not** propagated (no graph).
-            * When ``preprocess=True`` and ``As`` has fewer entries
-              than ``Xs``: the last adjacency is reused for the
-              remaining views.
+            * Shared graphs must be repeated explicitly. Relation lists
+              are summed before propagation; for custom weighting or
+              Hadamard fusion, use ``data.fit(model, fusion=..., weights=...)``.
 
         Returns
         -------
@@ -316,7 +316,13 @@ class LMGEC(BaseModel):
             lowest-rank view.
         """
 
+        if observed_mask is not None and not np.asarray(observed_mask, dtype=bool).all():
+            raise ValueError("LMGEC does not support missing views; explicitly impute first")
         n_views = len(Xs)
+        if not n_views:
+            raise ValueError("At least one view is required")
+        if As is not None and len(As) != n_views:
+            raise ValueError("Provide exactly one adjacency entry per view; explicitly repeat shared graphs")
 
         # Prepare H views
 
@@ -329,9 +335,6 @@ class LMGEC(BaseModel):
                 adj_list = [None] * n_views
             else:
                 adj_list = list(As)
-                # Reuse last adjacency if fewer were provided
-                while len(adj_list) < n_views:
-                    adj_list.append(adj_list[-1])
 
             # Per-view pipeline (correct order):
             #   Raw → center/scale (column-wise) → L2 normalize (row-wise) → propagate

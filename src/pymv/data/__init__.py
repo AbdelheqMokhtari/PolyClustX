@@ -30,6 +30,8 @@ from .registry import (
     DATASETS,
     get_dataset_info,
     list_datasets,
+    list_variants,
+    load_data,
     load_dataset,
 )
 
@@ -54,6 +56,8 @@ __all__ = [
     "get_data_home",
     "get_dataset_info",
     "list_datasets",
+    "list_variants",
+    "load_data",
     "load_dataset",
     *sorted(f"load_{name}" for name in DATASETS),
 ]
