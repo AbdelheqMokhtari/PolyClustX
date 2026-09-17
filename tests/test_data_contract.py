@@ -106,6 +106,10 @@ def test_import_formats_and_explicit_roles(tmp_path):
     savemat(path, {"features": cells, "y": y})
     assert set(read_arrays(path)) == {"features[0]", "features[1]", "y"}
     assert read_arrays(b"1,2\n3,4\n", filename="v.csv")["v"].shape == (2, 2)
+    np.testing.assert_array_equal(
+        read_arrays(b"first,second\n1,2\n3,4\n", filename="v.csv")["v"],
+        [[1, 2], [3, 4]],
+    )
 
 
 def test_nan_detection_is_explicit_and_partial_nan_rejected():

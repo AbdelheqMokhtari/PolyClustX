@@ -13,14 +13,16 @@ from .dataset import MultiViewDataset
 from .missing import align_views
 
 
-def read_arrays(source, *, filename=None, delimiter=",", skip_header=0):
+def read_arrays(source, *, filename=None, delimiter=",", skip_header="auto"):
     """Inspect NPY, NPZ, numeric CSV/TSV or MATLAB arrays without guessing roles.
 
     ``source`` is a path or bytes with an explicit filename. NumPy pickles are
     disabled. MATLAB cells are exposed as ``key[0]``, ``key[1]``, etc., in
     column-major order. MATLAB v7.3/HDF5 is not supported; export v7 or NPZ.
-    CSV defaults to no header; set skip_header explicitly. String ID columns
-    should be stored in separate NPY/NPZ vectors, not numeric feature CSVs.
+    CSV/TSV files automatically skip one header row when every nonempty field
+    in the first row is not numeric. Pass ``skip_header=0`` or ``1`` to
+    override detection. String ID columns should be stored in separate
+    NPY/NPZ vectors, not numeric feature CSVs.
     """
     name = filename or str(source)
     suffix = Path(name).suffix.lower()
@@ -31,8 +33,23 @@ def read_arrays(source, *, filename=None, delimiter=",", skip_header=0):
         with np.load(stream, allow_pickle=False) as archive:
             return {key: archive[key] for key in archive.files}
     if suffix in {".csv", ".tsv"}:
-        return {Path(name).stem: np.genfromtxt(stream, delimiter="\t" if suffix == ".tsv" else delimiter,
-                                               skip_header=skip_header, ndmin=2)}
+        separator = "\t" if suffix == ".tsv" else delimiter
+        if skip_header == "auto":
+            if isinstance(source, bytes):
+                first_line = source.decode("utf-8-sig", errors="replace").splitlines()[0]
+            else:
+                with Path(source).open(encoding="utf-8-sig", errors="replace") as handle:
+                    first_line = handle.readline()
+            fields = [field.strip() for field in first_line.split(separator) if field.strip()]
+            try:
+                for field in fields:
+                    float(field)
+                skip_header = 0
+            except ValueError:
+                skip_header = 1
+        if skip_header not in {0, 1}:
+            raise ValueError("CSV header override must be 0, 1, or 'auto'")
+        return {Path(name).stem: np.genfromtxt(stream, delimiter=separator, skip_header=skip_header, ndmin=2)}
     if suffix == ".mat":
         try:
             raw = loadmat(stream)
