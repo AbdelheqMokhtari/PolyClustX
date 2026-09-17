@@ -99,4 +99,4 @@ def test_multimodal_dataset(name):
     "name", sorted({*STANDARD_DATASETS, *MULTIMODAL_DATASETS})
 )
 def test_dataset_is_registered(name):
-    assert name in list_datasets(), f"'{name}' missing from registry"
+    assert name in list_datasets(include_aliases=True), f"'{name}' missing from registry"

@@ -86,18 +86,8 @@ def _resolve_dataset(dataset) -> tuple[str, Any]:
 
 
 def _load(entry) -> tuple:
-    from pymv.data.dataset import MultiViewDataset
-
-    if isinstance(entry, MultiViewDataset):
-        return (entry.Xs, entry.As, entry.labels)
-    if callable(entry):
-        result = entry()
-        if isinstance(result, MultiViewDataset):
-            return (result.Xs, result.As, result.labels)
-        return result
-    if isinstance(entry, tuple) and len(entry) == 3:
-        return entry
-    raise TypeError(f"Cannot load dataset from {type(entry)}")
+    from .experiment import _load_dataset
+    return _load_dataset(entry)
 
 
 def _normalize_metrics(metrics) -> OrderedDict:
@@ -190,11 +180,14 @@ class RandomSearchExperiment:
         experiment_name: str | None = None,
         log: bool = False,
         save_path: str | None = None,
+        benchmark: bool = True,
     ):
         self.model_class = model_class
         self.param_distributions = param_distributions
         self.dataset_name, self._dataset_entry = _resolve_dataset(dataset)
         self.metrics = _normalize_metrics(metrics)
+        self.benchmark = benchmark
+        self._loaded_dataset = None
         self.n_iter = n_iter
         self.seed = seed
         self.log_dir = log_dir
@@ -254,6 +247,10 @@ class RandomSearchExperiment:
             "metrics": list(self.metrics.keys()),
         }
 
+        from .experiment import _dataset_recipe
+        config.update(_dataset_recipe(self._loaded_dataset))
+        config["no_benchmark"] = not self.benchmark
+
         # Add best trial params if available
         if self.result and self.result.best_trial:
             best = self.result.best_trial
@@ -312,13 +309,21 @@ class RandomSearchExperiment:
         logger.debug("")
 
         logger.debug("Loading dataset: %s", self.dataset_name)
-        Xs, As, labels = _load(self._dataset_entry)
-        labels = np.asarray(labels).reshape(-1)
-        n_clusters = len(np.unique(labels))
+        from pymv.metrics.evaluation import evaluate_metrics, higher_is_better, validate_metrics
+        data = _load(self._dataset_entry)
+        self._loaded_dataset = data
+        Xs, As, labels = data.Xs, data.fused_graphs(), data.labels
+        validate_metrics(self.metrics, labels, benchmark=self.benchmark)
+        if not data.is_complete and not getattr(self.model_class, "supports_missing_views", False):
+            raise ValueError("This model does not support missing views; explicitly impute first")
+        n_clusters = data.n_clusters if self.benchmark else None
 
         # Collect dataset info for metadata
         datasets_info = {
             self.dataset_name: {
+                "metadata": data.metadata,
+                "complete": data.is_complete,
+                "category": data.category,
                 "n_samples": int(Xs[0].shape[0]),
                 "n_views": len(Xs),
                 "n_clusters": n_clusters,
@@ -334,6 +339,7 @@ class RandomSearchExperiment:
             dataset_name=self.dataset_name,
             model_name=model_name,
             best_metric_name=self.best_metric,
+            higher_is_better=higher_is_better(self.metrics[self.best_metric]),
         )
 
         use_pbar = self.verbose >= 2
@@ -367,10 +373,11 @@ class RandomSearchExperiment:
                 model = self.model_class(**params)
 
                 t0 = time.perf_counter()
-                model.fit(Xs, As)
+                data.fit(model)
                 elapsed = time.perf_counter() - t0
 
-                scores = self._evaluate(labels, model.labels_)
+                scores = evaluate_metrics(self.metrics, labels, model.labels_,
+                                          getattr(model, "embedding_", None), benchmark=self.benchmark)
                 self.result.add_trial(params, scores, elapsed)
 
                 # Show best so far in the progress bar

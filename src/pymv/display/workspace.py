@@ -1,0 +1,352 @@
+"""Testable workbench state and execution, with no Streamlit dependency."""
+
+from __future__ import annotations
+
+import copy
+import csv
+import hashlib
+import inspect
+import io
+import json
+import time
+import uuid
+import zipfile
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from typing import Callable
+
+import numpy as np
+from scipy import sparse
+
+from pymv.metrics import (
+    ari_score,
+    calinski_harabasz_score,
+    clustering_accuracy,
+    davies_bouldin_score,
+    nmi_score,
+    silhouette_score,
+)
+from pymv.metrics.evaluation import evaluate_metrics, validate_metrics
+from pymv.models import get_model
+
+from .preprocessing import PreprocessingSpec, prepare_dataset
+
+METRICS = {
+    "Silhouette": silhouette_score,
+    "Davies–Bouldin": davies_bouldin_score,
+    "Calinski–Harabasz": calinski_harabasz_score,
+    "ACC": clustering_accuracy,
+    "NMI": nmi_score,
+    "ARI": ari_score,
+}
+INTERNAL_NAMES = list(METRICS)[:3]
+EXTERNAL_NAMES = list(METRICS)[3:]
+
+
+@dataclass
+class ExperimentSpec:
+    """A reproducible recipe; K is always explicit and independent of labels."""
+
+    dataset_id: str
+    model: str = "lmgec"
+    name: str = "Experiment"
+    params: dict = field(default_factory=dict)
+    clusters: list = field(default_factory=lambda: [2, 3, 4])
+    repeats: int = 1
+    seed: int = 0
+    benchmark: bool = False
+    metrics: list = field(default_factory=lambda: list(INTERNAL_NAMES))
+    fusion: str = "sum"
+    relation_weights: dict = field(default_factory=dict)
+    missing_rate: float = 0.0
+    imputation: str | None = None
+    center: bool = False
+    scale: bool = False
+    search_space: dict = field(default_factory=dict)
+    trials: int = 1
+    preprocessing: PreprocessingSpec | None = None
+
+
+@dataclass
+class ExperimentRecord:
+    id: str
+    created_at: str
+    spec: ExperimentSpec
+    dataset_summary: dict
+    rows: list = field(default_factory=list)
+    artifacts: list = field(default_factory=list)
+
+
+@dataclass
+class DatasetResource:
+    """A session dataset that can release its materialized matrices from RAM."""
+
+    id: str
+    name: str
+    loader: Callable
+    source: str = "memory"
+    hint: dict = field(default_factory=dict)
+    cleanup: Callable | None = field(default=None, repr=False)
+    _data: object | None = field(default=None, repr=False)
+
+    @property
+    def loaded(self):
+        return self._data is not None
+
+    def load(self):
+        if self._data is None:
+            self._data = self.loader()
+        return self._data
+
+    def unload(self):
+        self._data = None
+
+    def __getattr__(self, name):
+        # Keeps read-only compatibility with the former datasets mapping.
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return getattr(self.load(), name)
+
+    def __setattr__(self, name, value):
+        fields = {"id", "name", "loader", "source", "hint", "cleanup", "_data"}
+        data = self.__dict__.get("_data")
+        if name not in fields and data is not None and hasattr(data, name):
+            setattr(data, name, value)
+            return
+        object.__setattr__(self, name, value)
+
+
+def fingerprint(data):
+    """Hash aligned values, graph relations, IDs, masks and labels for provenance."""
+    digest = hashlib.sha256()
+    digest.update(json.dumps(data.sample_ids.tolist(), default=str).encode())
+    digest.update(data.observed_mask.tobytes())
+    if data.labels is not None:
+        digest.update(json.dumps(data.labels.tolist(), default=str).encode())
+
+    def update(value):
+        if value is None:
+            digest.update(b"none")
+        elif isinstance(value, (list, tuple)):
+            digest.update(b"relations")
+            for item in value:
+                update(item)
+        elif sparse.issparse(value):
+            a = value.tocsr(copy=True)
+            a.sort_indices()
+            digest.update(str(a.shape).encode())
+            for item in (a.data, a.indices, a.indptr):
+                digest.update(item.tobytes())
+        else:
+            a = np.ascontiguousarray(value)
+            digest.update(str((a.shape, a.dtype)).encode())
+            digest.update(a.tobytes())
+
+    update(data.Xs)
+    update(data.As)
+    return digest.hexdigest()
+
+
+class Workspace:
+    """Session-local dataset snapshots and independent, newest-first experiments."""
+
+    def __init__(self):
+        self.datasets = {}
+        self.records = []
+        self.experiment_counter = 0
+        self.preprocessing = {}
+
+    def add_dataset(self, data, *, source="memory"):
+        key = uuid.uuid4().hex
+        snapshot = copy.deepcopy(data)
+        self.datasets[key] = DatasetResource(
+            key,
+            data.name or "Dataset",
+            loader=lambda value=snapshot: copy.deepcopy(value),
+            source=source,
+            hint={
+                "n_samples": data.n_samples,
+                "n_views": data.n_views,
+                "n_clusters": data.n_clusters,
+                "complete": data.is_complete,
+                "category": data.category,
+            },
+            _data=snapshot,
+        )
+        return key
+
+    def add_lazy_dataset(self, name, loader, *, source="catalog", hint=None):
+        key = uuid.uuid4().hex
+        self.datasets[key] = DatasetResource(key, name, loader, source=source, hint=hint or {})
+        return key
+
+    def load_dataset(self, dataset_id, *, unload_others=True):
+        if dataset_id not in self.datasets:
+            raise KeyError("This dataset is no longer in the session")
+        if unload_others:
+            for key, resource in self.datasets.items():
+                if key != dataset_id:
+                    resource.unload()
+        return self.datasets[dataset_id].load()
+
+    def unload_dataset(self, dataset_id):
+        self.datasets[dataset_id].unload()
+
+    def remove_dataset(self, dataset_id):
+        self.preprocessing.pop(dataset_id, None)
+        resource = self.datasets.pop(dataset_id)
+        resource.unload()
+        if resource.cleanup:
+            resource.cleanup()
+
+    def delete_record(self, record_id):
+        self.records = [r for r in self.records if r.id != record_id]
+
+    def run(self, spec, *, progress=None):
+        """Append one independent record, retaining per-trial failures and artifacts.
+
+        Structural/configuration errors raise before history changes. Training
+        failures are recorded per trial so completed trials remain available.
+        Inputs are copied per fit to protect other experiments from model mutation.
+        """
+        spec = copy.deepcopy(spec)
+        if not spec.clusters or any(isinstance(k, bool) or not isinstance(k, int) for k in spec.clusters):
+            raise ValueError("Cluster counts must be a nonempty list of integers")
+        if spec.repeats < 1 or spec.trials < 1:
+            raise ValueError("Repeats and trials must be positive")
+        source = self.load_dataset(spec.dataset_id)
+        if any(k < 1 or k > source.n_samples for k in spec.clusters):
+            raise ValueError("Each K must be between 1 and the number of samples")
+        if "n_clusters" in spec.params or "n_clusters" in spec.search_space:
+            raise ValueError("Use the explicit cluster-count field for K, not model/search parameters")
+        cls = get_model(spec.model)
+        parameters = inspect.signature(cls.__init__).parameters
+        if (set(spec.params) | set(spec.search_space)) - set(parameters):
+            raise ValueError("Unknown model parameter; consult the model API")
+        if any(not isinstance(v, list) or not v for v in spec.search_space.values()):
+            raise ValueError("Each random-search parameter needs a nonempty JSON list")
+        metric_fns = {name: METRICS[name] for name in spec.metrics}
+        validate_metrics(metric_fns, source.labels, benchmark=spec.benchmark)
+        recipe = spec.preprocessing or PreprocessingSpec(
+            missing_rate=spec.missing_rate,
+            missing_seed=spec.seed,
+            imputation=spec.imputation,
+            fusion=spec.fusion,
+            relation_weights={int(k): v for k, v in spec.relation_weights.items()},
+            mode="all" if spec.center or spec.scale else "none",
+        )
+        if spec.preprocessing is None:
+            recipe.shared.center = spec.center
+            recipe.shared.scale = spec.scale
+        data = prepare_dataset(source, recipe)
+        if not data.is_complete and not getattr(cls, "supports_missing_views", False):
+            raise ValueError(f"{cls.__name__} does not support missing views. Choose explicit mean/zero imputation.")
+        original_mask = source.observed_mask.tolist()
+        if "missing_simulation" in data.metadata:
+            original_mask = data.metadata.get("imputation", {}).get("observed_mask", data.observed_mask.tolist())
+        summary = {
+            "name": source.name,
+            "fingerprint": fingerprint(source),
+            "n_samples": source.n_samples,
+            "n_views": source.n_views,
+            "category": source.category,
+            "feature_dims": source.feature_dims,
+            "view_names": source.view_names,
+            "modalities": source.modalities,
+            "metadata": data.metadata,
+            "sample_ids": source.sample_ids.tolist(),
+            "observed_mask": original_mask,
+            "evaluation_space": "learned embedding (Euclidean)",
+            "labels_used": spec.benchmark,
+        }
+        record = ExperimentRecord(uuid.uuid4().hex, datetime.now(timezone.utc).isoformat(), spec, summary)
+        self.records.insert(0, record)
+        self.experiment_counter += 1
+        rng = np.random.default_rng(spec.seed)
+        configurations = []
+        for _ in range(spec.trials if spec.search_space else 1):
+            params = copy.deepcopy(spec.params)
+            params.update({k: values[int(rng.integers(len(values)))] for k, values in spec.search_space.items()})
+            configurations.append(params)
+        total = len(configurations) * len(spec.clusters) * spec.repeats
+        for params in configurations:
+            for k in spec.clusters:
+                for repeat in range(spec.repeats):
+                    run_seed = spec.seed + repeat
+                    kwargs = {**params, "n_clusters": k}
+                    if "random_state" in parameters:
+                        kwargs["random_state"] = run_seed
+                    row = {"K": k, "repeat": repeat + 1, "seed": run_seed, "params": kwargs, "status": "complete"}
+                    artifact = {}
+                    started = time.perf_counter()
+                    try:
+                        model = cls(**kwargs)
+                        copy.deepcopy(data).fit(model)
+                        embedding = getattr(model, "embedding_", None)
+                        row.update(
+                            evaluate_metrics(
+                                metric_fns, data.labels, model.labels_, embedding, benchmark=spec.benchmark
+                            )
+                        )
+                        artifact = {"labels": np.asarray(model.labels_).copy()}
+                        if embedding is not None:
+                            artifact["embedding"] = np.asarray(embedding).copy()
+                        loss = getattr(model, "loss_history_", None)
+                        if loss is not None:
+                            artifact["loss"] = np.asarray(loss)
+                        if spec.benchmark and data.labels is not None:
+                            artifact["true_labels"] = np.asarray(data.labels).copy()
+                    except Exception as exc:
+                        row.update(status="failed", error=f"{type(exc).__name__}: {exc}")
+                    row["seconds"] = time.perf_counter() - started
+                    record.rows.append(row)
+                    record.artifacts.append(artifact)
+                    if progress:
+                        progress(len(record.rows) / total)
+        return record
+
+
+def export_record(record):
+    """Downloadable ZIP: JSON recipe/provenance, CSV scores, per-trial NPZ outputs.
+
+    Original feature matrices are not exported. Benchmark artifacts include the
+    evaluation labels needed for confusion matrices. Reload the original dataset
+    (checking its fingerprint) to reproduce a run. Session IDs are local
+    identifiers, not paths to persisted datasets.
+    """
+    from pymv import __version__
+
+    buffer = io.BytesIO()
+    payload = {
+        "pymv_version": __version__,
+        "id": record.id,
+        "created_at": record.created_at,
+        "spec": asdict(record.spec),
+        "dataset": record.dataset_summary,
+        "results": record.rows,
+    }
+
+    def json_safe(value):
+        if isinstance(value, dict):
+            return {str(k): json_safe(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [json_safe(v) for v in value]
+        if isinstance(value, float) and not np.isfinite(value):
+            return None
+        if isinstance(value, np.generic):
+            return json_safe(value.item())
+        return value
+
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("experiment.json", json.dumps(json_safe(payload), indent=2, allow_nan=False))
+        table = io.StringIO()
+        fields = list(dict.fromkeys(k for row in record.rows for k in row))
+        writer = csv.DictWriter(table, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(record.rows)
+        archive.writestr("metrics.csv", table.getvalue())
+        for i, artifact in enumerate(record.artifacts):
+            output = io.BytesIO()
+            np.savez_compressed(output, **artifact)
+            archive.writestr(f"trial_{i + 1}.npz", output.getvalue())
+    return buffer.getvalue()

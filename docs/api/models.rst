@@ -1,29 +1,13 @@
-Models
-======
-
-SCM
----
-
-.. autoclass:: pymv.models.scm.SCM
-   :members:
-
-LMGEC
------
-
-.. automodule:: pymv.models.lmgec.lmgec
-   :members:
-   :undoc-members:
-   :show-inheritance:
-   :member-order: bysource
+Models and registry
+===================
 
 .. autoclass:: pymv.models.LMGEC
    :members:
-   :undoc-members:
-   :show-inheritance:
    :special-members: __init__
 
-Model registry
---------------
+.. autoclass:: pymv.models.SCM
+   :members:
+   :special-members: __init__
 
 .. autofunction:: pymv.models.register_model
 

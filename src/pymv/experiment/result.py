@@ -373,6 +373,7 @@ class ExperimentResult:
     """
 
     def __init__(self):
+        self.metric_directions = {}
         self._results: dict[str, list[Result]] = OrderedDict()
         self._models: list = []
         self._model_names: list[str] = []
@@ -402,7 +403,9 @@ class ExperimentResult:
             best_val = -np.inf
             best_row = 0
             for row_i, r in enumerate(results):
-                v = r.metric_avg.get(m, -np.inf)
+                v = r.metric_avg.get(m, float("nan"))
+                if not self.metric_directions.get(m, True):
+                    v = -v
                 if not np.isnan(v) and v > best_val:
                     best_val = v
                     best_row = row_i
@@ -476,10 +479,11 @@ class RandomSearchResult:
     by the chosen metric (higher is better).
     """
 
-    def __init__(self, dataset_name: str, model_name: str, best_metric_name: str):
+    def __init__(self, dataset_name: str, model_name: str, best_metric_name: str, higher_is_better=True):
         self.dataset_name = dataset_name
         self.model_name = model_name
         self.best_metric_name = best_metric_name
+        self.higher_is_better = higher_is_better
         self.trials: list[dict] = []
         self.best_idx: int = 0
 
@@ -494,7 +498,8 @@ class RandomSearchResult:
         best_val = self.trials[self.best_idx]["metrics"].get(
             self.best_metric_name, -np.inf
         )
-        if not np.isnan(curr_val) and curr_val > best_val:
+        better = curr_val > best_val if self.higher_is_better else curr_val < best_val
+        if np.isfinite(curr_val) and (not np.isfinite(best_val) or better):
             self.best_idx = len(self.trials) - 1
 
     @property

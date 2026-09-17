@@ -1,7 +1,24 @@
 Examples
 ========
 
-This page walks through 8 progressively detailed examples.
+Start with the offline tutorial below, then use the focused benchmark examples.
+All examples using catalog datasets download their data on first use.
+
+Offline: single, multiple, missing and graph views
+--------------------------------------------------
+
+This complete script creates synthetic views, runs LMGEC and SCM, explicitly
+imputes missing views, fuses relations and compares manually chosen K values.
+Small training settings keep the tutorial quick; they are not recommended
+research hyperparameters. From a development checkout, run
+``python examples/offline_workflows.py``.
+
+.. literalinclude:: ../../examples/offline_workflows.py
+   :language: python
+   :lines: 3-
+
+For file imports, see :doc:`data`; for interactive experiments see
+:doc:`workbench`.
 
 .. contents:: On this page
    :local:
@@ -41,7 +58,7 @@ Pass lists to ``beta`` and ``tf_idf``:
        embedding_dim=16,
        tf_idf=[True, False],      # TF-IDF on view 0, L2 on view 1
        beta=[1.0, 0.5],           # different self-loop weights
-       center=True,
+       center=False,             # TF-IDF requires nonnegative features
    )
    labels = model.fit_predict(Xs, As)
 
@@ -55,10 +72,11 @@ Set ``preprocess=False`` to skip all internal preprocessing:
 
    from pymv.preprocessing import get_propagated_features, preprocess_features
 
-   H0 = get_propagated_features(X0, A0, beta=1.0, tf_idf=True)
-   H1 = get_propagated_features(X1, A1, beta=0.5, tf_idf=False)
-
-   Hs = preprocess_features([H0, H1], center=True, scale=False)
+   # Xs and As come from Example 1. Center before row normalization;
+   # do not center features that are intended for TF-IDF.
+   H0 = get_propagated_features(Xs[0], As[0], beta=1.0, tf_idf=True)
+   H1 = get_propagated_features(Xs[1], As[1], beta=0.5, center=True)
+   Hs = [H0, H1]
 
    model = LMGEC(n_clusters=3, embedding_dim=16, preprocess=False)
    labels = model.fit_predict(Hs)      # no adjacency needed

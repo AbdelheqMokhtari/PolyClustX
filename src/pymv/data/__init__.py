@@ -23,11 +23,15 @@ is a single ``DatasetSpec`` entry there.
 from . import registry as _registry
 from .base import get_data_home
 from .dataset import MultiViewDataset
+from .importers import dataset_from_arrays, load_files, read_arrays
+from .missing import align_views, impute_missing, simulate_missing_views
 from .registry import (
     CATALOG,
     DATASETS,
     get_dataset_info,
     list_datasets,
+    list_variants,
+    load_data,
     load_dataset,
 )
 
@@ -41,11 +45,19 @@ for _name in DATASETS:
 
 __all__ = [
     "MultiViewDataset",
+    "align_views",
+    "impute_missing",
+    "simulate_missing_views",
+    "dataset_from_arrays",
+    "load_files",
+    "read_arrays",
     "CATALOG",
     "DATASETS",
     "get_data_home",
     "get_dataset_info",
     "list_datasets",
+    "list_variants",
+    "load_data",
     "load_dataset",
     *sorted(f"load_{name}" for name in DATASETS),
 ]

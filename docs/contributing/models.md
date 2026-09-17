@@ -1,0 +1,65 @@
+# Add your own model
+
+Models follow one small contract: implement `fit(Xs, As=None)`, return `self`,
+and expose `labels_` and `embedding_` in the same sample order. Do not read
+evaluation labels, infer K from them, or mutate the caller's input arrays.
+
+## A complete feature-only example
+
+```python
+import numpy as np
+from scipy import sparse
+from sklearn.cluster import KMeans
+from pymv.core import BaseModel
+from pymv.models import register_model
+
+@register_model(
+    "concatenated_kmeans",
+    description="K-means baseline on concatenated feature views.",
+    uses_graphs=False,
+)
+class ConcatenatedKMeans(BaseModel):
+    def __init__(self, n_clusters, random_state=42):
+        self.n_clusters = n_clusters
+        self.random_state = random_state
+
+    def fit(self, Xs, As=None):
+        self.embedding_ = np.concatenate(
+            [x.toarray() if sparse.issparse(x) else x for x in Xs], axis=1
+        )
+        self.labels_ = KMeans(
+            n_clusters=self.n_clusters, random_state=self.random_state, n_init=10
+        ).fit_predict(self.embedding_)
+        return self
+```
+
+Import the module once before calling `get_model("concatenated_kmeans")`.
+Registration is process-local. For an in-package contribution, export the class
+from `pymv.models`; this makes it discoverable by the CLI, workbench and catalog.
+Registry defaults are inferred from explicit constructor arguments, excluding
+`n_clusters`; use `defaults={...}` for curated UI defaults. Parameters should be
+JSON-serializable for reproducible recipes.
+
+Add `paper="https://doi.org/..."`, a concise description and `uses_graphs=True`
+when applicable. A registry entry does not automatically validate a method's
+scientific claims: document differences from the reference implementation.
+
+## Missing-aware methods
+
+Declare `supports_missing_views = True` only when the implementation genuinely
+uses an observation mask and has tests for it. Accept
+`fit(Xs, As=None, *, observed_mask=None)`. The dataset calls this keyword only
+for incomplete data. Use the mask in objectives/normalization: zero placeholders
+must never be treated as observed data. Graph observations and feature
+observations are separate; feature missingness does not remove graph edges.
+
+## Validation checklist
+
+- One, two and multiple views; heterogeneous feature dimensions.
+- Correct labels/embedding shapes and sample order.
+- Seeded smoke tests on synthetic data; no downloads required.
+- Clear errors for unsupported graphs, missing views or parameter choices.
+- Sparse input support or an explicit limitation.
+- Original citation, implementation provenance, licensing and numerical deviations.
+
+The [pull-request guide](pull_requests.md) explains how to propose inclusion.

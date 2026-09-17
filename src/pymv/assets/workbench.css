@@ -1,0 +1,10 @@
+:root { --pymv-burgundy: #8A1538; --pymv-slate: #334155; }
+.stApp { color: #334155; background: #FFFFFF; }
+[data-testid="stSidebar"] { background: #F8FAFC; border-right: 1px solid #E2E8F0; }
+.block-container { max-width: 1440px; padding-top: 2rem; }
+h1, h2, h3 { color: #334155; font-weight: 600; letter-spacing: -.02em; }
+.stApp [data-testid="stMarkdownContainer"] a { color: #8A1538; }
+[data-testid="stExpander"] { border-color: #E2E8F0; border-radius: 6px; }
+button[kind="primary"] { background-color: #8A1538; border-color: #8A1538; color: white; }
+[data-baseweb="tab-highlight"] { background-color: #8A1538; }
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p { color: #526174; }

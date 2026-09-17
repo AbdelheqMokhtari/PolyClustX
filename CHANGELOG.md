@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog,
 and this project adheres to Semantic Versioning.
 
+## v1.3.0 (2026-09-17)
+
+### Feat
+
+- **display**: restore flexible sidebar workflow
+- **display**: add typed model controls and result summaries
+- **display**: add dataset diagnostics and synthetic controls
+- **display**: retain projection exports and verify benchmark mode switching
+- **display**: integrate session-based scientific workbench and shared identity
+- **experiment**: support label-free evaluation and metric directions
+- **data**: group dataset variants and enforce explicit graph mappings
+- **data**: add aligned missing-view datasets and relation fusion
+
+### Fix
+
+- **display**: stack experiment history newest first
+- **data**: detect tabular headers automatically
+- **branding**: use a transparent logo background
+- preserve dataset recipes and tighten scientific evaluation validation
+
+### Refactor
+
+- **display**: add lazy data and preprocessing recipes
+
 ## v1.2.0 (2026-09-04)
 
 ### Feat

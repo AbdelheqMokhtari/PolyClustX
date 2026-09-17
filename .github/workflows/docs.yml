@@ -1,0 +1,39 @@
+name: Documentation and workbench
+
+on:
+  push:
+    branches: [main, develop, 'feature/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install -r docs/requirements.txt
+      - run: sphinx-build -W --keep-going -b html docs docs/_build/html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: documentation-html
+          path: docs/_build/html
+  workbench:
+    runs-on: ubuntu-latest
+    env:
+      TF_CPP_MIN_LOG_LEVEL: '3'
+      CUDA_VISIBLE_DEVICES: ''
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install -e '.[dev,display]'
+      - run: pytest tests/test_workbench.py tests/test_data_contract.py tests/test_unsupervised_experiments.py
