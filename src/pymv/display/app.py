@@ -27,6 +27,7 @@ from pymv.display.preprocessing import PreprocessingSpec, ViewPreprocessing
 from pymv.display.profiles import dataset_profile, format_bytes
 from pymv.display.results import aggregate_results, cluster_details, compact_confusion
 from pymv.display.synthetic import SyntheticSpec, generate_synthetic
+from pymv.display.theme import CSS
 from pymv.display.workspace import (
     EXTERNAL_NAMES,
     INTERNAL_NAMES,
@@ -37,7 +38,7 @@ from pymv.display.workspace import (
 )
 from pymv.models.registry import get_model_info
 
-ASSETS = Path(__file__).resolve().parents[1] / "assets"
+ASSETS = Path(__file__).resolve().parent / "assets"
 STEPS = ["Dataset", "Preprocessing", "Model", "Experiment", "Results", "Visualizations", "Export"]
 
 
@@ -924,7 +925,7 @@ def _sidebar(workspace):
 
 def main():
     st.set_page_config(page_title="pymv", page_icon=str(ASSETS / "logo.png"), layout="wide")
-    st.markdown(f"<style>{(ASSETS / 'workbench.css').read_text()}</style>", unsafe_allow_html=True)
+    st.markdown(f"<style>{CSS}</style>", unsafe_allow_html=True)
     if "_next_workflow_step" in st.session_state:
         st.session_state.workflow_step = st.session_state.pop("_next_workflow_step")
     workspace = _workspace()

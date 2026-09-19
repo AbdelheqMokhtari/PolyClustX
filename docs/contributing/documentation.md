@@ -15,9 +15,9 @@ registries. Update source metadata rather than copying lists into documentation.
 API pages use autodoc. Add runnable offline examples and tests when introducing
 new workflows; the text should describe only implemented capabilities.
 
-The shared logo is `src/pymv/assets/logo.png`. Documentation colors live in
-`docs/_static/custom.css`, and workbench colors in
-`src/pymv/assets/workbench.css`. Keep burgundy as an accent, with slate text and
+The shared logo is `src/pymv/display/assets/logo.png`. Documentation colors live in
+`docs/_static/custom.css`, and interface colors in
+`src/pymv/display/theme.py`. Keep burgundy as an accent, with slate text and
 light neutral surfaces. Avoid embedding text in the symbol.
 
 Read the Docs configuration is in `.readthedocs.yaml`. The docs CI workflow builds

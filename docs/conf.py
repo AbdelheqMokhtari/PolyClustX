@@ -33,8 +33,8 @@ myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "fieldlist"]
 myst_heading_anchors = 3
 
 html_theme = "sphinx_rtd_theme"
-html_title = "pymv — multi-view clustering"
-html_logo = str(ROOT / "src/pymv/assets/logo.png")
+html_title = "pymv — comparative clustering and representation learning"
+html_logo = str(ROOT / "src/pymv/display/assets/logo.png")
 html_favicon = html_logo
 html_theme_options = {
     "logo_only": False, "collapse_navigation": False, "navigation_depth": 3,

@@ -1,4 +1,4 @@
-<p align="center"><img src="src/pymv/assets/logo.png" width="120" alt="pymv symbol"></p>
+<p align="center"><img src="src/pymv/display/assets/logo.png" width="120" alt="pymv symbol"></p>
 <h1 align="center">pymv</h1>
 
 <p align="center">Multi-view and multimodal clustering in Python.</p>

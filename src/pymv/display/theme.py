@@ -1,3 +1,6 @@
+"""Shared display styling, kept with the UI code rather than image assets."""
+
+CSS = """
 :root { --pymv-burgundy: #8A1538; --pymv-slate: #334155; }
 .stApp { color: #334155; background: #FFFFFF; }
 [data-testid="stSidebar"] { background: #F8FAFC; border-right: 1px solid #E2E8F0; }
@@ -8,3 +11,4 @@ h1, h2, h3 { color: #334155; font-weight: 600; letter-spacing: -.02em; }
 button[kind="primary"] { background-color: #8A1538; border-color: #8A1538; color: white; }
 [data-baseweb="tab-highlight"] { background-color: #8A1538; }
 [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p { color: #526174; }
+"""
