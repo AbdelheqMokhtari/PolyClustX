@@ -22,7 +22,13 @@ from pymv.data import (
     load_files,
     read_arrays,
 )
-from pymv.display.model_controls import compatible_models, parameter_controls, parse_int_tuple
+from pymv.display.model_controls import (
+    ParameterControl,
+    compatible_models,
+    parameter_controls,
+    parse_candidates,
+    parse_int_tuple,
+)
 from pymv.display.preprocessing import PreprocessingSpec, ViewPreprocessing
 from pymv.display.profiles import dataset_profile, format_bytes
 from pymv.display.results import aggregate_results, cluster_details, compact_confusion
@@ -213,31 +219,58 @@ def _catalog_loader(workspace):
 
 def _simple_upload(workspace):
     st.write("Upload one CSV, TSV, or NPY feature matrix for each view. Rows are samples; columns are features.")
-    st.caption("CSV/TSV headers are detected automatically. Keep labels in a separate optional file.")
+    st.caption("CSV/TSV headers are detected automatically. Include Y in the same upload batch if you have it.")
     views = st.file_uploader(
-        "Feature-view files", type=["csv", "tsv", "npy"], accept_multiple_files=True, key="simple_views"
+        "View files and optional labels file", type=["csv", "tsv", "npy"],
+        accept_multiple_files=True, key="simple_views"
     )
-    labels_file = st.file_uploader(
-        "Ground-truth labels (optional)", type=["csv", "tsv", "npy"], key="simple_labels"
+    location = st.radio(
+        "Ground-truth labels",
+        ["No labels", "A file in this upload", "A column in a view", "Upload labels separately"],
+        key="simple_label_location",
     )
+    labels_file = None
+    if location == "Upload labels separately":
+        labels_file = st.file_uploader(
+            "Labels file", type=["csv", "tsv", "npy"], key="simple_labels"
+        )
+    files = [*views, *([labels_file] if labels_file else [])]
+    if not views:
+        return
+    try:
+        arrays = _read_uploads(files)
+    except Exception as exc:
+        st.error(str(exc))
+        return
+    keys = list(arrays)
+    view_keys = list(keys)
+    label_key, label_column = None, None
+    ready = True
+    if location == "A file in this upload":
+        label_key = st.selectbox("Which file contains Y?", keys, key="simple_label_key")
+        view_keys.remove(label_key)
+    elif location == "Upload labels separately":
+        ready = labels_file is not None
+        if labels_file:
+            label_key = next(key for key in keys if key.startswith(f"{labels_file.name}:"))
+            view_keys.remove(label_key)
+    elif location == "A column in a view":
+        key = st.selectbox("View containing the labels", keys, key="simple_label_view")
+        matrix = arrays[key]
+        if matrix.ndim != 2 or matrix.shape[1] < 2:
+            st.error("Choose a matrix containing at least one feature column and one label column.")
+            ready = False
+        else:
+            column = st.number_input(
+                "Label column (1 = first column)", 1, matrix.shape[1], matrix.shape[1], key="simple_label_column"
+            )
+            label_column = (key, column - 1)
+            st.caption("This column will be removed from that view's features before training.")
+    st.caption(f"{len(view_keys)} feature view(s) selected. All files must use the same sample row order.")
     name = st.text_input("Dataset name", "Uploaded dataset", key="simple_dataset_name")
-    if st.button("Add uploaded dataset", type="primary", disabled=not views):
+    if st.button("Add uploaded dataset", type="primary", disabled=not view_keys or not ready):
         try:
-            files = [*views, *([labels_file] if labels_file else [])]
-            arrays = _read_uploads(files)
-            view_keys = []
-            for file in views:
-                matching = [key for key in arrays if key.startswith(f"{file.name}:")]
-                if len(matching) != 1:
-                    raise ValueError(f"{file.name} must contain exactly one feature array")
-                view_keys.append(matching[0])
-            label_key = None
-            if labels_file:
-                matching = [key for key in arrays if key.startswith(f"{labels_file.name}:")]
-                if len(matching) != 1:
-                    raise ValueError("The labels file must contain exactly one array")
-                label_key = matching[0]
-            mapping = {"view_keys": view_keys, "label_key": label_key, "name": name}
+            mapping = {"view_keys": view_keys, "label_key": label_key, "label_column": label_column, "name": name}
             data = dataset_from_arrays(arrays, **mapping)
             _stage_uploaded(workspace, data, files, mapping)
             st.success("Dataset added and validated. Source files will be reloaded only when needed.")
@@ -556,6 +589,7 @@ def render_model(workspace):
         st.caption(f"Original paper: {info['paper']}")
     defaults, controls = parameter_controls(model)
     params = {}
+    validation_errors = []
     external_preprocessing = recipe.changes_features
     if external_preprocessing:
         st.info("Model-internal preprocessing is disabled to avoid applying transformations twice.")
@@ -569,9 +603,10 @@ def render_model(workspace):
                 else:
                     try:
                         params[name] = _parameter_input(model, name, control, defaults[name], draft["params"])
+                        if control.kind in {"int", "float"}:
+                            params[name] = parse_candidates([params[name]], control)[0]
                     except ValueError as exc:
-                        st.error(str(exc))
-                        return
+                        validation_errors.append(str(exc))
 
     st.subheader("Number of clusters")
     known = data.n_clusters
@@ -581,41 +616,56 @@ def render_model(workspace):
     compare = st.checkbox("Compare several K values", value=len(draft["clusters"]) > 1)
     clusters = [primary]
     if compare:
-        suggestions = list(range(2, min(data.n_samples, 20) + 1))
+        saved = [str(value) for value in draft["clusters"][1:]]
+        suggestions = list(dict.fromkeys([*map(str, range(2, min(data.n_samples, 20) + 1)), *saved]))
         selected = st.multiselect(
             "Additional K values", suggestions,
-            default=[value for value in draft["clusters"][1:] if value in suggestions],
+            default=saved,
             accept_new_options=True,
         )
-        clusters.extend(int(value) for value in selected)
+        if selected:
+            try:
+                clusters.extend(parse_candidates(
+                    selected, ParameterControl("K", "int", minimum=1, maximum=data.n_samples)
+                ))
+            except ValueError as exc:
+                validation_errors.append(str(exc))
     clusters = list(dict.fromkeys(clusters))
 
     st.subheader("Hyperparameter search")
-    strategy = st.selectbox("Search strategy", ["Fixed parameters", "Random search"])
+    strategy = st.selectbox(
+        "Search strategy", ["Fixed parameters", "Random search"], index=int(bool(draft["search_space"]))
+    )
     search_space = {}
     trials = 1
     if strategy == "Random search":
-        st.caption("Select exactly which candidate values may be sampled. More strategies can be added later.")
+        st.caption("Select suggestions or type any valid number and press Enter to add it. Each value is checked.")
         for name, control in controls.items():
             if not control.search_values or (name == "preprocess" and external_preprocessing):
                 continue
-            if st.checkbox(f"Search {control.label}", key=f"search_{model}_{name}"):
+            if st.checkbox(
+                f"Search {control.label}", value=name in draft["search_space"], key=f"search_{model}_{name}"
+            ):
+                saved = [str(value) for value in draft["search_space"].get(name, control.search_values[:2])]
+                options = list(dict.fromkeys([*map(str, control.search_values), *saved]))
                 candidates = st.multiselect(
-                    f"Candidates for {control.label}", list(control.search_values),
-                    default=list(draft["search_space"].get(name, control.search_values[:2])),
+                    f"Candidates for {control.label}", options,
+                    default=saved,
                     accept_new_options=True, key=f"candidates_{model}_{name}",
                 )
-                if control.kind == "int":
-                    candidates = [int(value) for value in candidates]
-                elif control.kind == "float":
-                    candidates = [float(value) for value in candidates]
-                if candidates:
-                    search_space[name] = candidates
+                try:
+                    search_space[name] = parse_candidates(candidates, control)
+                except ValueError as exc:
+                    validation_errors.append(str(exc))
+        if not search_space and not validation_errors:
+            validation_errors.append("Select at least one parameter for random search.")
         trials = st.number_input("Random configurations", 1, 1000, int(draft.get("trials", 1)))
-    if st.button("Save model settings", type="primary"):
+    for message in validation_errors:
+        st.error(message)
+    if st.button("Save model settings", type="primary", disabled=bool(validation_errors)):
         draft.update(model=model, params=params, search_space=search_space, trials=trials, clusters=clusters)
         st.success("Model settings saved.")
-    if st.button("Continue to experiment"):
+    if st.button("Continue to experiment", disabled=bool(validation_errors)):
         draft.update(model=model, params=params, search_space=search_space, trials=trials, clusters=clusters)
         _set_page("Experiment")
         st.rerun()

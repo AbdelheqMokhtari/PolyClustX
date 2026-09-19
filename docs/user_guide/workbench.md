@@ -40,9 +40,12 @@ removes its temporary source files. Experiment results remain available.
 Choose one source at a time:
 
 - **Catalog** selects a dataset family and variant.
-- **Files → One file per view** accepts CSV, TSV, or NPY feature matrices and
-  an optional separate label file. Rows are samples; headers are detected
-  automatically.
+- **Files → One file per view** accepts CSV, TSV, or NPY arrays. Under
+  **Ground-truth labels**, choose no labels, a labels file from the same batch
+  (such as `Y.npy`), an embedded label column, or a separate labels upload.
+  Labels are excluded from the selected features. Rows are samples; CSV/TSV
+  headers are detected automatically. Embedded columns use a one-based index
+  in the interface and must contain numeric labels in CSV/TSV files.
 - **Files → NPZ / MATLAB container** first lists every array and shape. Select
   feature arrays, optional labels, transposes, modalities, sample-ID arrays,
   and graph relations explicitly.
@@ -90,8 +93,13 @@ K starts at the number of unique loaded labels when labels exist. This is only
 an editable default: the user may choose another K or compare several K values.
 Labels are never passed into model fitting.
 
-Choose **Random search** to mark individual parameters and select their allowed
-candidate values. The interface currently samples discrete candidates. Its
+Choose **Random search** to mark individual parameters. Select suggested
+candidates or type a custom number and press Enter. Scientific notation such
+as `1e-4` is accepted; custom values remain available after saving and returning
+to the Model step. Invalid values disable saving: dimensions and iteration
+counts must be positive whole numbers, temperatures and learning rates must be
+positive, and rates must stay in [0, 1]. NaN, infinity, and empty candidate
+lists are rejected with an explanation. The interface samples discrete candidates. Its
 search-strategy control is designed so additional optimizers can be registered
 later without changing fixed model parameters.
 

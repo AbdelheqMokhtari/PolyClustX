@@ -36,4 +36,6 @@ jobs:
           python-version: '3.11'
           cache: pip
       - run: pip install -e '.[dev,display]'
-      - run: pytest tests/test_workbench.py tests/test_data_contract.py tests/test_unsupervised_experiments.py
+      - run: >-
+          pytest tests/test_workbench.py tests/test_display_inputs.py
+          tests/test_data_contract.py tests/test_unsupervised_experiments.py
