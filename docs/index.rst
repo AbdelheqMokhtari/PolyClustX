@@ -1,5 +1,5 @@
 pymv: comparative clustering and representation learning
-=======================================================
+========================================================================
 
 pymv is a comparative framework for multi-view and multimodal clustering and
 representation learning. It provides one data contract, multiple methods, and
