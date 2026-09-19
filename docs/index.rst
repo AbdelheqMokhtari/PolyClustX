@@ -1,7 +1,9 @@
-pymv: multi-view clustering for research
-==========================================
+pymv: comparative clustering and representation learning
+=======================================================
 
-One data contract, multiple methods, and a reproducible experimental workspace.
+pymv is a comparative framework for multi-view and multimodal clustering and
+representation learning. It provides one data contract, multiple methods, and
+a reproducible experimental workspace.
 Use a single view, several feature views, multimodal data, or attributed graphs
 without changing the structure of your workflow.
 
