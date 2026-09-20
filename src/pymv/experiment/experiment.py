@@ -269,6 +269,8 @@ class Experiment:
         log: bool = False,
         save_path: str | None = None,
         benchmark: bool = True,
+        save_json: bool = True,
+        seed: int = 0,
     ):
         self.datasets = _normalize_datasets(datasets)
         self.models = _normalize_models(models)
@@ -282,6 +284,8 @@ class Experiment:
         self.experiment_name = experiment_name
         self.log = log
         self.save_path = save_path
+        self.save_json = save_json
+        self.seed = seed
 
         # Filled after run()
         self.result: ExperimentResult | None = None
@@ -353,6 +357,17 @@ class Experiment:
 
     def run(self) -> ExperimentResult:
         """Execute the experiment and return an :class:`ExperimentResult`."""
+        from .exports import (
+            aggregate_runs,
+            dataset_details,
+            diagnostics,
+            model_details,
+            model_parameters,
+            new_report,
+            timestamp,
+        )
+
+        report = new_report(name=self.experiment_name)
 
         # Resolve experiment folder first (if saving), so the log goes
         # inside it from the very beginning.
@@ -397,6 +412,7 @@ class Experiment:
         model_names = [self._model_name(m) for m in self.models]
         from pymv.metrics.evaluation import evaluate_metrics, higher_is_better, validate_metrics
         self.result = ExperimentResult()
+        self.result.report = report
         self.result.metric_directions = {k: higher_is_better(fn) for k, fn in self.metrics.items()}
         self.result.set_models(self.models, model_names)
 
@@ -465,6 +481,10 @@ class Experiment:
                 run_metrics: dict[str, list] = {k: [] for k in self.metrics}
                 run_times: list[float] = []
                 run_alphas: list = []
+                entry = {"dataset": dataset_details(data, benchmark=self.benchmark),
+                         "model": model_details(model_template), "parameters": model_parameters(model_template),
+                         "runs": []}
+                report["experiments"].append(entry)
 
                 for r in range(self.runs):
                     if pbar:
@@ -473,6 +493,10 @@ class Experiment:
                         )
 
                     model = copy.deepcopy(model_template)
+                    if hasattr(model, "random_state"):
+                        base = getattr(model_template, "random_state", None)
+                        model.random_state = (self.seed if base is None else base) + r
+                    started_at = timestamp()
 
                     t0 = time.perf_counter()
                     data.fit(model)
@@ -481,6 +505,10 @@ class Experiment:
                     y_pred = model.labels_
                     scores = evaluate_metrics(self.metrics, labels, y_pred,
                                               getattr(model, "embedding_", None), benchmark=self.benchmark)
+                    entry["runs"].append({"run": r + 1, "status": "complete", "started_at": started_at,
+                                          "completed_at": timestamp(), "seconds": elapsed,
+                                          "parameters": model_parameters(model), "metrics": dict(scores),
+                                          **diagnostics(model)})
 
                     for k, v in scores.items():
                         run_metrics[k].append(v)
@@ -512,6 +540,7 @@ class Experiment:
                     std[k] = float(np.std(vals))
 
                 avg_time = float(np.mean(run_times))
+                entry["aggregate"] = aggregate_runs(entry["runs"])
 
                 table_alpha_str = ""
                 if run_alphas:
@@ -658,4 +687,7 @@ class Experiment:
 
             logger.warning("Experiment saved to: %s", folder)
 
+        report["completed_at"] = timestamp()
+        if self.save_json:
+            self.result.save_json(experiment_dir or self.save_path)
         return self.result
