@@ -493,7 +493,8 @@ class Experiment:
                 run_metrics: dict[str, list] = {k: [] for k in self.metrics}
                 run_times: list[float] = []
                 run_alphas: list = []
-                entry = {"dataset": dataset_details(data, benchmark=self.benchmark),
+                entry = {"configuration": len(report["experiments"]) + 1,
+                         "dataset": dataset_details(data, benchmark=self.benchmark),
                          "model": model_details(model_template), "parameters": model_parameters(model_template),
                          "runs": []}
                 entry["dataset"]["name"] = ds_name
