@@ -161,8 +161,18 @@ class RandomSearchExperiment:
         console output is produced.
 
     save_path : str or None
-        Base directory for saving experiment results.  Only used
-        when ``save_markdown=True``.  Defaults to ``./experiments``.
+        Directory for JSON reports and optional Markdown folders. Defaults
+        to ``./experiments`` in the current working directory.
+
+    save_json : bool, default True
+        Automatically save the full search report, including every tuning step.
+
+    runs : int, default 1
+        Repeated fits per configuration. Selection uses their mean score.
+
+    strategy : {"random", "grid"}, default "random"
+        Random sampling or exhaustive Cartesian enumeration. Grid search
+        requires finite candidate sequences and ignores n_iter.
     """
 
     def __init__(
@@ -253,6 +263,8 @@ class RandomSearchExperiment:
                 "name": self.model_class.__name__.lower(),
             },
             "search": {
+                "strategy": self.strategy,
+                "runs": self.runs,
                 "n_iter": self.n_iter,
                 "best_metric": self.best_metric,
                 "seed": self.seed,
@@ -334,12 +346,12 @@ class RandomSearchExperiment:
 
         # Log header (file only unless verbose>=3)
         logger.debug("=" * 60)
-        logger.debug("  pymv Random Search")
+        logger.debug("  pymv %s Search", self.strategy.title())
         logger.debug("=" * 60)
         logger.debug("  Model     : %s", model_name)
         logger.debug("  Dataset   : %s", self.dataset_name)
         logger.debug("  Metrics   : %s", list(self.metrics.keys()))
-        logger.debug("  Best by   : %s (↑ higher is better)", self.best_metric)
+        logger.debug("  Objective : %s", self.best_metric)
         logger.debug("  Trials    : %d", self.n_iter)
         logger.debug("  Seed      : %s", self.seed)
         if experiment_dir:
@@ -393,7 +405,7 @@ class RandomSearchExperiment:
         if use_pbar:
             pbar = tqdm(
                 total=self.n_iter,
-                desc="Random Search",
+                desc=f"{self.strategy.title()} Search",
                 unit="trial",
                 dynamic_ncols=True,
                 file=sys.stdout,
@@ -421,7 +433,10 @@ class RandomSearchExperiment:
                 try:
                     kwargs = dict(params)
                     if "random_state" in inspect.signature(self.model_class.__init__).parameters:
-                        kwargs["random_state"] = (kwargs.get("random_state") or self.seed or 0) + repeat
+                        base = kwargs.get("random_state")
+                        if base is None:
+                            base = 0 if self.seed is None else self.seed
+                        kwargs["random_state"] = base + repeat
                     model = self.model_class(**kwargs)
                     # A custom model must not mutate the dataset used by later trials.
                     import copy
@@ -533,5 +548,9 @@ class RandomSearchExperiment:
                                  best_configuration=self.result.best_idx + 1 if self.result.best_trial else None)
         report["completed_at"] = timestamp()
         if self.save_json:
-            self.result.save_json(experiment_dir or self.save_path)
+            if experiment_dir:
+                from pathlib import Path
+                self.result.json_path = self.result.export(Path(experiment_dir) / "results.json")
+            else:
+                self.result.save_json(self.save_path)
         return self.result

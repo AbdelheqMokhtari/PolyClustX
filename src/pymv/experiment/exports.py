@@ -58,8 +58,15 @@ def model_parameters(model):
 
 def model_details(model):
     cls = model if isinstance(model, type) else type(model)
-    return {"name": cls.__name__, "module": cls.__module__,
-            "supports_missing_views": bool(getattr(cls, "supports_missing_views", False))}
+    details = {"name": cls.__name__, "module": cls.__module__,
+               "supports_missing_views": bool(getattr(cls, "supports_missing_views", False))}
+    from pymv.models.registry import list_models_info
+
+    for info in list_models_info().values():
+        if info["class"] is cls:
+            details.update({key: info[key] for key in ("description", "paper") if key in info})
+            break
+    return details
 
 
 def diagnostics(model):

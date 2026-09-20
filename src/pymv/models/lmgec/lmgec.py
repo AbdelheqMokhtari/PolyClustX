@@ -383,6 +383,7 @@ class LMGEC(BaseModel):
         k = self.n_clusters
 
         alphas = np.zeros(n_views, dtype=np.float64)
+        self.per_view_results_ = []
         XW_consensus = np.zeros((Hs[0].shape[0], m), dtype=np.float64)
 
         # Inertia is normalized by sqrt(N) so the softmax scale is invariant
@@ -393,6 +394,8 @@ class LMGEC(BaseModel):
             XWv = Hs[v] @ Wv
             Gv, Fv = _init_G_F(XWv, k, random_state=self.random_state)
             inertia = np.linalg.norm(XWv - Fv[Gv]) / np.sqrt(XWv.shape[0])
+            self.per_view_results_.append({"view": v, "stage": "initialization",
+                                           "normalized_inertia": float(inertia)})
             logger.info("[View %d] normalized inertia: %.4f", v, inertia)
 
             alphas[v] = np.exp(-inertia / self.temperature)
@@ -444,6 +447,8 @@ class LMGEC(BaseModel):
         self.embedding_ = XW_out.numpy()
         self.loss_history_ = losses.numpy()
         self.alphas_ = alphas_norm
+        residual = self.embedding_ - self.centroids_[self.labels_]
+        self.inertia_ = float(np.einsum("ij,ij->", residual, residual))
 
         # Release all TF tensors so GPU VRAM is freed for the next call
         del G_out, F_out, XW_out, losses

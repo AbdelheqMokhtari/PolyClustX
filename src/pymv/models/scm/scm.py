@@ -282,6 +282,7 @@ class SCM(BaseModel):
         ).fit(self.embedding_)
         self.labels_ = clustering.labels_.astype(np.int32)
         self.centroids_ = clustering.cluster_centers_
+        self.inertia_ = float(clustering.inertia_)
         self.loss_history_ = np.asarray(losses)
         self.embedding_dim_ = self.projection_dim
         self.model_ = model

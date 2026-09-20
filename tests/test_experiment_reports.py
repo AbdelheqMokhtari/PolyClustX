@@ -75,7 +75,31 @@ def test_failed_search_has_no_winner(tmp_path):
     assert result.to_dict()["experiments"][0]["runs"][0]["status"] == "failed"
 
 
+def test_failed_experiment_preserves_other_runs(tmp_path):
+    result = Experiment(dataset(), [ReportModel(fail=True), ReportModel()], {"NMI": nmi_score},
+                        runs=2, verbose=0, save_path=tmp_path).run()
+    first, second = result.to_dict()["experiments"]
+    assert first["aggregate"]["failed_runs"] == 2
+    assert second["aggregate"]["successful_runs"] == 2
+    assert "intentional failure" in first["runs"][0]["error"]
+
+
 def test_normalized_loss_handles_constant_and_nonfinite():
     assert normalized_loss([5, 5]) == [0, 0]
     assert normalized_loss([np.nan, np.inf]) == [None, None]
     assert normalized_loss([]) == []
+
+
+def test_markdown_uses_same_detailed_json_and_no_duplicate_report(tmp_path):
+    result = Experiment(dataset(), ReportModel(), {"NMI": nmi_score}, verbose=0,
+                        save_markdown=True, save_path=tmp_path, experiment_name="demo").run()
+    assert result.json_path == tmp_path / "demo" / "results.json"
+    assert json.loads(result.json_path.read_text())["schema_version"] == "1.0"
+    assert not list((tmp_path / "demo").glob("experiment-*.json"))
+
+
+def test_explicit_zero_seed_is_not_overridden(tmp_path):
+    result = GridSearchExperiment(ReportModel, {"random_state": [0]}, dataset(), {"NMI": nmi_score},
+                                  "NMI", seed=42, runs=2, verbose=0, save_path=tmp_path).run()
+    runs = result.to_dict()["experiments"][0]["runs"]
+    assert [run["parameters"]["random_state"] for run in runs] == [0, 1]

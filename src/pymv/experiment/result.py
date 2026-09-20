@@ -411,7 +411,8 @@ class ExperimentResult(ExportableResult):
                 if not np.isnan(v) and v > best_val:
                     best_val = v
                     best_row = row_i
-            best[col_i] = best_row
+            if np.isfinite(best_val):
+                best[col_i] = best_row
         return best
 
     def config_table(self) -> str:
