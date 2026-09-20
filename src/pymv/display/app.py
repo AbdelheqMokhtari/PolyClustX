@@ -538,22 +538,16 @@ def render_preprocessing(workspace):
                         )
                     )
                 weights[view] = values
+    recipe = PreprocessingSpec(
+        mode=mode, selected_views=selected_views, shared=shared, per_view=per_view,
+        missing_rate=missing_rate, missing_seed=0, imputation=imputation,
+        fusion=fusion, relation_weights=weights,
+    )
     if st.button("Save preprocessing", type="primary"):
-        workspace.preprocessing[dataset_id] = PreprocessingSpec(
-            mode=mode,
-            selected_views=selected_views,
-            shared=shared,
-            per_view=per_view,
-            missing_rate=missing_rate,
-            missing_seed=0,
-            imputation=imputation,
-            fusion=fusion,
-            relation_weights=weights,
-        )
+        workspace.preprocessing[dataset_id] = recipe
         st.success("Preprocessing recipe saved.")
     if st.button("Continue to model"):
-        if dataset_id not in workspace.preprocessing:
-            workspace.preprocessing[dataset_id] = PreprocessingSpec()
+        workspace.preprocessing[dataset_id] = recipe
         _set_page("Model")
         st.rerun()
 
@@ -562,7 +556,7 @@ def _draft(workspace, dataset_id, data):
     if "drafts" not in st.session_state:
         st.session_state.drafts = {}
     if dataset_id not in st.session_state.drafts:
-        default_k = data.n_clusters or min(3, max(2, data.n_samples - 1))
+        default_k = data.n_clusters or min(3, data.n_samples)
         st.session_state.drafts[dataset_id] = {
             "model": None,
             "params": {},
@@ -734,11 +728,11 @@ def render_experiment(workspace):
     active = st.session_state.get("selected_dataset")
     datasets = st.multiselect("Datasets", list(workspace.datasets),
                               default=[active] if active in workspace.datasets else [],
-                              format_func=lambda key: workspace.datasets[key].name)
+                              format_func=lambda key: f"{workspace.datasets[key].name} · {key[:6]}")
     preferred = st.session_state.get("preferred_model", next(reversed(workspace.models)))
     models = st.multiselect("Model configurations", list(workspace.models),
                             default=[preferred] if preferred in workspace.models else [],
-                            format_func=lambda key: workspace.models[key]["name"])
+                            format_func=lambda key: f"{workspace.models[key]['name']} · {key[:6]}")
     modes = {workspace.benchmark_mode(key) for key in datasets}
     mixed = len(modes) > 1
     if mixed:
@@ -749,7 +743,7 @@ def render_experiment(workspace):
     combinations = [(dataset, model) for dataset in datasets for model in models]
     selected = st.multiselect("Combinations to run", combinations, default=combinations,
                               format_func=lambda pair: f"{workspace.datasets[pair[0]].name} × "
-                              f"{workspace.models[pair[1]]['name']}")
+                              f"{workspace.models[pair[1]]['name']} · {pair[0][:6]}/{pair[1][:6]}")
     name = st.text_input("Experiment name", f"Experiment {workspace.experiment_counter + 1}",
                          key=f"experiment_name_{workspace.experiment_counter}")
     repeats = st.slider("Independent runs per configuration", 1, 20, 1)
@@ -762,6 +756,8 @@ def render_experiment(workspace):
                              key=f"experiment_metrics_{benchmark}")
     total = sum(len(workspace.models[m]["clusters"]) * repeats for _, m in selected)
     st.caption(f"{len(selected)} dataset/model combinations · {total} fits, executed one at a time.")
+    if total > 2000:
+        st.warning("Reduce the selected combinations, K values or repeats to at most 2,000 fits.")
     if st.button("Run experiment", type="primary", disabled=mixed or not metrics or not selected or total > 2000):
         specs = []
         for dataset_id, model_id in selected:
@@ -788,7 +784,14 @@ def _downloads(record, *, prefix):
                                "application/json", key=f"{prefix}_json")
     columns[1].download_button("Metrics CSV", report_csv(record.report), f"{record.id}.csv",
                                "text/csv", key=f"{prefix}_csv")
-    columns[2].download_button("Complete ZIP", export_record(record), f"{record.id}.zip",
+    cached = st.session_state.get("_prepared_record_download")
+    if cached is None or cached["id"] != record.id:
+        if not columns[2].button("Prepare ZIP", key=f"{prefix}_prepare"):
+            return
+        with st.spinner("Compressing run arrays for download"):
+            cached = {"id": record.id, "zip": export_record(record)}
+            st.session_state._prepared_record_download = cached
+    columns[2].download_button("Complete ZIP", cached["zip"], f"{record.id}.zip",
                                "application/zip", key=f"{prefix}_zip")
 
 
@@ -863,12 +866,18 @@ def render_search(workspace):
                 key = workspace.add_model(f"Best from {record.spec.name}", record.spec.model, params, clusters)
                 workspace.preprocessing[record.spec.dataset_id] = copy.deepcopy(record.spec.preprocessing)
                 workspace.benchmark[record.spec.dataset_id] = record.spec.benchmark
+                st.session_state[f"benchmark_{record.spec.dataset_id}"] = record.spec.benchmark
                 st.session_state.selected_dataset = record.spec.dataset_id
                 st.session_state.preferred_model = key
                 _set_page("Experiment")
                 st.rerun()
             if st.button("Delete search result", key=f"delete_search_{record.id}"):
                 workspace.delete_record(record.id)
+                if st.session_state.get("_prepared_record_download", {}).get("id") == record.id:
+                    st.session_state.pop("_prepared_record_download")
+                for key in list(st.session_state):
+                    if key.startswith(f"projection_{record.id}_"):
+                        del st.session_state[key]
                 st.rerun()
 
 
@@ -941,6 +950,8 @@ def render_results(workspace):
                     )
             if right.button("Delete this result", key=f"delete_{record.id}"):
                 workspace.delete_record(record.id)
+                if st.session_state.get("_prepared_record_download", {}).get("id") == record.id:
+                    st.session_state.pop("_prepared_record_download")
                 for key in list(st.session_state):
                     if key.startswith(f"projection_{record.id}_"):
                         del st.session_state[key]
@@ -1164,7 +1175,7 @@ def _sidebar(workspace):
                 selected = dataset_ids[-1]
             selected = st.selectbox(
                 "Active dataset", dataset_ids, index=dataset_ids.index(selected),
-                format_func=lambda key: workspace.datasets[key].name, key="sidebar_dataset",
+                format_func=lambda key: f"{workspace.datasets[key].name} · {key[:6]}", key="sidebar_dataset",
             )
             if st.session_state.get("selected_dataset") != selected:
                 st.session_state.selected_dataset = selected

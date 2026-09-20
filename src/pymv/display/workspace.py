@@ -9,6 +9,7 @@ import io
 import itertools
 import json
 import math
+import tempfile
 import time
 import uuid
 import zipfile
@@ -34,6 +35,7 @@ from pymv.metrics import (
     ari_score,
     calinski_harabasz_score,
     clustering_accuracy,
+    clustering_f1_score,
     davies_bouldin_score,
     nmi_score,
     silhouette_score,
@@ -41,6 +43,7 @@ from pymv.metrics import (
 from pymv.metrics.evaluation import evaluate_metrics, higher_is_better, validate_metrics
 from pymv.models import get_model
 
+from .artifacts import StoredArtifact
 from .preprocessing import PreprocessingSpec, prepare_dataset
 
 METRICS = {
@@ -50,6 +53,7 @@ METRICS = {
     "ACC": clustering_accuracy,
     "NMI": nmi_score,
     "ARI": ari_score,
+    "F1": clustering_f1_score,
 }
 INTERNAL_NAMES = list(METRICS)[:3]
 EXTERNAL_NAMES = list(METRICS)[3:]
@@ -94,6 +98,7 @@ class ExperimentRecord:
     json_path: str | None = None
     model_details: dict = field(default_factory=dict)
     report: dict = field(default_factory=dict)
+    _artifact_directory: object | None = field(default=None, repr=False)
 
 
 @dataclass
@@ -195,6 +200,8 @@ class Workspace:
         specs = list(specs)
         if not specs:
             raise ValueError("Select at least one dataset/model combination")
+        if any(spec.kind != "experiment" for spec in specs):
+            raise ValueError("Run searches independently; run_batch accepts experiment configurations")
         if len({spec.benchmark for spec in specs}) > 1:
             raise ValueError("Benchmark and real-world datasets cannot be combined in one experiment")
         # Validate all combinations before fitting anything. Only one source is loaded at a time.
@@ -259,7 +266,15 @@ class Workspace:
             resource.cleanup()
 
     def delete_record(self, record_id):
+        for record in self.records:
+            if record.id == record_id and record._artifact_directory is not None:
+                record._artifact_directory.cleanup()
         self.records = [r for r in self.records if r.id != record_id]
+        for batch in self.batches:
+            batch["record_ids"] = [key for key in batch["record_ids"] if key != record_id]
+            batch["report"]["experiments"] = [entry for entry in batch["report"]["experiments"]
+                                               if entry.get("record_id") != record_id]
+        self.batches = [batch for batch in self.batches if batch["record_ids"]]
 
     def run(self, spec, *, progress=None, output_dir=None, save_json=True, validate_only=False):
         """Append one independent record, retaining per-trial failures and artifacts.
@@ -271,8 +286,12 @@ class Workspace:
         spec = copy.deepcopy(spec)
         if not spec.clusters or any(isinstance(k, bool) or not isinstance(k, int) for k in spec.clusters):
             raise ValueError("Cluster counts must be a nonempty list of integers")
-        if not isinstance(spec.repeats, int) or not 1 <= spec.repeats <= 20 or spec.trials < 1:
+        if (not isinstance(spec.repeats, int) or isinstance(spec.repeats, bool) or not 1 <= spec.repeats <= 20
+                or not isinstance(spec.trials, int) or isinstance(spec.trials, bool) or spec.trials < 1):
             raise ValueError("Repeats must be between 1 and 20 and trials must be positive")
+        if (not isinstance(spec.seed, int) or isinstance(spec.seed, bool)
+                or not 0 <= spec.seed <= 2**32 - spec.repeats):
+            raise ValueError("Choose a nonnegative seed below 2**32 minus the number of repeats")
         if spec.search_strategy not in {"random", "grid"}:
             raise ValueError("Unknown search strategy")
         source = self.load_dataset(spec.dataset_id)
@@ -319,6 +338,11 @@ class Workspace:
             "n_samples": source.n_samples,
             "n_views": source.n_views,
             "category": source.category,
+            "complete": data.is_complete,
+            "n_classes": source.n_clusters if spec.benchmark else None,
+            "observed_per_view": data.observed_mask.sum(axis=0).tolist(),
+            "graph_relations_per_view": [len(a) if isinstance(a, (list, tuple)) else int(a is not None)
+                                         for a in source.As],
             "feature_dims": source.feature_dims,
             "view_names": source.view_names,
             "modalities": source.modalities,
@@ -330,6 +354,7 @@ class Workspace:
         }
         record = ExperimentRecord(uuid.uuid4().hex, datetime.now(timezone.utc).isoformat(), spec, summary)
         record.model_details = model_details(cls)
+        record._artifact_directory = tempfile.TemporaryDirectory(prefix="pymv-runs-")
         self.records.insert(0, record)
         if spec.kind == "experiment":
             self.experiment_counter += 1
@@ -348,6 +373,8 @@ class Workspace:
                 for repeat in range(spec.repeats):
                     run_seed = spec.seed + repeat
                     kwargs = {**params, "n_clusters": k}
+                    if recipe.changes_features and "preprocess" in parameters:
+                        kwargs["preprocess"] = False
                     if "random_state" in parameters:
                         kwargs["random_state"] = run_seed
                     row = {"K": k, "repeat": repeat + 1, "seed": run_seed, "params": kwargs, "status": "complete",
@@ -377,7 +404,12 @@ class Workspace:
                     row["seconds"] = time.perf_counter() - started
                     row["completed_at"] = timestamp()
                     record.rows.append(row)
-                    record.artifacts.append(artifact)
+                    if artifact:
+                        from pathlib import Path
+                        path = Path(record._artifact_directory.name) / f"run-{len(record.rows)}.npz"
+                        record.artifacts.append(StoredArtifact(path, artifact))
+                    else:
+                        record.artifacts.append({})
                     if progress:
                         progress(len(record.rows) / total)
         record.completed_at = timestamp()
@@ -401,7 +433,8 @@ def record_report(record):
                  "parameters": row["params"], "error": row.get("error"),
                  "metrics": {key: row.get(key) for key in record.spec.metrics}, **row.get("diagnostics", {})}
                 for row in rows]
-        report["experiments"].append({"configuration": configuration, "dataset": record.dataset_summary,
+        report["experiments"].append({"record_id": record.id, "configuration": configuration,
+                                      "dataset": record.dataset_summary,
                                       "model": record.model_details, "parameters": params, "runs": runs,
                                       "aggregate": aggregate_runs(runs),
                                       "preprocessing": asdict(record.spec.preprocessing)
@@ -449,6 +482,9 @@ def export_record(record):
         archive.writestr("experiment.json", report_json(payload))
         archive.writestr("metrics.csv", report_csv(record.report))
         for i, artifact in enumerate(record.artifacts):
+            if isinstance(artifact, StoredArtifact):
+                archive.write(artifact.path, f"trial_{i + 1}.npz")
+                continue
             output = io.BytesIO()
             np.savez_compressed(output, **artifact)
             archive.writestr(f"trial_{i + 1}.npz", output.getvalue())

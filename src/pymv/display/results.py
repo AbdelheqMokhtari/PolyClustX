@@ -13,13 +13,14 @@ def aggregate_results(record):
     groups = {}
     for row in record.rows:
         params = {k: v for k, v in row.get("params", {}).items() if k not in {"random_state", "n_clusters"}}
-        key = (row["K"], json.dumps(params, sort_keys=True, default=list))
+        key = (row.get("configuration"), row["K"], json.dumps(params, sort_keys=True, default=list))
         groups.setdefault(key, []).append(row)
     output = []
     reserved = {"K", "repeat", "seed", "params", "status", "error", "configuration"}
-    for (clusters, params_json), rows in groups.items():
+    for (configuration, clusters, params_json), rows in groups.items():
         successful = [row for row in rows if row.get("status") == "complete"]
         item = {
+            "configuration": configuration,
             "K": clusters,
             **json.loads(params_json),
             "successful runs": len(successful),
