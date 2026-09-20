@@ -127,10 +127,12 @@ and [graph relations](https://pymv.readthedocs.io/en/latest/user_guide/graphs.ht
 
 ## Graphical interface
 
-The sidebar lets you move between datasets, preprocessing, models, experiments,
+The sidebar lets you move between datasets, models, experiments,
 hyperparameter search, results, visualizations, and exports. Prepare multiple
-datasets and model configurations, then select combinations to compare. Run
-random or grid search with a selectable metric, copy the best configuration into
+named datasets and model configurations in either order. Load, inspect and
+preprocess each dataset on the Dataset page, then click **Apply changes**.
+Compare all compatible combinations or choose pairs in a dataset-by-model table. Run
+random or grid search with a selectable metric, name and copy the best configuration into
 an experiment, and repeat fits 1–20 times to obtain mean ± standard deviation.
 Benchmark mode starts enabled for labeled datasets and can be disabled on the
 Dataset page. Compare normalized losses across runs and download JSON, CSV or ZIP

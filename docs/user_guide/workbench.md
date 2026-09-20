@@ -18,20 +18,22 @@ pymv-display --server.address=127.0.0.1 --server.port=8502
 ## Sidebar workflow
 
 The sidebar pages remain freely accessible. Moving to another page does
-not discard the active dataset, preprocessing recipe, model settings, or saved
+not discard the dataset collection, applied preparation, model settings, or saved
 experiments.
 
-1. **Dataset** loads data and reports its structure.
-2. **Preprocessing** prepares all views, selected views, or each view separately.
-3. **Model** prepares a collection of named, compatible configurations.
-4. **Hyperparameter search** runs random or grid search and selects an objective.
-5. **Experiment** selects dataset/model combinations and repeated runs.
-6. **Results** aggregates repetitions as mean ± standard deviation.
-7. **Visualizations** compares normalized loss, embeddings, labels, and confusion.
-8. **Export** downloads individual results and complete comparison batches.
+1. **Dataset** loads, names, inspects and prepares datasets in one page.
+2. **Model** prepares named configurations, even before any dataset is loaded.
+3. **Hyperparameter search** runs random or grid search and selects an objective.
+4. **Experiment** selects dataset/model combinations and repeated runs.
+5. **Results** aggregates repetitions as mean ± standard deviation.
+6. **Visualizations** compares normalized loss, embeddings, labels, and confusion.
+7. **Export** downloads individual results and complete comparison batches.
 
-The sidebar selects, unloads, or removes session datasets. Only the active
-dataset is materialized in RAM. Catalog data can be reloaded from its cache,
+The sidebar is navigation only. Use **Browse datasets** on the Dataset page to
+inspect a collection item, rename it, unload it or remove it. Select a prepared
+dataset directly on the search page; experiments have their own dataset selector.
+Only the currently inspected source needs to be materialized in RAM.
+Catalog data can be reloaded from its cache,
 synthetic data can be regenerated from its recipe, and uploaded data is staged
 in a session-specific temporary directory. Removing an uploaded dataset also
 removes its temporary source files. Experiment results remain available.
@@ -42,6 +44,12 @@ releases its temporary arrays. Python datasets added directly with
 for large programmatic sources.
 
 ## Loading and inspecting data
+
+Name synthetic and uploaded datasets before loading them. Defaults increment
+automatically: `synthetic-dataset#1`, `synthetic-dataset#2`, or
+`uploaded-dataset#1`, `uploaded-dataset#2`. Catalog datasets retain readable
+catalog names. Names are unique within the collection; duplicates receive a
+numeric suffix, never an internal ID. Renaming survives unloading and reloading.
 
 Choose one source at a time:
 
@@ -79,7 +87,19 @@ array containers should instead use the explicit container mapping controls.
 it here to use real-world evaluation. Unlabeled data always uses real-world mode.
 The mode belongs to the dataset, not the model or experiment page.
 
-## Preprocessing
+## Preparation on the Dataset page
+
+After loading, inspect the dataset, choose its benchmark setting and configure
+preparation below its details. Click **Apply changes** to validate and save it.
+New datasets are offered in Experiment and Hyperparameter search only after
+this action. Adding graph relations also requires applying the updated
+preparation. You can prepare any number of datasets and browse them independently.
+
+After applying, switch **Inspect** between **Prepared data** and **Original
+data** to compare profiles. Prepared statistics are cached without retaining a
+second full dataset in memory. Editing controls does not change the saved
+preparation until you apply again. Each application starts from the original
+source, avoiding repeated normalization or propagation.
 
 Transformations can be disabled, shared by all views, applied to selected
 views, or configured per view. Available operations are:
@@ -94,21 +114,26 @@ this step. Simulation retains at least one observed view per sample. The
 original dataset stays unchanged; the complete recipe is copied into each
 experiment record.
 
-If a dataset remains incomplete, methods that require complete views are not
-offered in the Model step. Selecting imputation makes those methods available.
-This prevents an invalid experiment before fitting begins.
+If a dataset remains incomplete, combinations requiring complete views are
+excluded from experiments and those methods are unavailable for its search.
+Explicit imputation makes the combinations available again.
 
 ## Models and hyperparameters
 
 Model controls change with the selected registry entry. Numeric parameters,
 booleans, and layer dimensions are edited directly; there is no JSON editor.
-If generic feature preprocessing was selected in the preceding step,
-model-internal preprocessing is disabled to prevent applying transformations
-twice.
+Models can be prepared before datasets. Choose the method, edit its name and
+parameters, then save it. Default names are `LMGEC#1`, `LMGEC#2`, `SCM#1`, etc.
+Dataset compatibility is checked when pairing configurations for experiments,
+not when building the model collection. When a dataset has generic feature
+preprocessing, model-internal preprocessing is disabled for its fit to avoid
+applying transformations twice.
 
-K starts at the number of unique loaded labels when labels exist. This is only
-an editable default: the user may choose another K or compare several K values.
-Labels are never passed into model fitting.
+Independent model configurations start with K = 3; choose another K or compare
+several values as needed. Search settings start from the selected dataset's
+number of classes when labels exist. Both defaults are editable. Labels are
+never passed into model fitting, and combinations with K greater than the
+dataset's number of samples are excluded.
 
 Save each configuration with **Save model settings**, then prepare another
 method or parameter setting. Saved configurations can be selected together in
@@ -117,7 +142,7 @@ Experiment and removed independently of existing results.
 ## Hyperparameter search
 
 Open **Hyperparameter search** and choose **Random search** or **Grid search**.
-Select the model, K values and parameters to search. Select suggested
+Select a prepared dataset, model, K values and parameters to search. Select suggested
 candidates or type a custom number and press Enter. Scientific notation such
 as `1e-4` is accepted; custom values remain available after saving and returning
 to the search page. Invalid values disable running: dimensions and iteration
@@ -134,8 +159,9 @@ failed runs cannot win.
 
 Results, tuning steps and JSON/CSV downloads remain on this page. **Prepare ZIP**
 adds a complete archive with run arrays on demand; only one record's ZIP is
-cached at a time. **Copy best
-to experiment** adds the winning model parameters and K to the model collection,
+cached at a time. Enter a **Best model name**, defaulting to a name such as
+`LMGEC_grid_best_#1` or `LMGEC_random_best_#1`. **Copy best to experiment** adds
+the winning model parameters and K to the model collection under that name,
 selects its dataset, restores its preprocessing and opens Experiment. It does
 not start another fit automatically. Search reports also remain available for
 visualization and export after their source dataset has been removed.
@@ -143,11 +169,17 @@ visualization and export after their source dataset has been removed.
 ## Repeated experiments and evaluation
 
 Experiment names increment automatically (`Experiment 1`, `Experiment 2`, …).
-Select datasets, saved model configurations and the combinations to run. The
+Select prepared datasets and saved model configurations. **All compatible
+pairs** runs their valid Cartesian combinations without listing every pair.
+Use **Choose in table** to select combinations in a matrix: one row per dataset,
+one column per model, and a checkbox per pairing. Blank incompatible cells cannot
+enable a fit. The table scrolls when the collection is large, and the fit count
+updates with your selection. The
 **Independent runs per configuration** slider ranges from 1 to 20. Each
 configuration and K runs with independent seeds.
 The Results page keeps every fit and groups repetitions into mean ± population
-standard deviation.
+standard deviation. Named configurations appear in result headings and reports.
+Each result has a consistent actions row and a separate downloads section.
 
 In real-world mode, choose internal metrics only. Benchmark mode, set on the
 Dataset page, adds ACC, NMI, ARI, and F1. Benchmark labels are used
