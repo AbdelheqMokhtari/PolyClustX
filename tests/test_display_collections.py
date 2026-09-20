@@ -96,3 +96,8 @@ def test_large_pair_table_uses_names_without_internal_identifiers():
     assert table.shape == (12, 13)  # Dataset name + one selection column per model.
     assert set(table["dataset"]) == {r.name for r in ws.datasets.values()}
     assert all(key not in str(at.multiselect[0].options) for key in ws.datasets)
+    matrix_key = "pair_matrix_" + "_".join([*ws.datasets, *ws.models])
+    at.session_state[matrix_key] = {"edited_rows": {0: {"model_0": False}}, "added_rows": [], "deleted_rows": []}
+    at.run()
+    assert not at.exception
+    assert any("143 dataset/model combinations" in caption.value for caption in at.caption)
