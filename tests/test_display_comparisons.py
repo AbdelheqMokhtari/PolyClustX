@@ -34,14 +34,19 @@ def test_grid_search_copy_to_experiment_and_visualize():
     assert not at.exception and len(ws.records) == 1
     assert ws.records[0].report["search"]["strategy"] == "grid"
     assert ws.records[0].report["search"]["best_configuration"] is not None
+    best_name = next(t for t in at.text_input if t.label == "Best model name")
+    assert best_name.value == "LMGEC_grid_best_#1"
+    best_name.set_value("Selected graph baseline")
     next(b for b in at.button if b.label == "Copy best to experiment").click().run()
     assert not at.exception and len(ws.models) == 1
+    assert next(iter(ws.models.values()))["name"] == "Selected graph baseline"
     slider = next(s for s in at.slider if s.label == "Independent runs per configuration")
     assert slider.min == 1 and slider.max == 20
     slider.set_value(2).run()
     next(b for b in at.button if b.label == "Run experiment").click().run()
     assert not at.exception and len(ws.records) == 2
     assert len(ws.records[0].rows) == 2
+    assert ws.records[0].report["experiments"][0]["model"]["display_name"] == "Selected graph baseline"
     at.button(key="nav_Visualizations").click().run()
     assert not at.exception
     comparisons = next(m for m in at.multiselect if m.label == "Models and runs from any experiment")

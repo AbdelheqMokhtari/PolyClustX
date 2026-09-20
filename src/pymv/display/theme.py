@@ -14,11 +14,15 @@ button[kind="primary"] { background-color: #8A1538; border-color: #8A1538; color
 .pymv-brand { text-align: center; margin: -.5rem 0 1rem; }
 .pymv-brand h1 { margin-bottom: 0; padding-bottom: .2rem; }
 .pymv-brand p { color: #64748b; font-size: .85rem; }
-[data-testid="stSidebar"] .stButton > button {
-  min-height: 2.9rem; border-radius: .65rem; border: 1px solid #e2e8f0;
+.st-key-sidebar_navigation { margin-inline: -1rem; width: calc(100% + 2rem); }
+.st-key-sidebar_navigation, .st-key-sidebar_navigation [data-testid="stVerticalBlock"] { gap: 0; }
+.st-key-sidebar_navigation .stButton > button {
+  min-height: 3.1rem; border-radius: 0; border: 0; margin: 0;
+  justify-content: flex-start; padding-inline: 1.25rem; box-shadow: none;
   transition: background-color .15s ease, border-color .15s ease;
 }
-[data-testid="stSidebar"] .stButton > button:hover {
-  background-color: #f3e8ec; border-color: #8A1538; color: #8A1538;
+.st-key-sidebar_navigation .stButton > button[kind="secondary"] { background: transparent; }
+.st-key-sidebar_navigation .stButton > button:hover {
+  background-color: #f3e8ec; color: #8A1538;
 }
 """

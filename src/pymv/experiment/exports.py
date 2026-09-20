@@ -137,6 +137,7 @@ def report_rows(report):
     for experiment in report["experiments"]:
         for run in experiment["runs"]:
             row = {"dataset": experiment["dataset"].get("name"), "model": experiment["model"]["name"],
+                   "configuration_name": experiment["model"].get("display_name"),
                    "configuration": experiment.get("configuration"),
                    **{k: run.get(k) for k in ("run", "status", "started_at", "completed_at", "seconds", "error")}}
             row.update({f"param.{k}": v for k, v in experiment["parameters"].items()})

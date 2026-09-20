@@ -84,6 +84,7 @@ class ExperimentSpec:
     search_strategy: str = "random"
     objective: str | None = None
     kind: str = "experiment"
+    model_name: str | None = None
 
 
 @dataclass
@@ -207,8 +208,12 @@ class Workspace:
     def apply_dataset(self, dataset_id, recipe):
         """Validate preparation before making a newly loaded dataset available to jobs."""
         prepared = prepare_dataset(self.load_dataset(dataset_id), recipe)
+        from .profiles import dataset_profile
+
+        profile = dataset_profile(prepared)
         self.preprocessing[dataset_id] = copy.deepcopy(recipe)
         self.datasets[dataset_id].hint.update(prepared_complete=prepared.is_complete,
+                                               prepared_profile=profile,
                                                prepared_observed=prepared.observed_mask.sum(axis=0).tolist())
         self.pending_datasets.discard(dataset_id)
 
@@ -343,6 +348,8 @@ class Workspace:
         Inputs are copied per fit to protect other experiments from model mutation.
         """
         spec = copy.deepcopy(spec)
+        if spec.dataset_id in self.pending_datasets:
+            raise ValueError("Apply changes on the Dataset page before running this dataset")
         if not spec.clusters or any(isinstance(k, bool) or not isinstance(k, int) for k in spec.clusters):
             raise ValueError("Cluster counts must be a nonempty list of integers")
         if (not isinstance(spec.repeats, int) or isinstance(spec.repeats, bool) or not 1 <= spec.repeats <= 20
@@ -413,6 +420,8 @@ class Workspace:
         }
         record = ExperimentRecord(uuid.uuid4().hex, datetime.now(timezone.utc).isoformat(), spec, summary)
         record.model_details = model_details(cls)
+        if spec.model_name:
+            record.model_details["display_name"] = spec.model_name
         record._artifact_directory = tempfile.TemporaryDirectory(prefix="pymv-runs-")
         self.records.insert(0, record)
         if spec.kind == "experiment":

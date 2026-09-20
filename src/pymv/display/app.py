@@ -6,7 +6,6 @@ import copy
 import io
 import shutil
 import tempfile
-import uuid
 import zipfile
 from pathlib import Path
 
@@ -38,13 +37,12 @@ from pymv.display.theme import CSS
 from pymv.display.workspace import (
     EXTERNAL_NAMES,
     INTERNAL_NAMES,
-    DatasetResource,
     ExperimentSpec,
     Workspace,
     export_record,
 )
 from pymv.experiment.exports import normalized_loss, report_csv, report_json, report_zip
-from pymv.models.registry import get_model_info
+from pymv.models.registry import get_model_info, list_models
 
 ASSETS = Path(__file__).resolve().parent / "assets"
 STEPS = ["Dataset", "Preprocessing", "Model", "Experiment", "Results", "Visualizations", "Export", "Search"]
@@ -78,6 +76,35 @@ def _set_page(name):
     st.session_state._next_workflow_step = STEPS.index(name)
 
 
+def _new_dataset_name(workspace, prefix, key):
+    name = st.text_input("Dataset name", workspace.suggested_name(prefix),
+                         key=f"{key}_{workspace.name_counters.get(prefix, 0)}")
+    return name.strip() or workspace.suggested_name(prefix)
+
+
+def _loaded_dataset(workspace, key, prefix=None):
+    workspace.pending_datasets.add(key)
+    if prefix:
+        workspace.advance_name(prefix)
+    st.session_state.selected_dataset = key
+    st.session_state.dataset_browser = key
+    st.session_state.pop("suspended_dataset", None)
+
+
+def _dataset_picker(workspace, key, *, prepared_only=False):
+    ids = [key for key in workspace.datasets if not prepared_only or key not in workspace.pending_datasets]
+    if not ids:
+        st.info("Load a dataset and apply its preparation on the Dataset page first.")
+        return None
+    preferred = st.session_state.get("selected_dataset")
+    if st.session_state.get(key) not in ids:
+        st.session_state[key] = preferred if preferred in ids else ids[-1]
+    selected = st.selectbox("Prepared dataset" if prepared_only else "Browse datasets", ids,
+                            format_func=lambda value: workspace.datasets[value].name, key=key)
+    st.session_state.selected_dataset = selected
+    return selected
+
+
 def _stage_uploaded(workspace, data, files, mapping):
     """Keep uploaded source files on disk so inactive matrices can leave RAM."""
     directory = Path(tempfile.mkdtemp(prefix="pymv-display-"))
@@ -95,9 +122,7 @@ def _stage_uploaded(workspace, data, files, mapping):
     except Exception:
         shutil.rmtree(directory, ignore_errors=True)
         raise
-    key = uuid.uuid4().hex
-    workspace.datasets[key] = DatasetResource(
-        key,
+    key = workspace.add_lazy_dataset(
         data.name or "Uploaded dataset",
         loader=lambda local=tuple(paths), options=copy.deepcopy(mapping): load_files(local, **options),
         source="upload",
@@ -108,10 +133,10 @@ def _stage_uploaded(workspace, data, files, mapping):
             "complete": data.is_complete,
             "category": data.category,
         },
-        cleanup=lambda target=directory: shutil.rmtree(target, ignore_errors=True),
-        _data=data,
     )
-    st.session_state.selected_dataset = key
+    workspace.datasets[key].cleanup = lambda target=directory: shutil.rmtree(target, ignore_errors=True)
+    workspace.datasets[key]._data = data
+    _loaded_dataset(workspace, key, "uploaded-dataset")
     return key
 
 
@@ -126,8 +151,8 @@ def _read_uploads(files):
     return arrays
 
 
-def _profile(data):
-    profile = dataset_profile(data)
+def _profile(data, profile=None):
+    profile = dataset_profile(data) if profile is None else profile
     columns = st.columns(6)
     values = [
         ("Samples", profile["n_samples"]),
@@ -135,7 +160,7 @@ def _profile(data):
         ("Classes", profile["labels"]["n_classes"] if profile["labels"] else "Unknown"),
         ("Complete", "Yes" if profile["complete"] else "No"),
         ("Graphs", len(profile["graphs"])),
-        ("In memory", format_bytes(profile["memory_bytes"])),
+        ("Estimated size", format_bytes(profile["memory_bytes"])),
     ]
     for column, (label, value) in zip(columns, values):
         column.metric(label, value)
@@ -219,13 +244,14 @@ def _catalog_loader(workspace):
                     "complete": data.is_complete,
                     "category": data.category,
                 }
-                st.session_state.selected_dataset = key
-            st.success("Dataset added. Its full profile is shown below.")
+                _loaded_dataset(workspace, key)
+            st.rerun()
         except Exception as exc:
             st.error(str(exc))
 
 
 def _simple_upload(workspace):
+    name = _new_dataset_name(workspace, "uploaded-dataset", "simple_dataset_name")
     st.write("Upload one CSV, TSV, or NPY feature matrix for each view. Rows are samples; columns are features.")
     st.caption("CSV/TSV headers are detected automatically. Include Y in the same upload batch if you have it.")
     views = st.file_uploader(
@@ -275,18 +301,18 @@ def _simple_upload(workspace):
             label_column = (key, column - 1)
             st.caption("This column will be removed from that view's features before training.")
     st.caption(f"{len(view_keys)} feature view(s) selected. All files must use the same sample row order.")
-    name = st.text_input("Dataset name", "Uploaded dataset", key="simple_dataset_name")
     if st.button("Add uploaded dataset", type="primary", disabled=not view_keys or not ready):
         try:
             mapping = {"view_keys": view_keys, "label_key": label_key, "label_column": label_column, "name": name}
             data = dataset_from_arrays(arrays, **mapping)
             _stage_uploaded(workspace, data, files, mapping)
-            st.success("Dataset added and validated. Source files will be reloaded only when needed.")
+            st.rerun()
         except Exception as exc:
             st.error(str(exc))
 
 
 def _container_upload(workspace):
+    name = _new_dataset_name(workspace, "uploaded-dataset", "container_name")
     st.write("Use this mode when several arrays are stored together in NPZ or MATLAB v7 files.")
     file = st.file_uploader("Container file", type=["npz", "mat"], key="container_file")
     if not file:
@@ -317,7 +343,6 @@ def _container_upload(workspace):
                 id_keys.append(st.selectbox("Sample IDs for this view", keys, key=f"ids_{index}_{view}"))
         if align and label_key:
             label_id = st.selectbox("Sample IDs for labels", keys, key="container_label_ids")
-    name = st.text_input("Dataset name", "Uploaded container", key="container_name")
     if st.button("Add container dataset", type="primary", disabled=not views):
         try:
             mapping = {
@@ -332,12 +357,13 @@ def _container_upload(workspace):
             }
             data = dataset_from_arrays(arrays, **mapping)
             _stage_uploaded(workspace, data, [file], mapping)
-            st.success("Dataset added and validated. Source arrays are mapped explicitly.")
+            st.rerun()
         except Exception as exc:
             st.error(str(exc))
 
 
 def _synthetic_loader(workspace):
+    name = _new_dataset_name(workspace, "synthetic-dataset", "synthetic_name")
     first, second, third = st.columns(3)
     samples = first.number_input("Samples", 20, 100000, 300, step=10)
     classes = second.number_input("Classes", 2, min(500, samples), min(3, samples), step=1)
@@ -383,7 +409,7 @@ def _synthetic_loader(workspace):
             )
             data = generate_synthetic(spec)
             key = workspace.add_lazy_dataset(
-                data.name, lambda recipe=copy.deepcopy(spec): generate_synthetic(recipe), source="synthetic"
+                name, lambda recipe=copy.deepcopy(spec): generate_synthetic(recipe), source="synthetic"
             )
             workspace.datasets[key]._data = data
             workspace.datasets[key].hint = {
@@ -393,8 +419,8 @@ def _synthetic_loader(workspace):
                 "complete": data.is_complete,
                 "category": data.category,
             }
-            st.session_state.selected_dataset = key
-            st.success("Synthetic dataset added.")
+            _loaded_dataset(workspace, key, "synthetic-dataset")
+            st.rerun()
         except Exception as exc:
             st.error(str(exc))
 
@@ -410,17 +436,47 @@ def render_dataset(workspace):
         _simple_upload(workspace) if mode == "One file per view" else _container_upload(workspace)
     else:
         _synthetic_loader(workspace)
+    if not workspace.datasets:
+        return
+    st.divider()
+    st.subheader("Dataset collection")
+    dataset_id = _dataset_picker(workspace, "dataset_browser")
+    resource = workspace.datasets[dataset_id]
+    left, right = st.columns(2)
+    if left.button("Unload", disabled=not resource.loaded, use_container_width=True):
+        workspace.unload_dataset(dataset_id)
+        st.session_state.suspended_dataset = dataset_id
+        st.rerun()
+    if right.button("Remove dataset", use_container_width=True):
+        workspace.remove_dataset(dataset_id)
+        st.session_state.selected_dataset = None
+        st.rerun()
     dataset_id, data = _select_dataset(workspace, required=False)
     if data is not None:
-        st.divider()
         st.subheader(data.name or "Selected dataset")
+        with st.expander("Rename dataset"):
+            new_name = st.text_input("New dataset name", resource.name, key=f"rename_{dataset_id}")
+            if st.button("Save dataset name"):
+                try:
+                    workspace.rename_dataset(dataset_id, new_name)
+                    st.rerun()
+                except ValueError as exc:
+                    st.error(str(exc))
         workspace.benchmark[dataset_id] = st.checkbox(
             "Benchmark mode: evaluate against ground-truth labels",
             value=workspace.benchmark_mode(dataset_id), disabled=data.labels is None,
             key=f"benchmark_{dataset_id}",
         )
         st.caption("Labels are used only for evaluation, never for fitting. Uncheck for a real-world experiment.")
-        _profile(data)
+        profile = resource.hint.get("prepared_profile")
+        if profile:
+            inspect_mode = st.radio("Inspect", ["Prepared data", "Original data"], horizontal=True,
+                                    key=f"inspect_{dataset_id}")
+            if inspect_mode == "Original data":
+                profile = None
+        else:
+            st.caption("Loaded source details · apply changes to prepare it")
+        _profile(data, profile)
         with st.expander("Add graphs to a view"):
             st.write("Upload adjacency matrices (NPY, NPZ, CSV, TSV) or graph files (GraphML, GEXF). "
                      "Each file becomes one additional relation for the selected view.")
@@ -436,12 +492,13 @@ def render_dataset(workspace):
                 try:
                     graphs = [read_graph_file(file.getvalue(), file.name, data.sample_ids) for file in files]
                     attach_graphs(workspace, dataset_id, view, graphs)
+                    workspace.pending_datasets.add(dataset_id)
+                    resource.hint.pop("prepared_profile", None)
                     st.rerun()
                 except Exception as exc:
                     st.error(str(exc))
-        if st.button("Continue to preprocessing"):
-            _set_page("Preprocessing")
-            st.rerun()
+        st.divider()
+        render_preprocessing(workspace)
 
 
 def _view_controls(prefix, *, has_graph, value=None):
@@ -458,12 +515,13 @@ def _view_controls(prefix, *, has_graph, value=None):
 
 
 def render_preprocessing(workspace):
-    st.header("Preprocessing")
+    st.subheader("Preparation")
     dataset_id, data = _select_dataset(workspace)
     if data is None:
         return
     current = workspace.preprocessing.get(dataset_id, PreprocessingSpec())
-    st.caption(f"{data.name} · changes are saved as a recipe; the original session dataset is unchanged")
+    st.caption("Apply changes to make this preparation available in experiments and searches. "
+               "Each preparation starts from the original data, so transformations are not applied twice.")
     st.subheader("Missing views")
     missing_rate = st.slider(
         "Simulate an additional missing-view fraction",
@@ -473,17 +531,19 @@ def render_preprocessing(workspace):
         0.05,
         disabled=data.n_views == 1,
         help="Missing-view simulation needs at least two views so every sample retains one observation.",
+        key=f"missing_rate_{dataset_id}",
     )
     imputation_label = st.selectbox(
         "Explicit imputation",
         ["Keep missing views", "Mean imputation", "Zero imputation"],
         index={None: 0, "mean": 1, "zero": 2}.get(current.imputation, 0),
+        key=f"imputation_{dataset_id}",
     )
     imputation = {"Keep missing views": None, "Mean imputation": "mean", "Zero imputation": "zero"}[
         imputation_label
     ]
     if (not data.is_complete or missing_rate) and imputation is None:
-        st.info("Only models with native missing-view support will be available in the Model step.")
+        st.info("This dataset can only be paired with missing-view models unless you select imputation.")
 
     st.subheader("Feature transformations")
     mode_label = st.radio(
@@ -491,6 +551,7 @@ def render_preprocessing(workspace):
         ["No views", "All views", "Selected views", "Configure each view"],
         index={"none": 0, "all": 1, "selected": 2, "per_view": 3}.get(current.mode, 0),
         horizontal=True,
+        key=f"preprocessing_mode_{dataset_id}",
     )
     mode = {"No views": "none", "All views": "all", "Selected views": "selected", "Configure each view": "per_view"}[
         mode_label
@@ -500,6 +561,7 @@ def render_preprocessing(workspace):
         selected_names = st.multiselect(
             "Views", data.view_names,
             default=[data.view_names[index] for index in current.selected_views if index < data.n_views],
+            key=f"preprocessing_views_{dataset_id}",
         )
         selected_views = [data.view_names.index(name) for name in selected_names]
     if mode in {"all", "selected"}:
@@ -521,7 +583,8 @@ def render_preprocessing(workspace):
     if multi_relations:
         st.subheader("Multiple graph relations")
         fusion = st.radio(
-            "Early fusion", ["sum", "hadamard"], index=0 if current.fusion == "sum" else 1, horizontal=True
+            "Early fusion", ["sum", "hadamard"], index=0 if current.fusion == "sum" else 1, horizontal=True,
+            key=f"fusion_{dataset_id}",
         )
         if fusion == "sum":
             for view, graphs in multi_relations:
@@ -543,20 +606,21 @@ def render_preprocessing(workspace):
         missing_rate=missing_rate, missing_seed=0, imputation=imputation,
         fusion=fusion, relation_weights=weights,
     )
-    if st.button("Save preprocessing", type="primary"):
-        workspace.preprocessing[dataset_id] = recipe
-        st.success("Preprocessing recipe saved.")
-    if st.button("Continue to model"):
-        workspace.preprocessing[dataset_id] = recipe
-        _set_page("Model")
-        st.rerun()
+    if st.button("Apply changes", type="primary"):
+        try:
+            workspace.apply_dataset(dataset_id, recipe)
+            st.rerun()
+        except Exception as exc:
+            st.error(str(exc))
+    if dataset_id not in workspace.pending_datasets:
+        st.success("Saved preparation is ready for experiments and searches.")
 
 
 def _draft(workspace, dataset_id, data):
     if "drafts" not in st.session_state:
         st.session_state.drafts = {}
     if dataset_id not in st.session_state.drafts:
-        default_k = data.n_clusters or min(3, data.n_samples)
+        default_k = (data.n_clusters or min(3, data.n_samples)) if data is not None else 3
         st.session_state.drafts[dataset_id] = {
             "model": None,
             "params": {},
@@ -596,19 +660,29 @@ def _parameter_input(model, name, control, default, existing, *, disabled=False)
 
 def render_model(workspace, *, search=False):
     st.header("Hyperparameter search" if search else "Model")
-    dataset_id, data = _select_dataset(workspace)
-    if data is None:
-        return
-    recipe = workspace.preprocessing.get(dataset_id, PreprocessingSpec())
+    dataset_id, data = "model_library", None
+    if search:
+        if _dataset_picker(workspace, "search_dataset", prepared_only=True) is None:
+            return
+        dataset_id, data = _select_dataset(workspace)
+        if data is None:
+            return
+    else:
+        st.caption("Prepare named model configurations independently of datasets. "
+                   "Compatibility is checked when you select experiment combinations.")
+    recipe = workspace.preprocessing.get(dataset_id, PreprocessingSpec()) if search else PreprocessingSpec()
     draft = _draft(workspace, dataset_id, data)
-    available, unavailable = compatible_models(data, recipe)
+    available, unavailable = compatible_models(data, recipe) if search else (list_models(), [])
     if unavailable:
         st.warning("Unavailable until missing views are imputed: " + ", ".join(name.upper() for name in unavailable))
     if not available:
-        st.error("No registered model can use this incomplete dataset. Return to Preprocessing and select imputation.")
+        st.error("No registered model can use this incomplete dataset. Select imputation on the Dataset page.")
         return
     index = available.index(draft["model"]) if draft["model"] in available else 0
     model = st.selectbox("Model", available, index=index, format_func=str.upper)
+    if not search:
+        config_name = st.text_input("Configuration name", workspace.suggested_name(model.upper()),
+                                    key=f"model_name_{model}_{workspace.name_counters.get(model.upper(), 0)}")
     info = get_model_info(model)
     st.write(info.get("description", ""))
     if info.get("paper"):
@@ -635,15 +709,16 @@ def render_model(workspace, *, search=False):
                         validation_errors.append(str(exc))
 
     st.subheader("Number of clusters")
-    known = data.n_clusters
+    known = data.n_clusters if data is not None else None
+    limit = data.n_samples if data is not None else None
     if known is not None:
         st.caption(f"The dataset has {known} ground-truth classes. K is editable and is never inferred during fitting.")
-    primary = st.number_input("K", 1, data.n_samples, int(draft["clusters"][0]), key=f"clusters_primary_{dataset_id}")
+    primary = st.number_input("K", 1, limit, int(draft["clusters"][0]), key=f"clusters_primary_{dataset_id}")
     compare = st.checkbox("Compare several K values", value=len(draft["clusters"]) > 1)
     clusters = [primary]
     if compare:
         saved = [str(value) for value in draft["clusters"][1:]]
-        suggestions = list(dict.fromkeys([*map(str, range(2, min(data.n_samples, 20) + 1)), *saved]))
+        suggestions = list(dict.fromkeys([*map(str, range(2, min(limit or 20, 20) + 1)), *saved]))
         selected = st.multiselect(
             "Additional K values", suggestions,
             default=saved,
@@ -652,7 +727,7 @@ def render_model(workspace, *, search=False):
         if selected:
             try:
                 clusters.extend(parse_candidates(
-                    selected, ParameterControl("K", "int", minimum=1, maximum=data.n_samples)
+                    selected, ParameterControl("K", "int", minimum=1, maximum=limit)
                 ))
             except ValueError as exc:
                 validation_errors.append(str(exc))
@@ -691,19 +766,24 @@ def render_model(workspace, *, search=False):
         _search_runner(workspace, dataset_id, data, model, params, clusters, search_space,
                        trials, strategy, validation_errors)
         return
-    config_name = st.text_input("Configuration name", f"{model.upper()} · configuration {len(workspace.models) + 1}")
+    if not config_name.strip():
+        validation_errors.append("Choose a nonempty model name.")
+        st.error(validation_errors[-1])
 
     def save_model():
         draft.update(model=model, params=params, search_space={}, trials=1, clusters=clusters)
         existing = next((key for key, value in workspace.models.items()
-                         if value["model"] == model and value["params"] == params
+                         if value["name"] == config_name.strip() and value["model"] == model
+                         and value["params"] == params
                          and value["clusters"] == clusters), None)
         key = existing or workspace.add_model(config_name, model, params, clusters)
+        if not existing:
+            workspace.advance_name(model.upper())
         st.session_state.preferred_model = key
 
     if st.button("Save model settings", type="primary", disabled=bool(validation_errors)):
         save_model()
-        st.success("Configuration added to your model collection. You can prepare another model now.")
+        st.rerun()
     if st.button("Continue to experiment", disabled=bool(validation_errors)):
         save_model()
         _set_page("Experiment")
@@ -722,28 +802,48 @@ def render_model(workspace, *, search=False):
 
 def render_experiment(workspace):
     st.header("Experiment")
-    if not workspace.datasets or not workspace.models:
-        st.info("Add datasets in Dataset and save model configurations in Model first.")
+    ready = [key for key in workspace.datasets if key not in workspace.pending_datasets]
+    if not ready or not workspace.models:
+        st.info("Apply dataset preparation in Dataset and save configurations in Model. Either can be prepared first.")
         return
     active = st.session_state.get("selected_dataset")
-    datasets = st.multiselect("Datasets", list(workspace.datasets),
-                              default=[active] if active in workspace.datasets else [],
-                              format_func=lambda key: f"{workspace.datasets[key].name} · {key[:6]}")
+    datasets = st.multiselect("Datasets", ready,
+                              default=[active] if active in ready else [],
+                              format_func=lambda key: workspace.datasets[key].name)
     preferred = st.session_state.get("preferred_model", next(reversed(workspace.models)))
     models = st.multiselect("Model configurations", list(workspace.models),
                             default=[preferred] if preferred in workspace.models else [],
-                            format_func=lambda key: f"{workspace.models[key]['name']} · {key[:6]}")
-    modes = {workspace.benchmark_mode(key) for key in datasets}
+                            format_func=lambda key: workspace.models[key]['name'])
+    compatible = set(workspace.compatible_pairs(datasets, models))
+    mode = st.radio("Combination selection", ["All compatible pairs", "Choose in table"], horizontal=True)
+    selected = [(dataset, model) for dataset in datasets for model in models if (dataset, model) in compatible]
+    if datasets and models and mode == "Choose in table":
+        # Human names are unique within each collection. Positional column keys
+        # avoid collisions with arbitrary user names such as 'Dataset'.
+        table = pd.DataFrame([
+            {"dataset": workspace.datasets[d].name,
+             **{f"model_{index}": (True if (d, m) in compatible else None) for index, m in enumerate(models)}}
+            for d in datasets
+        ])
+        edited = st.data_editor(
+            table, hide_index=True, use_container_width=True, disabled=["dataset"],
+            column_config={"dataset": st.column_config.TextColumn("Dataset"),
+                           **{f"model_{i}": st.column_config.CheckboxColumn(workspace.models[m]["name"])
+                              for i, m in enumerate(models)}},
+            key="pair_matrix_" + "_".join(datasets + models),
+        )
+        selected = [(d, m) for row, d in enumerate(datasets) for i, m in enumerate(models)
+                    if (d, m) in compatible and bool(edited.iloc[row][f"model_{i}"])]
+    if len(compatible) < len(datasets) * len(models):
+        st.info("Incompatible pairs are excluded (missing-view support or K exceeds the number of samples). "
+                "Blank cells cannot enable an incompatible pair.")
+    modes = {workspace.benchmark_mode(key) for key, _ in selected}
     mixed = len(modes) > 1
     if mixed:
         st.error("Benchmark and real-world datasets cannot be combined. "
                  "Change their mode in Dataset or select a subset.")
     benchmark = modes == {True}
     st.caption("Benchmark mode" if benchmark else "Real-world mode · internal metrics only")
-    combinations = [(dataset, model) for dataset in datasets for model in models]
-    selected = st.multiselect("Combinations to run", combinations, default=combinations,
-                              format_func=lambda pair: f"{workspace.datasets[pair[0]].name} × "
-                              f"{workspace.models[pair[1]]['name']} · {pair[0][:6]}/{pair[1][:6]}")
     name = st.text_input("Experiment name", f"Experiment {workspace.experiment_counter + 1}",
                          key=f"experiment_name_{workspace.experiment_counter}")
     repeats = st.slider("Independent runs per configuration", 1, 20, 1)
@@ -763,7 +863,8 @@ def render_experiment(workspace):
         for dataset_id, model_id in selected:
             settings = workspace.models[model_id]
             specs.append(ExperimentSpec(
-                dataset_id=dataset_id, model=settings["model"], name=name, params=settings["params"],
+                dataset_id=dataset_id, model=settings["model"], model_name=settings["name"],
+                name=name, params=settings["params"],
                 clusters=settings["clusters"], repeats=repeats, seed=seed, benchmark=benchmark, metrics=metrics,
                 preprocessing=workspace.preprocessing.get(dataset_id, PreprocessingSpec()),
             ))
@@ -856,22 +957,29 @@ def render_search(workspace):
                 st.warning("No fully successful configuration has a finite objective score.")
             else:
                 st.success(f"Best {search['objective']}: {search['best_score']:.4f}")
-            _downloads(record, prefix=f"search_{record.id}")
-            if st.button("Copy best to experiment", key=f"copy_best_{record.id}",
+            st.divider()
+            prefix = f"{record.spec.model.upper()}_{search['strategy']}_best_"
+            best_name = st.text_input("Best model name", workspace.suggested_name(prefix),
+                                      key=f"best_name_{record.id}_{workspace.name_counters.get(prefix, 0)}")
+            actions = st.columns(2)
+            if actions[0].button("Copy best to experiment", key=f"copy_best_{record.id}",
                          disabled=search["best_configuration"] is None
-                         or record.spec.dataset_id not in workspace.datasets):
+                         or record.spec.dataset_id not in workspace.datasets or not best_name.strip(),
+                          use_container_width=True):
                 params = copy.deepcopy(search["best_parameters"])
                 clusters = [params.pop("n_clusters")]
                 params.pop("random_state", None)
-                key = workspace.add_model(f"Best from {record.spec.name}", record.spec.model, params, clusters)
+                key = workspace.add_model(best_name, record.spec.model, params, clusters)
+                workspace.advance_name(prefix)
                 workspace.preprocessing[record.spec.dataset_id] = copy.deepcopy(record.spec.preprocessing)
+                workspace.pending_datasets.discard(record.spec.dataset_id)
                 workspace.benchmark[record.spec.dataset_id] = record.spec.benchmark
                 st.session_state[f"benchmark_{record.spec.dataset_id}"] = record.spec.benchmark
                 st.session_state.selected_dataset = record.spec.dataset_id
                 st.session_state.preferred_model = key
                 _set_page("Experiment")
                 st.rerun()
-            if st.button("Delete search result", key=f"delete_search_{record.id}"):
+            if actions[1].button("Delete search result", key=f"delete_search_{record.id}", use_container_width=True):
                 workspace.delete_record(record.id)
                 if st.session_state.get("_prepared_record_download", {}).get("id") == record.id:
                     st.session_state.pop("_prepared_record_download")
@@ -879,6 +987,8 @@ def render_search(workspace):
                     if key.startswith(f"projection_{record.id}_"):
                         del st.session_state[key]
                 st.rerun()
+            with st.expander("Download search results"):
+                _downloads(record, prefix=f"search_{record.id}")
 
 
 def _record_selector(workspace, key):
@@ -889,7 +999,7 @@ def _record_selector(workspace, key):
         "Experiment",
         [record.id for record in workspace.records],
         format_func=lambda value: next(
-            f"{record.spec.name} · {record.spec.model.upper()} · {record.created_at[:19]}"
+            f"{record.spec.name} · {record.spec.model_name or record.spec.model.upper()} · {record.created_at[:19]}"
             for record in workspace.records if record.id == value
         ),
         key=key,
@@ -904,7 +1014,8 @@ def render_results(workspace):
         return
     st.caption("Newest first. Completed runs remain available until you remove their result.")
     for position, record in enumerate([r for r in workspace.records if r.spec.kind == "experiment"]):
-        title = f"{record.spec.name} · {record.spec.model.upper()} · {record.created_at[:19]}"
+        model_name = record.spec.model_name or record.spec.model.upper()
+        title = f"{record.spec.name} · {model_name} · {record.created_at[:19]}"
         with st.expander(title, expanded=position == 0):
             st.caption(
                 f"{record.dataset_summary['name']} · {len(record.rows)} fits"
@@ -920,12 +1031,14 @@ def render_results(workspace):
                     hide_index=True,
                     use_container_width=True,
                 )
-            _downloads(record, prefix=f"result_{record.id}")
+            st.divider()
+            st.caption("Result actions")
             left, right = st.columns(2)
-            if left.button("Use these settings for a new experiment", key=f"duplicate_{record.id}"):
+            if left.button("Use these settings for a new experiment", key=f"duplicate_{record.id}",
+                           use_container_width=True):
                 dataset_id = record.spec.dataset_id
                 if dataset_id in workspace.datasets:
-                    draft = _draft(workspace, dataset_id, workspace.load_dataset(dataset_id))
+                    draft = _draft(workspace, "model_library", None)
                     draft.update(
                         model=record.spec.model,
                         params=copy.deepcopy(record.spec.params),
@@ -941,6 +1054,7 @@ def render_results(workspace):
                         record.spec.preprocessing or PreprocessingSpec()
                     )
                     st.session_state.selected_dataset = dataset_id
+                    st.session_state._restore_model = copy.deepcopy(draft)
                     _set_page("Model")
                     st.rerun()
                 else:
@@ -948,7 +1062,7 @@ def render_results(workspace):
                         "The source dataset was removed. Results remain available, "
                         "but the experiment cannot be rerun."
                     )
-            if right.button("Delete this result", key=f"delete_{record.id}"):
+            if right.button("Delete this result", key=f"delete_{record.id}", use_container_width=True):
                 workspace.delete_record(record.id)
                 if st.session_state.get("_prepared_record_download", {}).get("id") == record.id:
                     st.session_state.pop("_prepared_record_download")
@@ -956,6 +1070,8 @@ def render_results(workspace):
                     if key.startswith(f"projection_{record.id}_"):
                         del st.session_state[key]
                 st.rerun()
+            with st.expander("Download experiment results"):
+                _downloads(record, prefix=f"result_{record.id}")
 
 
 def _scatter_figure(projected, labels, title, method):
@@ -1013,7 +1129,8 @@ def _loss_comparison(workspace):
     def label(value):
         record = records[value[0]]
         row = record.rows[value[1]]
-        return (f"{record.spec.name} · {record.dataset_summary['name']} · {record.spec.model.upper()} · "
+        return (f"{record.spec.name} · {record.dataset_summary['name']} · "
+                f"{record.spec.model_name or record.spec.model.upper()} · "
                 f"config {row['configuration']} · K={row['K']} · run {row['repeat']} · {record.id[:6]}")
 
     st.subheader("Compare normalized loss")
@@ -1160,44 +1277,17 @@ def _sidebar(workspace):
                     unsafe_allow_html=True)
         st.caption("Multi-view & multimodal clustering and representation learning")
         step = st.session_state.get("workflow_step", 0)
-        pages = ["Dataset", "Preprocessing", "Model", "Search", "Experiment", "Results", "Visualizations", "Export"]
-        for label in pages:
-            if st.button("Hyperparameter search" if label == "Search" else label,
-                         key=f"nav_{label}", use_container_width=True,
-                         type="primary" if STEPS[step] == label else "secondary"):
-                _set_page(label)
-                st.rerun()
+        pages = ["Dataset", "Model", "Search", "Experiment", "Results", "Visualizations", "Export"]
+        with st.container(key="sidebar_navigation"):
+            for label in pages:
+                if st.button("Hyperparameter search" if label == "Search" else label,
+                             key=f"nav_{label}", use_container_width=True,
+                             type="primary" if STEPS[step] == label else "secondary"):
+                    _set_page(label)
+                    st.rerun()
         st.divider()
-        if workspace.datasets:
-            dataset_ids = list(workspace.datasets)
-            selected = st.session_state.get("selected_dataset")
-            if selected not in workspace.datasets:
-                selected = dataset_ids[-1]
-            selected = st.selectbox(
-                "Active dataset", dataset_ids, index=dataset_ids.index(selected),
-                format_func=lambda key: f"{workspace.datasets[key].name} · {key[:6]}", key="sidebar_dataset",
-            )
-            if st.session_state.get("selected_dataset") != selected:
-                st.session_state.selected_dataset = selected
-            resource = workspace.datasets[selected]
-            st.caption(
-                f"{len(workspace.datasets)} datasets · {len(workspace.models)} models · "
-                f"{'loaded' if resource.loaded else 'unloaded'}"
-            )
-            left, right = st.columns(2)
-            if left.button("Unload", use_container_width=True, disabled=not resource.loaded):
-                workspace.unload_dataset(selected)
-                st.session_state.suspended_dataset = selected
-                st.rerun()
-            if right.button("Remove", use_container_width=True):
-                workspace.remove_dataset(selected)
-                st.session_state.selected_dataset = None
-                st.rerun()
-        else:
-            st.caption(f"0 datasets · {len(workspace.records)} experiments")
-        st.caption(
-            "Only the active dataset is materialized in memory. Experiment results remain after a dataset is removed."
-        )
+        st.caption(f"{len(workspace.datasets)} datasets · {len(workspace.models)} model configurations")
+        st.caption("Manage your data on the Dataset page. Runs are executed sequentially.")
         st.markdown(
             "[Documentation](https://pymv.readthedocs.io/) · "
             "[Source](https://github.com/AbdelheqMokhtari/pymv)"
@@ -1211,10 +1301,19 @@ def main():
     if "_next_workflow_step" in st.session_state:
         st.session_state.workflow_step = st.session_state.pop("_next_workflow_step")
     workspace = _workspace()
+    if "_restore_model" in st.session_state:
+        settings = st.session_state.pop("_restore_model")
+        _, controls = parameter_controls(settings["model"])
+        for name, value in settings["params"].items():
+            if name in controls:
+                if controls[name].kind == "int_tuple":
+                    value = ", ".join(map(str, value))
+                st.session_state[f"parameter_{settings['model']}_{name}"] = value
+        st.session_state.clusters_primary_model_library = settings["clusters"][0]
     page = _sidebar(workspace)
     renderers = {
         "Dataset": render_dataset,
-        "Preprocessing": render_preprocessing,
+        "Preprocessing": render_dataset,
         "Model": render_model,
         "Experiment": render_experiment,
         "Results": render_results,
