@@ -3,9 +3,33 @@
 from __future__ import annotations
 
 import json
+import re
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment
+
+
+def record_label(record):
+    """Human-facing experiment identity; session IDs are implementation details."""
+    return (f"{record.spec.name} · {record.dataset_summary['name']} · "
+            f"{record.spec.model_name or record.spec.model.upper()}")
+
+
+def run_label(record, index):
+    row = record.rows[index]
+    return f"Configuration {row['configuration']} · K={row['K']} · Run {row['repeat']}"
+
+
+def download_stem(*parts):
+    """Make a portable filename from names, not opaque session identifiers."""
+    words = [re.sub(r"[^\w-]+", "-", str(part), flags=re.UNICODE).strip("-_")[:60] for part in parts]
+    stem = "_".join(word for word in words if word)
+    return stem.encode("utf-8")[:160].decode("utf-8", errors="ignore") or "results"
+
+
+def record_download_stem(record):
+    return download_stem(record.spec.name, record.dataset_summary["name"],
+                         record.spec.model_name or record.spec.model.upper(), record.created_at[:19])
 
 
 def aggregate_results(record):

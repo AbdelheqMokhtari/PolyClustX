@@ -31,8 +31,17 @@ from pymv.display.model_controls import (
 )
 from pymv.display.preprocessing import PreprocessingSpec, ViewPreprocessing
 from pymv.display.profiles import dataset_profile, format_bytes
-from pymv.display.results import aggregate_results, cluster_details, compact_confusion, detailed_rows
-from pymv.display.synthetic import SyntheticSpec, generate_synthetic
+from pymv.display.results import (
+    aggregate_results,
+    cluster_details,
+    compact_confusion,
+    detailed_rows,
+    download_stem,
+    record_download_stem,
+    record_label,
+    run_label,
+)
+from pymv.display.synthetic import SyntheticGraphSpec, SyntheticSpec, generate_synthetic
 from pymv.display.theme import CSS
 from pymv.display.workspace import (
     EXTERNAL_NAMES,
@@ -362,6 +371,45 @@ def _container_upload(workspace):
             st.error(str(exc))
 
 
+def _synthetic_graph_controls(samples, views):
+    with st.expander("Synthetic graphs", expanded=True):
+        mode = st.selectbox("Graph generation", ["No graphs", "Per-view graphs", "Shared graphs"])
+        if mode == "No graphs":
+            return [], None, None
+        targets = st.multiselect("Views receiving graphs", list(range(views)), default=list(range(views)),
+                                 format_func=lambda i: f"View {i + 1}", key=f"synthetic_graph_views_{views}")
+        source = None
+        if mode == "Shared graphs":
+            source = st.selectbox("Build shared graphs from", list(range(views)),
+                                  format_func=lambda i: f"View {i + 1}")
+            st.caption("The same relations are attached to each selected view. "
+                       "Edges use only the source view's features.")
+        else:
+            st.caption("Each selected view gets its own graphs, built from that view's features.")
+        count = st.number_input("Relations per selected view", 1, 5, 1)
+        kinds = {"Binary kNN": "knn", "Mutual kNN": "mutual_knn", "Weighted kNN (RBF)": "rbf_knn"}
+        graphs = []
+        for relation in range(count):
+            st.markdown(f"Relation {relation + 1}")
+            left, right = st.columns(2)
+            kind = left.selectbox("Graph type", list(kinds), key=f"synthetic_graph_kind_{relation}")
+            neighbors = right.number_input("Neighbors", 1, samples - 1, min(10 + 2 * relation, samples - 1),
+                                            key=f"synthetic_graph_neighbors_{relation}")
+            bandwidth = 1.0
+            if kinds[kind] == "rbf_knn":
+                bandwidth = st.number_input("RBF bandwidth", min_value=0.0001, value=1.0, step=0.1,
+                                             key=f"synthetic_graph_bandwidth_{relation}",
+                                             help="Feature-space length scale. Larger values give distant neighbors "
+                                                  "more weight.")
+            graphs.append(SyntheticGraphSpec(kinds[kind], neighbors, bandwidth))
+        st.caption("Binary/weighted kNN connects either neighbor direction; mutual kNN requires both. "
+                   "All graphs are sparse, symmetric and have no self-loops. Mutual graphs may have isolated nodes. "
+                   "Generation is limited to 2 million directed neighbors across all attached relations.")
+        st.caption(f"{len(targets) * count} graph relation(s) attached to {len(targets)} view(s). "
+                   "Choose one relation on one view for a single graph, or shared graphs to reuse it across views.")
+        return graphs, targets, source
+
+
 def _synthetic_loader(workspace):
     name = _new_dataset_name(workspace, "synthetic-dataset", "synthetic_name")
     first, second, third = st.columns(3)
@@ -387,9 +435,7 @@ def _synthetic_loader(workspace):
     balance = st.selectbox("Class balance", ["Balanced", "Moderately imbalanced", "Strongly imbalanced"])
     same_modality = st.radio("View semantics", ["Same modality", "Different modalities"], horizontal=True)
     labeled = st.checkbox("Include ground-truth labels", value=True)
-    left, right = st.columns(2)
-    graph_relations = left.number_input("Graph relations per view", 0, 5, 0)
-    neighbors = right.number_input("Nearest neighbors per relation", 2, max(2, samples - 1), min(10, samples - 1))
+    graphs, graph_views, shared_graph_view = _synthetic_graph_controls(samples, views)
     seed = st.number_input("Random seed", 0, 2**31 - 1, 7)
     if st.button("Create synthetic dataset", type="primary"):
         try:
@@ -403,11 +449,13 @@ def _synthetic_loader(workspace):
                 noise=noise,
                 same_modality=same_modality == "Same modality",
                 labeled=labeled,
-                graph_relations=graph_relations,
-                graph_neighbors=neighbors,
+                graph_specs=graphs,
+                graph_views=graph_views,
+                shared_graph_view=shared_graph_view,
                 random_state=seed,
             )
-            data = generate_synthetic(spec)
+            with st.spinner("Generating features and sparse graphs"):
+                data = generate_synthetic(spec)
             key = workspace.add_lazy_dataset(
                 name, lambda recipe=copy.deepcopy(spec): generate_synthetic(recipe), source="synthetic"
             )
@@ -880,10 +928,11 @@ def render_experiment(workspace):
 
 
 def _downloads(record, *, prefix):
+    filename = record_download_stem(record)
     columns = st.columns(3)
-    columns[0].download_button("Results JSON", report_json(record.report), f"{record.id}.json",
+    columns[0].download_button("Results JSON", report_json(record.report), f"{filename}.json",
                                "application/json", key=f"{prefix}_json")
-    columns[1].download_button("Metrics CSV", report_csv(record.report), f"{record.id}.csv",
+    columns[1].download_button("Metrics CSV", report_csv(record.report), f"{filename}.csv",
                                "text/csv", key=f"{prefix}_csv")
     cached = st.session_state.get("_prepared_record_download")
     if cached is None or cached["id"] != record.id:
@@ -892,7 +941,7 @@ def _downloads(record, *, prefix):
         with st.spinner("Compressing run arrays for download"):
             cached = {"id": record.id, "zip": export_record(record)}
             st.session_state._prepared_record_download = cached
-    columns[2].download_button("Complete ZIP", cached["zip"], f"{record.id}.zip",
+    columns[2].download_button("Complete ZIP", cached["zip"], f"{filename}.zip",
                                "application/zip", key=f"{prefix}_zip")
 
 
@@ -999,7 +1048,7 @@ def _record_selector(workspace, key):
         "Experiment",
         [record.id for record in workspace.records],
         format_func=lambda value: next(
-            f"{record.spec.name} · {record.spec.model_name or record.spec.model.upper()} · {record.created_at[:19]}"
+            f"{record_label(record)} · {record.created_at[:19]}"
             for record in workspace.records if record.id == value
         ),
         key=key,
@@ -1014,8 +1063,7 @@ def render_results(workspace):
         return
     st.caption("Newest first. Completed runs remain available until you remove their result.")
     for position, record in enumerate([r for r in workspace.records if r.spec.kind == "experiment"]):
-        model_name = record.spec.model_name or record.spec.model.upper()
-        title = f"{record.spec.name} · {model_name} · {record.created_at[:19]}"
+        title = f"{record_label(record)} · {record.created_at[:19]}"
         with st.expander(title, expanded=position == 0):
             st.caption(
                 f"{record.dataset_summary['name']} · {len(record.rows)} fits"
@@ -1099,7 +1147,7 @@ def _scatter_figure(projected, labels, title, method):
     return figure
 
 
-def _figure_downloads(figure, table, key):
+def _figure_downloads(figure, table, key, *, filename=None):
     """Export exactly the plotted data and a standalone, interactive figure."""
     data = table.to_csv(index=False).encode()
     figure_json = figure.to_json().encode()
@@ -1114,7 +1162,7 @@ def _figure_downloads(figure, table, key):
             columns, ["Plot JSON", "Plot data CSV", "Plot ZIP"], [figure_json, data, output.getvalue()],
             ["json", "csv", "zip"], ["application/json", "text/csv", "application/zip"],
         ):
-            column.download_button(label, content, f"{key}.{suffix}", mime, key=f"{key}_{suffix}")
+            column.download_button(label, content, f"{filename or key}.{suffix}", mime, key=f"{key}_{suffix}")
 
 
 def _loss_comparison(workspace):
@@ -1128,10 +1176,12 @@ def _loss_comparison(workspace):
 
     def label(value):
         record = records[value[0]]
-        row = record.rows[value[1]]
-        return (f"{record.spec.name} · {record.dataset_summary['name']} · "
-                f"{record.spec.model_name or record.spec.model.upper()} · "
-                f"config {row['configuration']} · K={row['K']} · run {row['repeat']} · {record.id[:6]}")
+        title = f"{record_label(record)} · {run_label(record, value[1])}"
+        # Distinguish repeated jobs with the same user names without leaking IDs.
+        peers = [r for r in workspace.records if record_label(r) == record_label(record)]
+        if len(peers) > 1:
+            title += f" · Result {next(i for i, r in enumerate(reversed(peers), 1) if r.id == record.id)}"
+        return title
 
     st.subheader("Compare normalized loss")
     selected = st.multiselect("Models and runs from any experiment", available,
@@ -1170,10 +1220,9 @@ def render_visualizations(workspace):
         return
     index = st.selectbox(
         "Run", successful,
-        format_func=lambda value: (
-            f"Run {value + 1} · K={record.rows[value]['K']} · repeat {record.rows[value]['repeat']}"
-        ),
+        format_func=lambda value: run_label(record, value),
     )
+    plot_stem = f"{record_download_stem(record)}_{download_stem(run_label(record, index))}"
     artifact = record.artifacts[index]
     labels = artifact["labels"]
     left, right = st.columns(2)
@@ -1209,12 +1258,14 @@ def render_visualizations(workspace):
             columns[0].plotly_chart(predicted_figure, use_container_width=True)
             projection_table = pd.DataFrame({"sample_index": rows, "x": projected[:, 0], "y": projected[:, 1],
                                              "predicted_cluster": labels[rows]})
-            _figure_downloads(predicted_figure, projection_table, f"projection-{record.id}-{index}-{method}")
+            _figure_downloads(predicted_figure, projection_table, f"projection-{record.id}-{index}-{method}",
+                              filename=f"{plot_stem}_projection-{method}")
             if "true_labels" in artifact:
                 true_figure = _scatter_figure(projected, artifact["true_labels"][rows], "Ground-truth classes", method)
                 columns[1].plotly_chart(true_figure, use_container_width=True)
                 projection_table["true_class"] = artifact["true_labels"][rows]
-                _figure_downloads(true_figure, projection_table, f"true-projection-{record.id}-{index}-{method}")
+                _figure_downloads(true_figure, projection_table, f"true-projection-{record.id}-{index}-{method}",
+                                  filename=f"{plot_stem}_true-projection-{method}")
             st.caption(
                 f"Showing {len(rows):,} uniformly selected samples at most. Legends switch to a compact color scale "
                 "when there are more than 20 classes."
@@ -1237,7 +1288,7 @@ def render_visualizations(workspace):
                    "unmatched clusters remain separate. Rows are true classes, columns are predicted clusters.")
         confusion_table = pd.DataFrame(matrix, index=row_names, columns=column_names)
         _figure_downloads(figure, confusion_table.rename_axis("true_class").reset_index(),
-                          f"confusion-{record.id}-{index}")
+                          f"confusion-{record.id}-{index}", filename=f"{plot_stem}_confusion")
         if "Other classes" in row_names or "Other clusters" in column_names:
             st.caption("The 30 largest classes/clusters are shown; remaining values are combined into Other.")
     st.subheader("Cluster details")
@@ -1254,11 +1305,12 @@ def render_export(workspace):
                                    f"{workspace.batches[i]['report']['started_at'][:19]}")
         batch = workspace.batches[batch_index]
         report = batch["report"]
-        st.caption(f"Saved JSON: {batch['json_path']}")
+        st.caption(f"Results saved in: {Path(batch['json_path']).parent}")
+        filename = download_stem(batch["name"], report["started_at"][:19])
         columns = st.columns(3)
-        columns[0].download_button("Batch JSON", report_json(report), f"{report['id']}.json", "application/json")
-        columns[1].download_button("Batch CSV", report_csv(report), f"{report['id']}.csv", "text/csv")
-        columns[2].download_button("Batch ZIP", report_zip(report), f"{report['id']}.zip", "application/zip")
+        columns[0].download_button("Batch JSON", report_json(report), f"{filename}.json", "application/json")
+        columns[1].download_button("Batch CSV", report_csv(report), f"{filename}.csv", "text/csv")
+        columns[2].download_button("Batch ZIP", report_zip(report), f"{filename}.zip", "application/zip")
     record = _record_selector(workspace, "export_record")
     if record is None:
         return
