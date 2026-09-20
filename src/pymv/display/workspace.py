@@ -120,6 +120,7 @@ class DatasetResource:
     def load(self):
         if self._data is None:
             self._data = self.loader()
+        self._data.name = self.name
         return self._data
 
     def unload(self):
@@ -182,10 +183,66 @@ class Workspace:
         self.models = {}
         self.benchmark = {}
         self.batches = []
+        self.name_counters = {}
+        self.pending_datasets = set()
+
+    @staticmethod
+    def unique_name(name, existing):
+        name = str(name).strip()
+        if not name:
+            raise ValueError("Choose a nonempty name")
+        candidate, index = name, 2
+        while candidate in existing:
+            candidate = f"{name}#{index}"
+            index += 1
+        return candidate
+
+    def suggested_name(self, prefix):
+        """Human-readable, monotonic defaults; deleting items never reuses a number."""
+        return f"{prefix}#{self.name_counters.get(prefix, 0) + 1}"
+
+    def advance_name(self, prefix):
+        self.name_counters[prefix] = self.name_counters.get(prefix, 0) + 1
+
+    def apply_dataset(self, dataset_id, recipe):
+        """Validate preparation before making a newly loaded dataset available to jobs."""
+        prepared = prepare_dataset(self.load_dataset(dataset_id), recipe)
+        self.preprocessing[dataset_id] = copy.deepcopy(recipe)
+        self.datasets[dataset_id].hint.update(prepared_complete=prepared.is_complete,
+                                               prepared_observed=prepared.observed_mask.sum(axis=0).tolist())
+        self.pending_datasets.discard(dataset_id)
+
+    def rename_dataset(self, dataset_id, name):
+        resource = self.datasets[dataset_id]
+        resource.name = self.unique_name(name, {r.name for key, r in self.datasets.items() if key != dataset_id})
+        if resource.loaded:
+            resource._data.name = resource.name
+
+    def compatible_pairs(self, dataset_ids, model_ids):
+        """Find valid pairs without fitting; materialize at most one source at a time."""
+        pairs = []
+        for dataset_id in dataset_ids:
+            if dataset_id in self.pending_datasets:
+                continue
+            resource = self.datasets[dataset_id]
+            if "complete" not in resource.hint or "n_samples" not in resource.hint:
+                data = self.load_dataset(dataset_id)
+                resource.hint.update(complete=data.is_complete, n_samples=data.n_samples)
+            recipe = self.preprocessing.get(dataset_id, PreprocessingSpec())
+            complete = recipe.will_be_complete(resource.hint["complete"])
+            for model_id in model_ids:
+                settings = self.models[model_id]
+                cls = get_model(settings["model"])
+                if not complete and not getattr(cls, "supports_missing_views", False):
+                    continue
+                if all(1 <= k <= resource.hint["n_samples"] for k in settings["clusters"]):
+                    pairs.append((dataset_id, model_id))
+        return pairs
 
     def add_model(self, name, model, params, clusters):
         """Save an independent configuration without retaining a fitted model."""
         key = uuid.uuid4().hex
+        name = self.unique_name(name, {item["name"] for item in self.models.values()})
         self.models[key] = {"name": name, "model": model, "params": copy.deepcopy(params),
                             "clusters": list(clusters)}
         return key
@@ -226,7 +283,7 @@ class Workspace:
         snapshot = copy.deepcopy(data)
         self.datasets[key] = DatasetResource(
             key,
-            data.name or "Dataset",
+            self.unique_name(data.name or "Dataset", {r.name for r in self.datasets.values()}),
             loader=lambda value=snapshot: copy.deepcopy(value),
             source=source,
             hint={
@@ -242,6 +299,7 @@ class Workspace:
 
     def add_lazy_dataset(self, name, loader, *, source="catalog", hint=None):
         key = uuid.uuid4().hex
+        name = self.unique_name(name, {r.name for r in self.datasets.values()})
         self.datasets[key] = DatasetResource(key, name, loader, source=source, hint=hint or {})
         return key
 
@@ -258,6 +316,7 @@ class Workspace:
         self.datasets[dataset_id].unload()
 
     def remove_dataset(self, dataset_id):
+        self.pending_datasets.discard(dataset_id)
         self.preprocessing.pop(dataset_id, None)
         self.benchmark.pop(dataset_id, None)
         resource = self.datasets.pop(dataset_id)
