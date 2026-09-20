@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import copy
-import csv
 import hashlib
 import inspect
 import io
+import itertools
 import json
+import math
 import time
 import uuid
 import zipfile
@@ -18,6 +19,17 @@ from typing import Callable
 import numpy as np
 from scipy import sparse
 
+from pymv.experiment.exports import (
+    aggregate_runs,
+    diagnostics,
+    json_safe,
+    model_details,
+    new_report,
+    report_csv,
+    report_json,
+    save_report,
+    timestamp,
+)
 from pymv.metrics import (
     ari_score,
     calinski_harabasz_score,
@@ -26,7 +38,7 @@ from pymv.metrics import (
     nmi_score,
     silhouette_score,
 )
-from pymv.metrics.evaluation import evaluate_metrics, validate_metrics
+from pymv.metrics.evaluation import evaluate_metrics, higher_is_better, validate_metrics
 from pymv.models import get_model
 
 from .preprocessing import PreprocessingSpec, prepare_dataset
@@ -65,6 +77,9 @@ class ExperimentSpec:
     search_space: dict = field(default_factory=dict)
     trials: int = 1
     preprocessing: PreprocessingSpec | None = None
+    search_strategy: str = "random"
+    objective: str | None = None
+    kind: str = "experiment"
 
 
 @dataclass
@@ -75,6 +90,10 @@ class ExperimentRecord:
     dataset_summary: dict
     rows: list = field(default_factory=list)
     artifacts: list = field(default_factory=list)
+    completed_at: str | None = None
+    json_path: str | None = None
+    model_details: dict = field(default_factory=dict)
+    report: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -155,6 +174,45 @@ class Workspace:
         self.records = []
         self.experiment_counter = 0
         self.preprocessing = {}
+        self.models = {}
+        self.benchmark = {}
+        self.batches = []
+
+    def add_model(self, name, model, params, clusters):
+        """Save an independent configuration without retaining a fitted model."""
+        key = uuid.uuid4().hex
+        self.models[key] = {"name": name, "model": model, "params": copy.deepcopy(params),
+                            "clusters": list(clusters)}
+        return key
+
+    def benchmark_mode(self, dataset_id):
+        if dataset_id not in self.benchmark:
+            self.benchmark[dataset_id] = self.load_dataset(dataset_id).labels is not None
+        return self.benchmark[dataset_id]
+
+    def run_batch(self, specs, *, name=None, output_dir=None, progress=None):
+        """Run selected combinations sequentially and persist one combined report."""
+        specs = list(specs)
+        if not specs:
+            raise ValueError("Select at least one dataset/model combination")
+        if len({spec.benchmark for spec in specs}) > 1:
+            raise ValueError("Benchmark and real-world datasets cannot be combined in one experiment")
+        # Validate all combinations before fitting anything. Only one source is loaded at a time.
+        for spec in specs:
+            self.run(spec, validate_only=True)
+        report = new_report(name=name)
+        record_ids = []
+        counter = self.experiment_counter
+        for i, spec in enumerate(specs):
+            callback = (lambda value, i=i: progress((i + value) / len(specs))) if progress else None
+            record = self.run(spec, progress=callback, save_json=False)
+            record_ids.append(record.id)
+            report["experiments"].extend(record.report["experiments"])
+        report["completed_at"] = timestamp()
+        self.experiment_counter = counter + 1
+        path = save_report(report, output_dir)
+        self.batches.insert(0, {"name": name, "report": report, "record_ids": record_ids, "json_path": str(path)})
+        return report
 
     def add_dataset(self, data, *, source="memory"):
         key = uuid.uuid4().hex
@@ -194,6 +252,7 @@ class Workspace:
 
     def remove_dataset(self, dataset_id):
         self.preprocessing.pop(dataset_id, None)
+        self.benchmark.pop(dataset_id, None)
         resource = self.datasets.pop(dataset_id)
         resource.unload()
         if resource.cleanup:
@@ -202,7 +261,7 @@ class Workspace:
     def delete_record(self, record_id):
         self.records = [r for r in self.records if r.id != record_id]
 
-    def run(self, spec, *, progress=None):
+    def run(self, spec, *, progress=None, output_dir=None, save_json=True, validate_only=False):
         """Append one independent record, retaining per-trial failures and artifacts.
 
         Structural/configuration errors raise before history changes. Training
@@ -212,8 +271,10 @@ class Workspace:
         spec = copy.deepcopy(spec)
         if not spec.clusters or any(isinstance(k, bool) or not isinstance(k, int) for k in spec.clusters):
             raise ValueError("Cluster counts must be a nonempty list of integers")
-        if spec.repeats < 1 or spec.trials < 1:
-            raise ValueError("Repeats and trials must be positive")
+        if not isinstance(spec.repeats, int) or not 1 <= spec.repeats <= 20 or spec.trials < 1:
+            raise ValueError("Repeats must be between 1 and 20 and trials must be positive")
+        if spec.search_strategy not in {"random", "grid"}:
+            raise ValueError("Unknown search strategy")
         source = self.load_dataset(spec.dataset_id)
         if any(k < 1 or k > source.n_samples for k in spec.clusters):
             raise ValueError("Each K must be between 1 and the number of samples")
@@ -224,7 +285,9 @@ class Workspace:
         if (set(spec.params) | set(spec.search_space)) - set(parameters):
             raise ValueError("Unknown model parameter; consult the model API")
         if any(not isinstance(v, list) or not v for v in spec.search_space.values()):
-            raise ValueError("Each random-search parameter needs a nonempty JSON list")
+            raise ValueError("Each search parameter needs a nonempty candidate list")
+        if spec.kind == "search" and spec.objective not in spec.metrics:
+            raise ValueError("Choose a search objective from the selected metrics")
         metric_fns = {name: METRICS[name] for name in spec.metrics}
         validate_metrics(metric_fns, source.labels, benchmark=spec.benchmark)
         recipe = spec.preprocessing or PreprocessingSpec(
@@ -241,6 +304,12 @@ class Workspace:
         data = prepare_dataset(source, recipe)
         if not data.is_complete and not getattr(cls, "supports_missing_views", False):
             raise ValueError(f"{cls.__name__} does not support missing views. Choose explicit mean/zero imputation.")
+        count = math.prod(len(v) for v in spec.search_space.values()) if spec.search_strategy == "grid" else spec.trials
+        total = (count if spec.search_space else 1) * len(spec.clusters) * spec.repeats
+        if total > 2000:
+            raise ValueError("This session job exceeds 2,000 fits. Reduce the grid, K values or repeated runs.")
+        if validate_only:
+            return None
         original_mask = source.observed_mask.tolist()
         if "missing_simulation" in data.metadata:
             original_mask = data.metadata.get("imputation", {}).get("observed_mask", data.observed_mask.tolist())
@@ -260,28 +329,35 @@ class Workspace:
             "labels_used": spec.benchmark,
         }
         record = ExperimentRecord(uuid.uuid4().hex, datetime.now(timezone.utc).isoformat(), spec, summary)
+        record.model_details = model_details(cls)
         self.records.insert(0, record)
-        self.experiment_counter += 1
+        if spec.kind == "experiment":
+            self.experiment_counter += 1
         rng = np.random.default_rng(spec.seed)
-        configurations = []
-        for _ in range(spec.trials if spec.search_space else 1):
-            params = copy.deepcopy(spec.params)
-            params.update({k: values[int(rng.integers(len(values)))] for k, values in spec.search_space.items()})
-            configurations.append(params)
-        total = len(configurations) * len(spec.clusters) * spec.repeats
-        for params in configurations:
+        if spec.search_strategy == "grid":
+            configurations = (dict(zip(spec.search_space, values))
+                              for values in itertools.product(*spec.search_space.values()))
+        else:
+            configurations = ({k: values[int(rng.integers(len(values)))] for k, values in spec.search_space.items()}
+                              for _ in range(spec.trials if spec.search_space else 1))
+        configuration = 0
+        for candidates in configurations:
+            params = {**spec.params, **candidates}
             for k in spec.clusters:
+                configuration += 1
                 for repeat in range(spec.repeats):
                     run_seed = spec.seed + repeat
                     kwargs = {**params, "n_clusters": k}
                     if "random_state" in parameters:
                         kwargs["random_state"] = run_seed
-                    row = {"K": k, "repeat": repeat + 1, "seed": run_seed, "params": kwargs, "status": "complete"}
+                    row = {"K": k, "repeat": repeat + 1, "seed": run_seed, "params": kwargs, "status": "complete",
+                           "configuration": configuration, "started_at": timestamp()}
                     artifact = {}
                     started = time.perf_counter()
                     try:
                         model = cls(**kwargs)
                         copy.deepcopy(data).fit(model)
+                        row["diagnostics"] = diagnostics(model)
                         embedding = getattr(model, "embedding_", None)
                         row.update(
                             evaluate_metrics(
@@ -299,11 +375,56 @@ class Workspace:
                     except Exception as exc:
                         row.update(status="failed", error=f"{type(exc).__name__}: {exc}")
                     row["seconds"] = time.perf_counter() - started
+                    row["completed_at"] = timestamp()
                     record.rows.append(row)
                     record.artifacts.append(artifact)
                     if progress:
                         progress(len(record.rows) / total)
+        record.completed_at = timestamp()
+        record.report = record_report(record)
+        if save_json:
+            record.json_path = str(save_report(record.report, output_dir))
         return record
+
+
+def record_report(record):
+    """Build the same per-configuration report used by the Python runners."""
+    report = new_report(record.spec.kind, record.spec.name)
+    report.update(id=record.id, started_at=record.created_at, completed_at=record.completed_at)
+    groups = {}
+    for row in record.rows:
+        groups.setdefault(row["configuration"], []).append(row)
+    for configuration, rows in groups.items():
+        params = {k: v for k, v in rows[0]["params"].items() if k != "random_state"}
+        runs = [{"run": row["repeat"], "status": row["status"], "seconds": row["seconds"],
+                 "started_at": row["started_at"], "completed_at": row["completed_at"],
+                 "parameters": row["params"], "error": row.get("error"),
+                 "metrics": {key: row.get(key) for key in record.spec.metrics}, **row.get("diagnostics", {})}
+                for row in rows]
+        report["experiments"].append({"configuration": configuration, "dataset": record.dataset_summary,
+                                      "model": record.model_details, "parameters": params, "runs": runs,
+                                      "aggregate": aggregate_runs(runs),
+                                      "preprocessing": asdict(record.spec.preprocessing)
+                                      if record.spec.preprocessing else None})
+    if record.spec.kind == "search":
+        objective = record.spec.objective
+        maximize = higher_is_better(METRICS[objective])
+        best, best_config, best_params = None, None, {}
+        steps = []
+        for entry in report["experiments"]:
+            score = entry["aggregate"]["metrics"].get(objective, {}).get("mean")
+            if entry["aggregate"]["failed_runs"]:
+                score = None
+            if score is not None and (best is None or (score > best if maximize else score < best)):
+                best, best_config, best_params = score, entry["configuration"], entry["parameters"]
+            steps.append({"step": entry["configuration"], "parameters": entry["parameters"],
+                          "score": score, "best_score_so_far": best})
+        report["search"] = {"strategy": record.spec.search_strategy, "objective": objective,
+                            "direction": "maximize" if maximize else "minimize", "space": record.spec.search_space,
+                            "clusters": record.spec.clusters, "seed": record.spec.seed,
+                            "runs_per_configuration": record.spec.repeats, "steps": steps,
+                            "best_configuration": best_config, "best_parameters": best_params, "best_score": best}
+    return json_safe(report)
 
 
 def export_record(record):
@@ -314,11 +435,9 @@ def export_record(record):
     (checking its fingerprint) to reproduce a run. Session IDs are local
     identifiers, not paths to persisted datasets.
     """
-    from pymv import __version__
-
     buffer = io.BytesIO()
     payload = {
-        "pymv_version": __version__,
+        **record.report,
         "id": record.id,
         "created_at": record.created_at,
         "spec": asdict(record.spec),
@@ -326,25 +445,9 @@ def export_record(record):
         "results": record.rows,
     }
 
-    def json_safe(value):
-        if isinstance(value, dict):
-            return {str(k): json_safe(v) for k, v in value.items()}
-        if isinstance(value, (list, tuple)):
-            return [json_safe(v) for v in value]
-        if isinstance(value, float) and not np.isfinite(value):
-            return None
-        if isinstance(value, np.generic):
-            return json_safe(value.item())
-        return value
-
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr("experiment.json", json.dumps(json_safe(payload), indent=2, allow_nan=False))
-        table = io.StringIO()
-        fields = list(dict.fromkeys(k for row in record.rows for k in row))
-        writer = csv.DictWriter(table, fieldnames=fields)
-        writer.writeheader()
-        writer.writerows(record.rows)
-        archive.writestr("metrics.csv", table.getvalue())
+        archive.writestr("experiment.json", report_json(payload))
+        archive.writestr("metrics.csv", report_csv(record.report))
         for i, artifact in enumerate(record.artifacts):
             output = io.BytesIO()
             np.savez_compressed(output, **artifact)
