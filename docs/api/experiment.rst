@@ -23,8 +23,20 @@ RandomSearchExperiment
    :special-members: __init__
 
 
-Result Containers
------------------
+Grid search
+-----------
+
+.. autoclass:: pymv.experiment.GridSearchExperiment
+   :members:
+   :inherited-members:
+   :special-members: __init__
+
+Result containers and reports
+-----------------------------
+
+Runner results expose ``to_dict()``, ``json_path``, ``save_json(output_dir)``
+and ``export(path)`` for JSON, CSV or ZIP output. Automatic JSON export defaults
+to ``./experiments``; pass ``save_path=`` or ``save_json=False`` to a runner.
 
 .. autoclass:: pymv.experiment.ExperimentResult
    :members:

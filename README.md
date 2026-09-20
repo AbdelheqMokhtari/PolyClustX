@@ -70,13 +70,19 @@ results = Experiment(
     ],
     metrics=[clustering_accuracy, nmi_score],
     runs=5,
+    save_path="experiments/comparison",
 ).run()
+print(results.json_path)  # one JSON report containing every configuration and run
 ```
 
 External metrics such as ACC, NMI, and ARI require labels. Internal metrics
 such as Silhouette, Calinski–Harabasz, and Davies–Bouldin evaluate clustering
 without labels. See the [experiment guide](https://pymv.readthedocs.io/en/latest/user_guide/experiments.html)
-for evaluation settings and random search.
+for evaluation settings, random/grid search, and choosing a search objective.
+Reports include per-run scores, mean ± standard deviation, hyperparameters,
+timestamps, and available loss histories and model diagnostics. Use
+`results.export("comparison.zip")` for a JSON/CSV bundle. Without `save_path`,
+reports go to `./experiments/` in the current working directory.
 
 ## Available methods
 
@@ -122,10 +128,13 @@ and [graph relations](https://pymv.readthedocs.io/en/latest/user_guide/graphs.ht
 ## Graphical interface
 
 The sidebar lets you move between datasets, preprocessing, models, experiments,
-results, visualizations, and exports. Keep multiple experiments in one session,
-edit model parameters, choose custom random-search candidates, and repeat fits
-to obtain mean ± standard deviation. Benchmark mode adds external metrics when
-labels are available.
+hyperparameter search, results, visualizations, and exports. Prepare multiple
+datasets and model configurations, then select combinations to compare. Run
+random or grid search with a selectable metric, copy the best configuration into
+an experiment, and repeat fits 1–20 times to obtain mean ± standard deviation.
+Benchmark mode starts enabled for labeled datasets and can be disabled on the
+Dataset page. Compare normalized losses across runs and download JSON, CSV or ZIP
+results and plots.
 
 Upload individual view files or NPZ/MATLAB containers. Labels may be in a
 separate file, included in the same upload batch, or stored in a selected column

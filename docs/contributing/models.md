@@ -40,6 +40,14 @@ Registry defaults are inferred from explicit constructor arguments, excluding
 `n_clusters`; use `defaults={...}` for curated UI defaults. Parameters should be
 JSON-serializable for reproducible recipes.
 
+For detailed experiment reports, optionally expose `loss_history_` (one value
+per training iteration), `view_weights_` or `alphas_`, `inertia_`,
+`per_view_results_`, and `per_view_loss_history_`. Missing attributes are exported
+as `null`. Label per-view diagnostics with their stage and meaning; initialization
+scores must not be presented as final clustering performance. Reports normalize
+one-dimensional loss histories automatically and never fabricate unavailable
+per-view results.
+
 Add `paper="https://doi.org/..."`, a concise description and `uses_graphs=True`
 when applicable. A registry entry does not automatically validate a method's
 scientific claims: document differences from the reference implementation.

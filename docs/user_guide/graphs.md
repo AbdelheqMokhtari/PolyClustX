@@ -3,6 +3,30 @@
 The outer graph list follows feature-view order. Each entry is `None`, one
 adjacency, or several relations assigned to that view.
 
+An entry can also be a NetworkX-compatible graph object. Node IDs must equal
+the dataset's `sample_ids` (by default, integers `0` through `n_samples - 1`),
+including isolated samples. Conversion orders the adjacency by sample IDs, not
+the graph's insertion order. Directed edges retain their direction, parallel
+edge weights are summed, and absent weights default to one. All weights must
+be finite and nonnegative.
+
+```python
+import networkx as nx  # included with the display extra; otherwise install networkx
+import numpy as np
+from pymv.data import MultiViewDataset
+
+graph = nx.Graph()
+graph.add_nodes_from(["sample-b", "sample-a", "sample-c"])
+graph.add_edge("sample-a", "sample-b", weight=0.8)
+data = MultiViewDataset(
+    [np.ones((3, 2))], As=[graph],
+    sample_ids=["sample-a", "sample-b", "sample-c"],
+)
+```
+
+The interface additionally accepts GraphML/GEXF files and dense or sparse
+adjacency files under **Dataset → Add graphs to a view**.
+
 ```python
 import numpy as np
 from pymv.data import MultiViewDataset
