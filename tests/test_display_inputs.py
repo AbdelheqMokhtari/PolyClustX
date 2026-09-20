@@ -85,7 +85,7 @@ def test_custom_search_persists_across_navigation_and_rejects_bad_values():
     workspace.add_dataset(dataset_from_arrays({"X": features}, view_keys=["X"]))
     at = AppTest.from_file(Path(__file__).resolve().parents[1] / "src/pymv/display/app.py", default_timeout=60)
     at.session_state["workspace"] = workspace
-    at.session_state["workflow_step"] = 2
+    at.session_state["workflow_step"] = 7
     at.run()
     at.number_input(key="parameter_lmgec_max_iter").set_value(1)
     at.number_input(key="parameter_lmgec_embedding_dim").set_value(2)
@@ -93,21 +93,21 @@ def test_custom_search_persists_across_navigation_and_rejects_bad_values():
     at.checkbox(key="search_lmgec_temperature").check().run()
     at.multiselect(key="candidates_lmgec_temperature").set_value(["0.0007", "250"]).run()
     assert not at.exception
-    next(b for b in at.button if b.label == "Continue to experiment").click().run()
-    next(b for b in at.button if b.label == "Run experiment").click().run()
+    next(b for b in at.button if b.label == "Run search").click().run()
     assert not at.exception
     record = at.session_state["workspace"].records[0]
     assert record.rows[0]["status"] == "complete"
     assert record.rows[0]["params"]["temperature"] in [0.0007, 250.0]
-    at.radio(key="workflow_step").set_value(2).run()
+    at.button(key="nav_Model").click().run()
+    at.button(key="nav_Search").click().run()
     assert not at.exception
     assert at.multiselect(key="candidates_lmgec_temperature").value == ["0.0007", "250.0"]
     at.multiselect(key="candidates_lmgec_temperature").set_value(["-1", "nonsense"]).run()
     assert not at.exception and at.error
-    assert next(b for b in at.button if b.label == "Continue to experiment").disabled
+    assert next(b for b in at.button if b.label == "Run search").disabled
     at.multiselect(key="candidates_lmgec_temperature").set_value([]).run()
     assert not at.exception and at.error
-    assert next(b for b in at.button if b.label == "Save model settings").disabled
+    assert next(b for b in at.button if b.label == "Run search").disabled
 
 
 @pytest.mark.parametrize("embedded", [False, True])

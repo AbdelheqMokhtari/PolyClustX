@@ -144,7 +144,7 @@ def test_streamlit_create_run_duplicate_delete():
     next(n for n in at.number_input if n.label == "Samples").set_value(30)
     next(b for b in at.button if b.label == "Create synthetic dataset").click().run()
     assert not at.exception
-    next(r for r in at.radio if r.label == "Workflow").set_value(2).run()
+    at.button(key="nav_Model").click().run()
     at.number_input(key="parameter_lmgec_embedding_dim").set_value(3)
     at.number_input(key="parameter_lmgec_max_iter").set_value(1)
     next(b for b in at.button if b.label == "Continue to experiment").click().run()
@@ -181,13 +181,14 @@ def test_streamlit_benchmark_toggle_removes_external_metrics():
     at = AppTest.from_file(str(app), default_timeout=60).run()
     next(r for r in at.radio if r.label == "Data source").set_value("Synthetic").run()
     next(b for b in at.button if b.label == "Create synthetic dataset").click().run()
-    next(r for r in at.radio if r.label == "Workflow").set_value(2).run()
+    assert next(c for c in at.checkbox if c.label.startswith("Benchmark mode")).value
+    at.button(key="nav_Model").click().run()
     next(b for b in at.button if b.label == "Continue to experiment").click().run()
-    benchmark = next(c for c in at.checkbox if c.label.startswith("Benchmark mode"))
-    benchmark.check().run()
     metrics = next(m for m in at.multiselect if m.label == "Metrics")
     metrics.set_value(["ACC", "NMI", "Silhouette"]).run()
+    at.button(key="nav_Dataset").click().run()
     next(c for c in at.checkbox if c.label.startswith("Benchmark mode")).uncheck().run()
+    at.button(key="nav_Experiment").click().run()
     assert not at.exception
     metrics = next(m for m in at.multiselect if m.label == "Metrics")
     assert set(metrics.value) <= set(INTERNAL_NAMES)
