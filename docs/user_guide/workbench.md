@@ -66,6 +66,37 @@ Choose one source at a time:
 - **Synthetic** controls samples, classes, view dimensions, per-view
   distributions, overlap, imbalance, modality, noise, and graph relations.
 
+### Generate synthetic graphs
+
+Under **Dataset → Synthetic → Synthetic graphs**, choose **No graphs**,
+**Per-view graphs**, or **Shared graphs**. Per-view graphs use each selected
+view's features; shared graphs use one source view and attach identical
+relations to the selected views. Select one target view and one relation for
+a single graph, or increase **Relations per selected view** for multiple graphs.
+
+Each relation has its own type and neighbor count:
+
+- **Binary kNN** connects samples if either is among the other's nearest neighbors.
+- **Mutual kNN** connects samples only when both neighbor directions exist.
+- **Weighted kNN (RBF)** uses kNN edges weighted by
+  `exp(-distance² / (2 × bandwidth²))`. Adjust the bandwidth to the feature scale.
+
+Graphs are sparse, undirected, aligned with sample order and have no self-loops.
+Edges use features, never ground-truth labels. Mutual kNN and very small RBF
+bandwidths can produce isolated samples. Change each relation's neighbor count
+or type to create different relations; identical settings yield identical graphs.
+The random seed reproduces features and graphs, including after unloading and
+reloading the dataset. Graph settings do not change the generated features.
+
+Generation rejects requests exceeding two million directed neighbor entries
+across attached relations, before allocating the data. Large nearest-neighbor
+searches can still be slow; start small. Use **Apply changes** to make the
+dataset available to experiments. In preprocessing, select sum or Hadamard
+fusion when using multiple relations. See also the
+[Python graph-generation example](graphs.md#generate-synthetic-graphs-in-python).
+
+### Inspect loaded data
+
 After validation, the Dataset page reports sample/view/class counts, missing
 pairs, estimated memory, feature density, mean, variance, per-feature variance,
 class imbalance, and graph density/symmetry. This information helps determine
@@ -220,6 +251,9 @@ matrices show the 30 largest classes/clusters and combine the remainder into an
 searches in one plot. Run 1 is selected as each configuration's representative
 by default; select another run or several runs to compare variation. Normalized
 loss curves compare optimization shape, not the quality of different objectives.
+Run choices identify the experiment, dataset, named model, configuration, K and
+repetition number, without internal session codes. Repeated jobs with identical
+names receive a readable **Result 1**, **Result 2**, etc. in the comparison list.
 
 Confusion-matrix columns are aligned to true classes by maximum overlap using
 Hungarian matching. Original cluster IDs remain visible. The matrix can show
@@ -235,6 +269,9 @@ directory, defaulting to `./experiments/` on the server. JSON includes per-run
 metrics, mean/std summaries, raw and normalized losses, available model
 diagnostics, and search tuning steps. Direct JSON/CSV downloads are available
 beside the results; Export also provides a single report for a complete batch.
+Downloaded files use readable experiment/dataset/model names and timestamps;
+plot downloads also identify the configuration and run. Machine-readable JSON
+retains internal identifiers for linking records, but these are not run names.
 Use **Prepare ZIP** only when run arrays are needed. Large ZIPs still require memory while downloading;
 prefer JSON/CSV for large comparisons and export individual run collections.
 

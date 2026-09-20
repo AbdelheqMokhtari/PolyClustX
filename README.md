@@ -141,6 +141,8 @@ results and plots.
 Upload individual view files or NPZ/MATLAB containers. Labels may be in a
 separate file, included in the same upload batch, or stored in a selected column
 of a view. Select their location explicitly so labels are excluded from training.
+Synthetic examples can include binary, mutual or RBF-weighted kNN graphs, with
+one or several relations per view, built separately or shared across views.
 
 [Read the interface guide](https://pymv.readthedocs.io/en/latest/user_guide/workbench.html).
 
