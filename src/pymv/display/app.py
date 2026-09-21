@@ -1446,9 +1446,22 @@ def _sidebar(workspace):
 def main():
     st.set_page_config(page_title="pymv", page_icon=str(ASSETS / "logo.png"), layout="wide")
     st.markdown(f"<style>{CSS}</style>", unsafe_allow_html=True)
+    
+
+    if "drafts" in st.session_state:
+        for draft in st.session_state.drafts.values():
+            model = draft.get("model")
+            if model:
+                for param in draft.get("search_space", {}):
+                    st.session_state.setdefault(f"search_{model}_{param}", True)
+
+    st.session_state.setdefault("search_lmgec_temperature", False)
+    st.session_state.setdefault("dataset_class_counts", True)
+
     if "_next_workflow_step" in st.session_state:
         st.session_state.workflow_step = st.session_state.pop("_next_workflow_step")
     workspace = _workspace()
+    
     if "_restore_model" in st.session_state:
         settings = st.session_state.pop("_restore_model")
         _, controls = parameter_controls(settings["model"])
@@ -1458,7 +1471,9 @@ def main():
                     value = ", ".join(map(str, value))
                 st.session_state[f"parameter_{settings['model']}_{name}"] = value
         st.session_state.clusters_primary_model_library = settings["clusters"][0]
+        
     page = _sidebar(workspace)
+    
     renderers = {
         "Dataset": render_dataset,
         "Preprocessing": render_dataset,
