@@ -71,6 +71,7 @@ class DatasetSpec:
     reference: str = _REFERENCE_COLLECTION
     reference_verified: bool = False
     reference_details: str = ""
+    modalities: tuple[str, ...] | None = None
 
     @property
     def url(self) -> str:
@@ -265,6 +266,8 @@ def list_variants(name):
 
 
 def _modalities(spec):
+    if spec.modalities is not None:
+        return list(spec.modalities)
     if spec.category == "multimodal" or spec.name.startswith(("pascal", "coco_")) or spec.name in {
         "bdgp", "esp_game", "flickr30k", "iaprtc12", "nus_wide", "wikipedia",
     }:
