@@ -5,6 +5,10 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -19,11 +23,11 @@ jobs:
   test:
     name: Test · Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        # Oldest and newest supported versions.
+        # Core compatibility floor and recommended user environment.
         python-version: ["3.9", "3.11"]
 
     steps:
@@ -43,7 +47,14 @@ jobs:
       - name: Test
         # Dataset-download tests are deselected by default (see pyproject);
         # a small live check is available in the manual dataset workflow.
-        run: pytest
+        run: pytest -m 'not network' --junitxml=test-results.xml
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: core-test-results-${{ matrix.python-version }}
+          path: test-results.xml
+          if-no-files-found: ignore
 
   build:
     name: Build distribution
@@ -60,11 +71,25 @@ jobs:
 
       - name: Build wheel and sdist
         run: |
-          pip install build
+          pip install build twine
           python -m build
+          python -m twine check dist/*
 
-      - name: Check the wheel ships the CLI entry point and configs
+      - name: Check installed distribution and packaged resources
         run: |
-          python -m zipfile -l dist/*.whl > wheel.txt
-          grep -q "pymv_cli_entry.py" wheel.txt
-          grep -q "pymv/configs/default.yaml" wheel.txt
+          python -m pip install --no-deps dist/*.whl
+          python - <<'PY'
+          from importlib.metadata import distribution
+          package = distribution("pymv-clustering")
+          files = {str(path) for path in package.files}
+          for path in ("pymv_cli_entry.py", "pymv/configs/default.yaml", "pymv/display/assets/logo.png"):
+              assert path in files, path
+          scripts = {entry.name for entry in package.entry_points}
+          assert {"pymv-cli", "pymv-display"} <= scripts
+          assert {"ui", "display"} <= set(package.metadata.get_all("Provides-Extra"))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/

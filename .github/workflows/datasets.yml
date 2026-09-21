@@ -8,6 +8,9 @@ name: Dataset smoke test
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   TF_CPP_MIN_LOG_LEVEL: "3"
   CUDA_VISIBLE_DEVICES: ""

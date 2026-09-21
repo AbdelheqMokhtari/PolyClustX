@@ -48,9 +48,30 @@ scores must not be presented as final clustering performance. Reports normalize
 one-dimensional loss histories automatically and never fabricate unavailable
 per-view results.
 
-Add `paper="https://doi.org/..."`, a concise description and `uses_graphs=True`
+Add `paper="https://doi.org/..."`, `implementation="https://github.com/..."`,
+a concise description and `uses_graphs=True`
 when applicable. A registry entry does not automatically validate a method's
 scientific claims: document differences from the reference implementation.
+
+## Where to put your contribution
+
+1. Add `src/pymv/models/your_method/` with the implementation and `__init__.py`.
+2. Import/export its registered class in `src/pymv/models/__init__.py`.
+3. Add deterministic, small offline tests in `tests/test_your_method.py`.
+4. Add a runnable example under `examples/` and link it from
+   `docs/user_guide/examples.rst`.
+5. Explain the objective, assumptions and citation in
+   `docs/background/algorithms.md`. Its capability table is generated automatically.
+6. Add the class's autodoc entry to `docs/api/models.rst`.
+7. For specialized parameter ranges, add controls in
+   `src/pymv/display/model_controls.py` and interface tests. Simple constructor
+   parameters otherwise use the inferred controls.
+
+If a method adjusts parameters for a dataset, it may implement the optional
+`resolve_fit_parameters(Xs, params)` static method, returning a new parameter
+dictionary. The interface records requested and effective values and informs
+the user. Do not apply another algorithm's dimension limits to your model.
+Test the adjustment and its report; LMGEC provides an example.
 
 ## Missing-aware methods
 
