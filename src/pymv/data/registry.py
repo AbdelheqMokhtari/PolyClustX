@@ -41,6 +41,17 @@ logger = logging.getLogger(__name__)
 _R_ORIGINAL = "18923707"
 _R_RETRIEVAL = "19470217"
 _R_BENCHMARK = "20732535"
+_REFERENCE_COLLECTION = "https://github.com/ChuanbinZhang/Multi-view-datasets"
+# Published collection statistics, not a promise about transformed hosted artifacts.
+_REFERENCE_DETAILS = {
+    "3sources": "169 news stories; 6 classes; Reuters/BBC/Guardian dimensions 3068/3560/3631.",
+    "100leaves": "1,600 leaf images; 100 species; three 64-dimensional descriptors.",
+    "bbcsport": "544 sports documents; 5 classes; feature dimensions 3183/3203.",
+    "caltech101_7": "1,474 images; 7 classes; six descriptors with dimensions 48/40/254/1984/512/928.",
+    "uci": "2,000 digit images; 10 classes; feature dimensions 240/76/6.",
+    "yale": "165 face images; 15 subjects; feature dimensions 4096/3304/6750.",
+    "reuters_1200": "1,200 documents; 6 classes; five languages with 2,000 features each.",
+}
 
 
 @dataclass(frozen=True)
@@ -57,6 +68,9 @@ class DatasetSpec:
     description: str = ""
     cache_dir: str | None = None  # defaults to `name`
     remote: str | None = None     # remote filename, defaults to `filename`
+    reference: str = _REFERENCE_COLLECTION
+    reference_verified: bool = False
+    reference_details: str = ""
 
     @property
     def url(self) -> str:
@@ -74,6 +88,8 @@ def _standard(name, filename, n_views, description=""):
         name, _R_BENCHMARK, filename, readers.read_standard,
         kwargs={"n_views": n_views}, n_views=n_views,
         description=description,
+        reference_verified=True,
+        reference_details=_REFERENCE_DETAILS.get(name, ""),
     )
 
 
@@ -339,6 +355,9 @@ def get_dataset_info(name: str, *, variant=None) -> dict:
         "availability_note": "Hosted BBC4view artifact is known to be corrupt" if spec.name == "bbc4view" else "",
         "n_views": spec.n_views,
         "description": spec.description,
+        "reference": spec.reference,
+        "reference_verified": spec.reference_verified,
+        "reference_details": spec.reference_details,
         "url": spec.url,
         "cache_path": str(spec.path),
         "cached": spec.path.exists(),

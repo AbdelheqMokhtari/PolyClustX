@@ -64,7 +64,7 @@ def model_details(model):
 
     for info in list_models_info().values():
         if info["class"] is cls:
-            details.update({key: info[key] for key in ("description", "paper") if key in info})
+            details.update({key: info[key] for key in ("description", "paper", "implementation") if key in info})
             break
     return details
 

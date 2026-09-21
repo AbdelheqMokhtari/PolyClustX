@@ -129,6 +129,7 @@ def _get_train_loop(n_views):
 # Public model class
 
 @register_model("lmgec", description="Linear multiview attributed graph embedding and clustering.",
+                implementation="https://github.com/chakib401/LMGEC",
                 paper="https://doi.org/10.1145/3539597.3570367", uses_graphs=True, defaults={
     "embedding_dim": 16,
     "temperature": 1.0,
@@ -227,6 +228,17 @@ class LMGEC(BaseModel):
     >>> model = LMGEC(n_clusters=3, embedding_dim=4, preprocess=False)
     >>> model.fit([X1, X2])        # just feature matrices
     """
+
+    @staticmethod
+    def resolve_fit_parameters(Xs, params):
+        """Return the effective parameters for these views, without modifying inputs."""
+        resolved = dict(params)
+        limit = min(min(view.shape) - 1 for view in Xs)
+        if limit < 1:
+            raise ValueError("LMGEC needs at least two samples and two features in every view")
+        if "embedding_dim" in resolved:
+            resolved["embedding_dim"] = min(resolved["embedding_dim"], limit)
+        return resolved
 
     def __init__(
         self,
