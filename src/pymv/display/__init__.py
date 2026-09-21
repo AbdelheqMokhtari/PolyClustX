@@ -1,4 +1,4 @@
-"""Optional interactive workbench, installed with pymv-clustering[display]."""
+"""Optional interactive interface, installed with pymv-clustering[ui]."""
 
 
 def launch():
@@ -9,7 +9,7 @@ def launch():
     from pathlib import Path
 
     if importlib.util.find_spec("streamlit") is None:
-        raise SystemExit('Install the interface with: pip install "pymv-clustering[display]"')
+        raise SystemExit('Install the interface with: pip install "pymv-clustering[ui]"')
     app = Path(__file__).with_name("app.py")
     raise SystemExit(
         subprocess.call(

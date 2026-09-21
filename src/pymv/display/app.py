@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import copy
-import io
 import shutil
 import tempfile
-import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +20,7 @@ from pymv.data import (
     load_files,
     read_arrays,
 )
+from pymv.display.exporting import PlotSnapshot, dataset_mat
 from pymv.display.model_controls import (
     ParameterControl,
     compatible_models,
@@ -29,7 +28,7 @@ from pymv.display.model_controls import (
     parse_candidates,
     parse_int_tuple,
 )
-from pymv.display.preprocessing import PreprocessingSpec, ViewPreprocessing
+from pymv.display.preprocessing import PreprocessingSpec, ViewPreprocessing, prepare_dataset
 from pymv.display.profiles import dataset_profile, format_bytes
 from pymv.display.results import (
     aggregate_results,
@@ -194,7 +193,7 @@ def _profile(data, profile=None):
             }
         )
     st.subheader("Feature views")
-    st.dataframe(pd.DataFrame(view_rows), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(view_rows), hide_index=True, width="stretch")
     left, right = st.columns(2)
     with left:
         st.subheader("Class distribution")
@@ -223,7 +222,7 @@ def _profile(data, profile=None):
                 }
                 for item in profile["graphs"]
             ]
-            st.dataframe(pd.DataFrame(graph_rows), hide_index=True, use_container_width=True)
+            st.dataframe(pd.DataFrame(graph_rows), hide_index=True, width="stretch")
         else:
             st.caption("Feature-only dataset: no graph relation was loaded.")
 
@@ -332,7 +331,7 @@ def _container_upload(workspace):
         st.error(str(exc))
         return
     table = [{"array": key, "shape": str(value.shape), "dtype": str(value.dtype)} for key, value in arrays.items()]
-    st.dataframe(pd.DataFrame(table), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(table), hide_index=True, width="stretch")
     keys = list(arrays)
     views = st.multiselect("Feature arrays", keys, key="container_views")
     label_key = st.selectbox("Labels (optional)", [None, *keys], key="container_labels")
@@ -491,11 +490,11 @@ def render_dataset(workspace):
     dataset_id = _dataset_picker(workspace, "dataset_browser")
     resource = workspace.datasets[dataset_id]
     left, right = st.columns(2)
-    if left.button("Unload", disabled=not resource.loaded, use_container_width=True):
+    if left.button("Unload", disabled=not resource.loaded, width="stretch"):
         workspace.unload_dataset(dataset_id)
         st.session_state.suspended_dataset = dataset_id
         st.rerun()
-    if right.button("Remove dataset", use_container_width=True):
+    if right.button("Remove dataset", width="stretch"):
         workspace.remove_dataset(dataset_id)
         st.session_state.selected_dataset = None
         st.rerun()
@@ -862,7 +861,20 @@ def render_experiment(workspace):
     models = st.multiselect("Model configurations", list(workspace.models),
                             default=[preferred] if preferred in workspace.models else [],
                             format_func=lambda key: workspace.models[key]['name'])
-    compatible = set(workspace.compatible_pairs(datasets, models))
+    clusters_by_dataset = {}
+    dataset_defaults = st.checkbox("Use dataset class counts for benchmark datasets", value=True,
+                                   key="dataset_class_counts",
+                                   help="Uncheck to use the K values saved with each model, including K comparisons.")
+    if dataset_defaults:
+        for key in datasets:
+            if workspace.benchmark_mode(key):
+                resource = workspace.datasets[key]
+                known = resource.hint.get("n_clusters") or workspace.load_dataset(key).n_clusters
+                clusters_by_dataset[key] = [st.number_input(
+                    f"K for {resource.name}", 1, resource.hint.get("n_samples"), int(known),
+                    key=f"experiment_dataset_k_{key}",
+                )]
+    compatible = set(workspace.compatible_pairs(datasets, models, clusters_by_dataset=clusters_by_dataset))
     mode = st.radio("Combination selection", ["All compatible pairs", "Choose in table"], horizontal=True)
     selected = [(dataset, model) for dataset in datasets for model in models if (dataset, model) in compatible]
     if datasets and models and mode == "Choose in table":
@@ -874,7 +886,7 @@ def render_experiment(workspace):
             for d in datasets
         ])
         edited = st.data_editor(
-            table, hide_index=True, use_container_width=True, disabled=["dataset"],
+            table, hide_index=True, width="stretch", disabled=["dataset"],
             column_config={"dataset": st.column_config.TextColumn("Dataset"),
                            **{f"model_{i}": st.column_config.CheckboxColumn(workspace.models[m]["name"])
                               for i, m in enumerate(models)}},
@@ -902,7 +914,7 @@ def render_experiment(workspace):
     available_metrics = INTERNAL_NAMES + (EXTERNAL_NAMES if benchmark else [])
     metrics = st.multiselect("Metrics", available_metrics, default=available_metrics,
                              key=f"experiment_metrics_{benchmark}")
-    total = sum(len(workspace.models[m]["clusters"]) * repeats for _, m in selected)
+    total = sum(len(clusters_by_dataset.get(d, workspace.models[m]["clusters"])) * repeats for d, m in selected)
     st.caption(f"{len(selected)} dataset/model combinations · {total} fits, executed one at a time.")
     if total > 2000:
         st.warning("Reduce the selected combinations, K values or repeats to at most 2,000 fits.")
@@ -913,7 +925,8 @@ def render_experiment(workspace):
             specs.append(ExperimentSpec(
                 dataset_id=dataset_id, model=settings["model"], model_name=settings["name"],
                 name=name, params=settings["params"],
-                clusters=settings["clusters"], repeats=repeats, seed=seed, benchmark=benchmark, metrics=metrics,
+                clusters=clusters_by_dataset.get(dataset_id, settings["clusters"]),
+                repeats=repeats, seed=seed, benchmark=benchmark, metrics=metrics,
                 preprocessing=workspace.preprocessing.get(dataset_id, PreprocessingSpec()),
             ))
         progress = st.progress(0.0, text="Running fits")
@@ -943,6 +956,14 @@ def _downloads(record, *, prefix):
             st.session_state._prepared_record_download = cached
     columns[2].download_button("Complete ZIP", cached["zip"], f"{filename}.zip",
                                "application/zip", key=f"{prefix}_zip")
+
+
+def _adjustment_notice(record):
+    changes = sorted({f"{key}: {values['requested']} → {values['effective']}"
+                      for row in record.rows for key, values in row.get("parameter_adjustments", {}).items()})
+    if changes:
+        st.info("Adjusted for this dataset: " + "; ".join(changes)
+                + ". Tables and exports show the values actually used. Your saved model is unchanged.")
 
 
 def _search_runner(workspace, dataset_id, data, model, params, clusters, search_space,
@@ -997,7 +1018,8 @@ def render_search(workspace):
                          expanded=position == 0):
             search = record.report["search"]
             st.caption(f"{search['strategy'].title()} search · {search['direction']} {search['objective']}")
-            st.dataframe(pd.DataFrame(aggregate_results(record)), hide_index=True, use_container_width=True)
+            st.dataframe(pd.DataFrame(aggregate_results(record)), hide_index=True, width="stretch")
+            _adjustment_notice(record)
             with st.expander("Tuning steps and detailed runs"):
                 st.dataframe(pd.DataFrame([{k: v for k, v in step.items() if k != "parameters"}
                                            for step in search["steps"]]), hide_index=True)
@@ -1014,9 +1036,10 @@ def render_search(workspace):
             if actions[0].button("Copy best to experiment", key=f"copy_best_{record.id}",
                          disabled=search["best_configuration"] is None
                          or record.spec.dataset_id not in workspace.datasets or not best_name.strip(),
-                          use_container_width=True):
+                          width="stretch"):
                 params = copy.deepcopy(search["best_parameters"])
                 clusters = [params.pop("n_clusters")]
+                st.session_state.dataset_class_counts = False
                 params.pop("random_state", None)
                 key = workspace.add_model(best_name, record.spec.model, params, clusters)
                 workspace.advance_name(prefix)
@@ -1028,7 +1051,7 @@ def render_search(workspace):
                 st.session_state.preferred_model = key
                 _set_page("Experiment")
                 st.rerun()
-            if actions[1].button("Delete search result", key=f"delete_search_{record.id}", use_container_width=True):
+            if actions[1].button("Delete search result", key=f"delete_search_{record.id}", width="stretch"):
                 workspace.delete_record(record.id)
                 if st.session_state.get("_prepared_record_download", {}).get("id") == record.id:
                     st.session_state.pop("_prepared_record_download")
@@ -1036,21 +1059,21 @@ def render_search(workspace):
                     if key.startswith(f"projection_{record.id}_"):
                         del st.session_state[key]
                 st.rerun()
-            with st.expander("Download search results"):
-                _downloads(record, prefix=f"search_{record.id}")
+            if st.button("Open Export", key=f"export_search_{record.id}"):
+                _set_page("Export")
+                st.rerun()
 
 
 def _record_selector(workspace, key):
     if not workspace.records:
         st.info("No experiments have been run in this session.")
         return None
+    labels = {record.id: f"{record_label(record)} · {record.created_at[:19]} · Result {len(workspace.records) - i}"
+              for i, record in enumerate(workspace.records)}
     record_id = st.selectbox(
         "Experiment",
         [record.id for record in workspace.records],
-        format_func=lambda value: next(
-            f"{record_label(record)} · {record.created_at[:19]}"
-            for record in workspace.records if record.id == value
-        ),
+        format_func=lambda value: labels[value],
         key=key,
     )
     return next(record for record in workspace.records if record.id == record_id)
@@ -1069,7 +1092,8 @@ def render_results(workspace):
                 f"{record.dataset_summary['name']} · {len(record.rows)} fits"
             )
             st.subheader("Repeated-run summary")
-            st.dataframe(pd.DataFrame(aggregate_results(record)), hide_index=True, use_container_width=True)
+            _adjustment_notice(record)
+            st.dataframe(pd.DataFrame(aggregate_results(record)), hide_index=True, width="stretch")
             failed = [row for row in record.rows if row["status"] == "failed"]
             if failed:
                 st.warning(f"{len(failed)} fit(s) failed. Expand detailed runs to inspect their errors.")
@@ -1077,13 +1101,13 @@ def render_results(workspace):
                 st.dataframe(
                     pd.DataFrame(detailed_rows(record)),
                     hide_index=True,
-                    use_container_width=True,
+                    width="stretch",
                 )
             st.divider()
             st.caption("Result actions")
             left, right = st.columns(2)
             if left.button("Use these settings for a new experiment", key=f"duplicate_{record.id}",
-                           use_container_width=True):
+                           width="stretch"):
                 dataset_id = record.spec.dataset_id
                 if dataset_id in workspace.datasets:
                     draft = _draft(workspace, "model_library", None)
@@ -1103,6 +1127,7 @@ def render_results(workspace):
                     )
                     st.session_state.selected_dataset = dataset_id
                     st.session_state._restore_model = copy.deepcopy(draft)
+                    st.session_state.dataset_class_counts = False
                     _set_page("Model")
                     st.rerun()
                 else:
@@ -1110,7 +1135,7 @@ def render_results(workspace):
                         "The source dataset was removed. Results remain available, "
                         "but the experiment cannot be rerun."
                     )
-            if right.button("Delete this result", key=f"delete_{record.id}", use_container_width=True):
+            if right.button("Delete this result", key=f"delete_{record.id}", width="stretch"):
                 workspace.delete_record(record.id)
                 if st.session_state.get("_prepared_record_download", {}).get("id") == record.id:
                     st.session_state.pop("_prepared_record_download")
@@ -1118,8 +1143,9 @@ def render_results(workspace):
                     if key.startswith(f"projection_{record.id}_"):
                         del st.session_state[key]
                 st.rerun()
-            with st.expander("Download experiment results"):
-                _downloads(record, prefix=f"result_{record.id}")
+            if st.button("Open Export", key=f"export_result_{record.id}"):
+                _set_page("Export")
+                st.rerun()
 
 
 def _scatter_figure(projected, labels, title, method):
@@ -1148,21 +1174,20 @@ def _scatter_figure(projected, labels, title, method):
 
 
 def _figure_downloads(figure, table, key, *, filename=None):
-    """Export exactly the plotted data and a standalone, interactive figure."""
-    data = table.to_csv(index=False).encode()
-    figure_json = figure.to_json().encode()
-    output = io.BytesIO()
-    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr("figure.json", figure_json)
-        archive.writestr("data.csv", data)
-        archive.writestr("figure.html", figure.to_html(include_plotlyjs=True))
-    with st.expander("Download visualization"):
-        columns = st.columns(3)
-        for column, label, content, suffix, mime in zip(
-            columns, ["Plot JSON", "Plot data CSV", "Plot ZIP"], [figure_json, data, output.getvalue()],
-            ["json", "csv", "zip"], ["application/json", "text/csv", "application/zip"],
-        ):
-            column.download_button(label, content, f"{filename or key}.{suffix}", mime, key=f"{key}_{suffix}")
+    """Save only on request; downloads are centralized on Export."""
+    if st.button("Save plot to Export", key=f"save_plot_{key}"):
+        workspace = _workspace()
+        if key not in workspace.plots and len(workspace.plots) >= 100:
+            st.warning("Remove unused saved plots in Export before adding more (limit: 100).")
+            return
+        try:
+            snapshot = PlotSnapshot(filename or key, figure, table)
+            if key in workspace.plots:
+                workspace.plots[key].cleanup()
+            workspace.plots[key] = snapshot
+            st.success("Plot saved. Open Export → Visualizations to name and download it.")
+        except ValueError as exc:
+            st.error(str(exc))
 
 
 def _loss_comparison(workspace):
@@ -1202,13 +1227,15 @@ def _loss_comparison(workspace):
                     for i, loss in zip(iterations, losses))
     figure.update_layout(xaxis_title="Iteration", yaxis_title="Normalized loss", template="plotly_white",
                          height=500, showlegend=len(selected) <= 12)
-    st.plotly_chart(figure, use_container_width=True)
+    st.plotly_chart(figure, width="stretch")
     if len(selected) > 12:
         st.caption("Legend hidden for more than 12 curves; hover over a curve to identify its run.")
     _figure_downloads(figure, pd.DataFrame(rows), "loss-comparison")
 
 
 def render_visualizations(workspace):
+    import plotly.graph_objects as go
+
     st.header("Visualizations")
     _loss_comparison(workspace)
     record = _record_selector(workspace, "visual_record")
@@ -1224,16 +1251,27 @@ def render_visualizations(workspace):
     )
     plot_stem = f"{record_download_stem(record)}_{download_stem(run_label(record, index))}"
     artifact = record.artifacts[index]
-    labels = artifact["labels"]
+    _, labels = np.unique(artifact["labels"], return_inverse=True)
+    st.caption("Predicted clusters use display IDs 0 to K−1. Raw model labels are preserved in result exports.")
     left, right = st.columns(2)
     with left:
         st.subheader("Predicted cluster sizes")
         counts = pd.Series(labels).value_counts().sort_index()
-        st.bar_chart(counts, color="#8A1538")
+        figure = go.Figure(go.Bar(x=counts.index.astype(str), y=counts.values, marker_color="#8A1538"))
+        figure.update_layout(xaxis_type="category", xaxis_title="Predicted cluster", yaxis_title="Samples")
+        st.plotly_chart(figure, width="stretch")
+        _figure_downloads(figure, counts.rename_axis("cluster").reset_index(name="samples"),
+                          f"sizes-{record.id}-{index}", filename=f"{plot_stem}_cluster-sizes")
     with right:
         st.subheader("Normalized optimization loss")
         if "loss" in artifact and artifact["loss"].ndim == 1:
-            st.line_chart(normalized_loss(artifact["loss"]), color="#8A1538")
+            losses = normalized_loss(artifact["loss"])
+            iterations = list(range(1, len(losses) + 1))
+            figure = go.Figure(go.Scatter(x=iterations, y=losses, mode="lines", line_color="#8A1538"))
+            figure.update_layout(xaxis_title="Iteration", yaxis_title="Normalized loss")
+            st.plotly_chart(figure, width="stretch")
+            _figure_downloads(figure, pd.DataFrame({"iteration": iterations, "normalized_loss": losses}),
+                              f"loss-{record.id}-{index}", filename=f"{plot_stem}_loss")
         else:
             st.caption("This model did not expose a one-dimensional loss history.")
     st.subheader("Projection")
@@ -1255,14 +1293,14 @@ def render_visualizations(workspace):
             projected, rows = st.session_state[cache_key]
             columns = st.columns(2 if "true_labels" in artifact else 1)
             predicted_figure = _scatter_figure(projected, labels[rows], "Predicted clusters", method)
-            columns[0].plotly_chart(predicted_figure, use_container_width=True)
+            columns[0].plotly_chart(predicted_figure, width="stretch")
             projection_table = pd.DataFrame({"sample_index": rows, "x": projected[:, 0], "y": projected[:, 1],
                                              "predicted_cluster": labels[rows]})
             _figure_downloads(predicted_figure, projection_table, f"projection-{record.id}-{index}-{method}",
                               filename=f"{plot_stem}_projection-{method}")
             if "true_labels" in artifact:
                 true_figure = _scatter_figure(projected, artifact["true_labels"][rows], "Ground-truth classes", method)
-                columns[1].plotly_chart(true_figure, use_container_width=True)
+                columns[1].plotly_chart(true_figure, width="stretch")
                 projection_table["true_class"] = artifact["true_labels"][rows]
                 _figure_downloads(true_figure, projection_table, f"true-projection-{record.id}-{index}-{method}",
                                   filename=f"{plot_stem}_true-projection-{method}")
@@ -1272,9 +1310,11 @@ def render_visualizations(workspace):
             )
     if "true_labels" in artifact:
         st.subheader("Confusion matrix")
-        matrix, row_names, column_names = compact_confusion(artifact["true_labels"], labels)
-        import plotly.graph_objects as go
-
+        try:
+            matrix, row_names, column_names = compact_confusion(artifact["true_labels"], labels)
+        except ValueError as exc:
+            st.warning(str(exc))
+            return
         normalize = st.checkbox("Normalize confusion matrix by true class", value=True)
         values = matrix / np.maximum(matrix.sum(axis=1, keepdims=True), 1) if normalize else matrix
         figure = go.Figure(go.Heatmap(z=values, x=column_names, y=row_names, colorscale="Blues",
@@ -1282,23 +1322,78 @@ def render_visualizations(workspace):
                                      hovertemplate=("True class: %{y}<br>Cluster: %{x}<br>"
                                                     "Count: %{customdata}<extra></extra>")))
         figure.update_layout(xaxis_title="Predicted cluster", yaxis_title="True class", height=650)
-        figure.update_yaxes(autorange="reversed")
-        st.plotly_chart(figure, use_container_width=True)
-        st.caption("Columns are matched to classes by maximum overlap. Cluster IDs remain visible; "
-                   "unmatched clusters remain separate. Rows are true classes, columns are predicted clusters.")
-        confusion_table = pd.DataFrame(matrix, index=row_names, columns=column_names)
+        figure.update_xaxes(type="category", categoryorder="array", categoryarray=column_names)
+        figure.update_yaxes(type="category", categoryorder="array", categoryarray=row_names, autorange="reversed")
+        st.plotly_chart(figure, width="stretch")
+        st.caption("Hungarian matching maximizes the diagonal using every class before display compaction. "
+                   "Rows are true classes; columns are matched predicted cluster IDs. "
+                   "Unmatched clusters remain separate.")
+        confusion_table = pd.DataFrame(values, index=row_names, columns=column_names)
         _figure_downloads(figure, confusion_table.rename_axis("true_class").reset_index(),
                           f"confusion-{record.id}-{index}", filename=f"{plot_stem}_confusion")
         if "Other classes" in row_names or "Other clusters" in column_names:
-            st.caption("The 30 largest classes/clusters are shown; remaining values are combined into Other.")
+            st.caption("Up to 30 high-frequency matched pairs are shown; remaining counts are combined into Other.")
     st.subheader("Cluster details")
     details = cluster_details(labels, artifact.get("true_labels"))
-    st.dataframe(pd.DataFrame(details), hide_index=True, use_container_width=True)
+    st.dataframe(pd.DataFrame(details), hide_index=True, width="stretch")
 
 
 def render_export(workspace):
     st.header("Export")
-    if workspace.batches:
+    kind = st.radio("Export type", ["Experiment batches", "Individual results", "Visualizations", "Prepared datasets"],
+                    horizontal=True)
+    st.caption("Download reports, saved figures, or prepared data. "
+               "Session files are temporary; download before closing.")
+    if kind == "Visualizations":
+        if not workspace.plots:
+            st.info("In Visualizations, click Save plot to Export below any figure first.")
+            return
+        key = st.selectbox("Saved plot", list(workspace.plots), format_func=lambda value: workspace.plots[value].name)
+        plot = workspace.plots[key]
+        name = st.text_input("Download name", plot.name, key=f"plot_name_{key}")
+        format = st.selectbox("Plot format", ["zip", "json", "csv"],
+                              format_func=lambda f: {"zip": "ZIP · interactive HTML, JSON and data",
+                                                     "json": "JSON · Plotly figure", "csv": "CSV · plotted values"}[f])
+        st.download_button("Download visualization", plot.export(format),
+                            f"{download_stem(name)}.{format}", key=f"plot_download_{key}")
+        if st.button("Remove saved plot"):
+            workspace.plots.pop(key).cleanup()
+            st.rerun()
+        return
+    if kind == "Prepared datasets":
+        ready = [key for key in workspace.datasets if key not in workspace.pending_datasets]
+        if not ready:
+            st.info("Load a dataset and click Apply changes on the Dataset page first.")
+            return
+        key = st.selectbox("Prepared dataset", ready, format_func=lambda k: workspace.datasets[k].name)
+        resource = workspace.datasets[key]
+        include_labels = st.checkbox("Include ground-truth labels", value=workspace.benchmark_mode(key))
+        recipe = workspace.preprocessing.get(key, PreprocessingSpec())
+        token = (key, resource.name, repr(recipe), resource.hint.get("prepared_revision", 0), include_labels)
+        st.caption("MATLAB file: prepared views, graphs, sample IDs, availability mask and metadata. "
+                   "This includes applied Dataset preprocessing, not model-internal transformations.")
+        if st.button("Prepare MATLAB file"):
+            try:
+                with st.spinner("Preparing dataset download"):
+                    source = workspace.load_dataset(key)
+                    if dataset_profile(source)["memory_bytes"] > 256 * 1024**2:
+                        raise ValueError("This dataset exceeds the 256 MB interface export limit; "
+                                         "use dataset_mat in Python")
+                    data = prepare_dataset(source, recipe)
+                    st.session_state._prepared_mat = {
+                        "token": token, "data": dataset_mat(data, include_labels=include_labels),
+                    }
+            except Exception as exc:
+                st.error(str(exc))
+        cached = st.session_state.get("_prepared_mat", {})
+        if cached.get("token") == token:
+            st.download_button("Download prepared data (.mat)", cached["data"],
+                               f"{download_stem(resource.name)}_prepared.mat", "application/octet-stream")
+        return
+    if kind == "Experiment batches":
+        if not workspace.batches:
+            st.info("Run an experiment batch first, or choose Individual results for searches and standalone runs.")
+            return
         st.subheader("Complete experiment batches")
         batch_index = st.selectbox("Batch", list(range(len(workspace.batches))),
                                    format_func=lambda i: f"{workspace.batches[i]['name']} · "
@@ -1311,6 +1406,7 @@ def render_export(workspace):
         columns[0].download_button("Batch JSON", report_json(report), f"{filename}.json", "application/json")
         columns[1].download_button("Batch CSV", report_csv(report), f"{filename}.csv", "text/csv")
         columns[2].download_button("Batch ZIP", report_zip(report), f"{filename}.zip", "application/zip")
+        return
     record = _record_selector(workspace, "export_record")
     if record is None:
         return
@@ -1324,7 +1420,7 @@ def _sidebar(workspace):
         from pymv import __version__
 
         _, center, _ = st.columns([1, 3, 1])
-        center.image(str(ASSETS / "logo.png"), use_container_width=True)
+        center.image(str(ASSETS / "logo.png"), width="stretch")
         st.markdown(f'<div class="pymv-brand"><h1>pymv</h1><p>Version {__version__}</p></div>',
                     unsafe_allow_html=True)
         st.caption("Multi-view & multimodal clustering and representation learning")
@@ -1333,7 +1429,7 @@ def _sidebar(workspace):
         with st.container(key="sidebar_navigation"):
             for label in pages:
                 if st.button("Hyperparameter search" if label == "Search" else label,
-                             key=f"nav_{label}", use_container_width=True,
+                             key=f"nav_{label}", width="stretch",
                              type="primary" if STEPS[step] == label else "secondary"):
                     _set_page(label)
                     st.rerun()

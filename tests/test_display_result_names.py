@@ -34,6 +34,14 @@ def test_result_labels_and_download_names(monkeypatch, tmp_path):
         return original(self, label, data, file_name, *args, **kwargs)
 
     monkeypatch.setattr(DeltaGenerator, "download_button", download)
+    import streamlit as st
+    original_download = st.download_button
+
+    def direct_download(label, data, file_name=None, *args, **kwargs):
+        filenames.append(file_name)
+        return original_download(label, data, file_name, *args, **kwargs)
+
+    monkeypatch.setattr(st, "download_button", direct_download)
     at = app_test(ws, 4)
     assert not at.exception
     assert all("My baseline" in e.label for e in at.expander if "Comparison 1" in e.label)
@@ -45,7 +53,10 @@ def test_result_labels_and_download_names(monkeypatch, tmp_path):
     assert all(r.id[:6] not in label for r in ws.records for label in comparisons.options)
     experiments = next(s for s in at.selectbox if s.label == "Experiment")
     assert all("Demo dataset" in label for label in experiments.options)
+    next(b for b in at.button if b.key and b.key.startswith("save_plot_confusion-")).click().run()
+    assert len(ws.plots) == 1 and not at.exception
     at.button(key="nav_Export").click().run()
+    next(r for r in at.radio if r.label == "Export type").set_value("Visualizations").run()
     assert not at.exception
     assert filenames and any(name.endswith("_confusion.zip") for name in filenames)
     for filename in filenames:

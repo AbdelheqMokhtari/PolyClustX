@@ -186,6 +186,7 @@ class Workspace:
         self.batches = []
         self.name_counters = {}
         self.pending_datasets = set()
+        self.plots = {}
 
     @staticmethod
     def unique_name(name, existing):
@@ -208,6 +209,8 @@ class Workspace:
     def apply_dataset(self, dataset_id, recipe):
         """Validate preparation before making a newly loaded dataset available to jobs."""
         prepared = prepare_dataset(self.load_dataset(dataset_id), recipe)
+        resource = self.datasets[dataset_id]
+        resource.hint["prepared_revision"] = resource.hint.get("prepared_revision", 0) + 1
         from .profiles import dataset_profile
 
         profile = dataset_profile(prepared)
@@ -223,7 +226,7 @@ class Workspace:
         if resource.loaded:
             resource._data.name = resource.name
 
-    def compatible_pairs(self, dataset_ids, model_ids):
+    def compatible_pairs(self, dataset_ids, model_ids, *, clusters_by_dataset=None):
         """Find valid pairs without fitting; materialize at most one source at a time."""
         pairs = []
         for dataset_id in dataset_ids:
@@ -240,7 +243,8 @@ class Workspace:
                 cls = get_model(settings["model"])
                 if not complete and not getattr(cls, "supports_missing_views", False):
                     continue
-                if all(1 <= k <= resource.hint["n_samples"] for k in settings["clusters"]):
+                clusters = (clusters_by_dataset or {}).get(dataset_id, settings["clusters"])
+                if all(1 <= k <= resource.hint["n_samples"] for k in clusters):
                     pairs.append((dataset_id, model_id))
         return pairs
 
@@ -450,6 +454,16 @@ class Workspace:
                     artifact = {}
                     started = time.perf_counter()
                     try:
+                        requested = dict(kwargs)
+                        resolver = getattr(cls, "resolve_fit_parameters", None)
+                        if resolver is not None:
+                            kwargs = resolver(data.Xs, kwargs)
+                        row["params"] = kwargs
+                        row["requested_params"] = requested
+                        row["parameter_adjustments"] = {
+                            key: {"requested": requested[key], "effective": value}
+                            for key, value in kwargs.items() if key in requested and value != requested[key]
+                        }
                         model = cls(**kwargs)
                         copy.deepcopy(data).fit(model)
                         row["diagnostics"] = diagnostics(model)
@@ -498,7 +512,8 @@ def record_report(record):
         params = {k: v for k, v in rows[0]["params"].items() if k != "random_state"}
         runs = [{"run": row["repeat"], "status": row["status"], "seconds": row["seconds"],
                  "started_at": row["started_at"], "completed_at": row["completed_at"],
-                 "parameters": row["params"], "error": row.get("error"),
+                 "parameters": row["params"], "requested_parameters": row.get("requested_params", row["params"]),
+                 "parameter_adjustments": row.get("parameter_adjustments", {}), "error": row.get("error"),
                  "metrics": {key: row.get(key) for key in record.spec.metrics}, **row.get("diagnostics", {})}
                 for row in rows]
         report["experiments"].append({"record_id": record.id, "configuration": configuration,
