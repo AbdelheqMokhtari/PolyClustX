@@ -1447,16 +1447,27 @@ def main():
     st.set_page_config(page_title="pymv", page_icon=str(ASSETS / "logo.png"), layout="wide")
     st.markdown(f"<style>{CSS}</style>", unsafe_allow_html=True)
     
-
+    # --- CI Test & Cross-Page Persistence Fixes (Minimum Version Support) ---
+    st.session_state.setdefault("dataset_class_counts", True)
+    
+    if "workspace" in st.session_state:
+        for dataset_id in st.session_state.workspace.datasets:
+            st.session_state.setdefault(f"experiment_dataset_k_{dataset_id}", 3)
+            
     if "drafts" in st.session_state:
         for draft in st.session_state.drafts.values():
             model = draft.get("model")
             if model:
-                for param in draft.get("search_space", {}):
-                    st.session_state.setdefault(f"search_{model}_{param}", True)
-
-    st.session_state.setdefault("search_lmgec_temperature", False)
-    st.session_state.setdefault("dataset_class_counts", True)
+                try:
+                    _, controls = parameter_controls(model)
+                    for param in controls:
+                        st.session_state.setdefault(f"search_{model}_{param}", param in draft.get("search_space", {}))
+                except Exception:
+                    pass
+                    
+                for param, candidates in draft.get("search_space", {}).items():
+                    st.session_state.setdefault(f"candidates_{model}_{param}", [str(c) for c in candidates])
+    # -------------------------------------------------------------------------
 
     if "_next_workflow_step" in st.session_state:
         st.session_state.workflow_step = st.session_state.pop("_next_workflow_step")
