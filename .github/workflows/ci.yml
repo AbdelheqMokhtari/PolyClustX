@@ -20,8 +20,21 @@ env:
   CUDA_VISIBLE_DEVICES: ""
 
 jobs:
+  # NEW: Fail-fast linting job. Catches syntax/style errors in seconds.
+  lint:
+    name: Lint codebase
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ruff
+      - run: ruff check src/ tests/
+
   test:
     name: Test · Python ${{ matrix.python-version }}
+    needs: lint # Waits for the lint job to pass first
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
@@ -31,18 +44,15 @@ jobs:
         python-version: ["3.9", "3.11"]
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
       - name: Install
         run: pip install -e ".[dev]"
-
-      - name: Lint
-        run: ruff check src/ tests/
 
       - name: Test
         # Dataset-download tests are deselected by default (see pyproject);
@@ -58,13 +68,14 @@ jobs:
 
   build:
     name: Build distribution
+    needs: test # Only build if tests pass
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
@@ -80,6 +91,7 @@ jobs:
           python -m pip install --no-deps dist/*.whl
           python - <<'PY'
           from importlib.metadata import distribution
+          # Ensure "pymv-clustering" exactly matches the package name in pyproject.toml
           package = distribution("pymv-clustering")
           files = {str(path) for path in package.files}
           for path in ("pymv_cli_entry.py", "pymv/configs/default.yaml", "pymv/display/assets/logo.png"):

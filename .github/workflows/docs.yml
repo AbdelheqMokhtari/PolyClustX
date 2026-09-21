@@ -2,8 +2,9 @@ name: Documentation and interface
 
 on:
   push:
-    branches: [main, develop, 'feature/**']
+    branches: [main, develop] # Removed 'feature/**' to prevent duplicate triggers
   pull_request:
+    branches: [main, develop]
   workflow_dispatch:
 
 permissions:
@@ -18,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
@@ -29,6 +30,7 @@ jobs:
         with:
           name: documentation-html
           path: docs/_build/html
+          
   interface:
     name: Interface · ${{ matrix.streamlit }}
     runs-on: ubuntu-latest
@@ -45,8 +47,8 @@ jobs:
       TF_CPP_MIN_LOG_LEVEL: '3'
       CUDA_VISIBLE_DEVICES: ''
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
           cache: pip
