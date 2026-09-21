@@ -15,7 +15,7 @@ selected model's capabilities.
 
 .. code-block:: bash
 
-   pip install "pymv-clustering[display]"
+   pip install "pymv-clustering[ui]"
    pymv-display
 
 .. code-block:: python
@@ -29,7 +29,7 @@ selected model's capabilities.
 
 Start with :doc:`user_guide/quickstart`, explore
 :doc:`user_guide/workbench`, or find a method and dataset in the
-:doc:`catalog/models` and :doc:`catalog/datasets` catalogs.
+:doc:`background/algorithms` and :doc:`catalog/datasets` catalogs.
 
 .. toctree::
    :maxdepth: 2
@@ -48,7 +48,6 @@ Start with :doc:`user_guide/quickstart`, explore
    :caption: Algorithms & resources
 
    background/algorithms
-   catalog/models
    catalog/datasets
 
 .. toctree::
@@ -89,10 +88,9 @@ Start with :doc:`user_guide/quickstart`, explore
 Scientific scope
 ----------------
 
-Currently implemented models are LMGEC and SCM. Support for a data representation
-does not imply that every model exploits all of its information. For example,
-SCM ignores graphs; neither current model natively consumes incomplete views.
-See :doc:`background/algorithms` for original papers and implementation scope.
+Support for a data representation does not imply that every model uses all of
+its information. See :doc:`background/algorithms` for the capability table,
+original papers, source implementations and algorithm explanations.
 
 The documentation organization takes inspiration from the
 `UMAP documentation <https://umap-learn.readthedocs.io/en/latest/>`_.

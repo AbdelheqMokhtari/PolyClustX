@@ -31,3 +31,5 @@ Python. Its records are session-local; exports do not persist original data.
 .. autofunction:: pymv.display.workspace.export_record
 
 .. autofunction:: pymv.display.workspace.fingerprint
+
+.. autofunction:: pymv.display.exporting.dataset_mat

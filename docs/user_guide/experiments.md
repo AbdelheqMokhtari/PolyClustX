@@ -6,7 +6,7 @@ comparison with ground-truth labels; it does not pass labels to a model.
 | Mode | Labels | Metrics | Cluster counts |
 | --- | --- | --- | --- |
 | Unlabeled / real-world | Not needed | Internal | Manually chosen |
-| Benchmark evaluation | Required for external scores | Internal and/or external | Manually chosen |
+| Benchmark evaluation | Required for external scores | Internal and/or external | Interface defaults to the number of true classes; editable |
 
 ## Metrics and model selection
 
@@ -95,7 +95,8 @@ results = Experiment(
 print(results.json_path)
 ```
 
-K is the explicit value on each model, not a value inferred during fitting.
+In Python, K is the explicit value on each model, not inferred during fitting.
+To use the benchmark default, construct a model with `n_clusters=data.n_clusters`.
 Prepare separate jobs if datasets need different K values or evaluation modes.
 Failed fits are recorded with errors while subsequent fits continue. Structural
 errors such as unsupported missing views are rejected before fitting that pair.
@@ -166,6 +167,7 @@ pymv-cli --dataset acm --no-benchmark --n-clusters 3 \
 
 For compatibility, CLI benchmark mode can infer K from labels when omitted.
 `--no-benchmark` requires a manual `--n-clusters`. The workbench always uses
-the manual K field in both modes. YAML top-level keys `variant`, `missing_rate`,
+an editable dataset class-count default for benchmarks, or explicitly selected
+model K values. Real-world runs use manual K. YAML top-level keys `variant`, `missing_rate`,
 `impute`, and `no_benchmark` correspond to these switches. Use `--data-seed`
 or YAML `data_seed` when missingness and model initialization need separate seeds.

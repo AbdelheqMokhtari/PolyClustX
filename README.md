@@ -24,23 +24,30 @@ Use Python, the command line, or the graphical interface.
 
 ## Installation
 
-Install from a repository checkout with Python 3.9 or newer:
+Use Python 3.11 for a new environment (core: 3.9+; interface: 3.10+).
 
 ```bash
-git clone https://github.com/AbdelheqMokhtari/pymv.git
-cd pymv
-pip install -e .
+python -m venv .venv
+source .venv/bin/activate  # Windows PowerShell: .venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install "pymv-clustering[ui]"
+pymv-display
 ```
 
-To include the graphical interface:
+For Python-only use, install `pymv-clustering` without `[ui]`.
+For a cloned or downloaded repository, open the folder containing `pyproject.toml`,
+create and activate an environment as above, then:
 
 ```bash
-pip install -e ".[display]"
+python -m pip install -e ".[ui]"
 pymv-display
 ```
 
 Open the address printed in the terminal, normally `http://localhost:8501`.
-For UMAP projections, also install `pip install -e ".[umap]"`.
+To launch again later, activate the same environment and run `pymv-display`.
+The previous `[display]` extra remains supported. Optional UMAP projections use
+`python -m pip install "pymv-clustering[ui,umap]"`.
+[Step-by-step installation guide](https://pymv.readthedocs.io/en/latest/user_guide/installation.html).
 
 ## A first experiment
 

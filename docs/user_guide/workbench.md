@@ -1,289 +1,242 @@
 # Interactive interface
 
-The optional `pymv.display` package provides a local interface for building and
-comparing multi-view clustering experiments.
+Build datasets, prepare named models, compare experiments and download results
+without writing code. Pages are independent: you can return to any page without
+discarding your work.
+
+## Install and launch
+
+Use Python 3.10 or newer; Python 3.11 is recommended.
 
 ```bash
-pip install "pymv-clustering[display]"
+python -m pip install "pymv-clustering[ui]"
 pymv-display
 ```
 
-For a repository checkout, use `pip install -e ".[display]"`. Open the local
-address printed by Streamlit. To choose a port explicitly:
+Open the local address printed in the terminal, normally http://localhost:8501.
+For environment creation, Windows activation, repository downloads and restarting,
+follow the [installation tutorial](installation.rst). `[display]` remains an
+equivalent installation extra. To choose another port:
 
 ```bash
-pymv-display --server.address=127.0.0.1 --server.port=8502
+pymv-display --server.port=8502
 ```
 
-## Sidebar workflow
+## Your first experiment
 
-The sidebar pages remain freely accessible. Moving to another page does
-not discard the dataset collection, applied preparation, model settings, or saved
-experiments.
+1. Open **Dataset**, choose **Synthetic**, and keep the small default example.
+2. Click **Create synthetic dataset**. Inspect the view and class summaries.
+3. Choose any preprocessing you need, then click **Apply changes**.
+4. Open **Model**, select a method, enter its parameters, and save a named configuration.
+5. Open **Experiment**, select your dataset and model, and click **Run experiment**.
+6. Read **Results**, explore **Visualizations**, then download from **Export**.
 
-1. **Dataset** loads, names, inspects and prepares datasets in one page.
-2. **Model** prepares named configurations, even before any dataset is loaded.
-3. **Hyperparameter search** runs random or grid search and selects an objective.
-4. **Experiment** selects dataset/model combinations and repeated runs.
-5. **Results** aggregates repetitions as mean ± standard deviation.
-6. **Visualizations** compares normalized loss, embeddings, labels, and confusion.
-7. **Export** downloads individual results and complete comparison batches.
+```{pymv-screenshot} interface-overview.png
+Sidebar navigation with Dataset selected and a small synthetic dataset loaded.
+```
 
-The sidebar is navigation only. Use **Browse datasets** on the Dataset page to
-inspect a collection item, rename it, unload it or remove it. Select a prepared
-dataset directly on the search page; experiments have their own dataset selector.
-Only the currently inspected source needs to be materialized in RAM.
-Catalog data can be reloaded from its cache,
-synthetic data can be regenerated from its recipe, and uploaded data is staged
-in a session-specific temporary directory. Removing an uploaded dataset also
-removes its temporary source files. Experiment results remain available.
-Run arrays are also stored in session-specific temporary files and read only
-when requested, rather than retaining every embedding in RAM. Removing a result
-releases its temporary arrays. Python datasets added directly with
-`Workspace.add_dataset` retain an in-memory source snapshot; use lazy loaders
-for large programmatic sources.
+## 1. Dataset: load, inspect and prepare
 
-## Loading and inspecting data
+### Choose a source
 
-Name synthetic and uploaded datasets before loading them. Defaults increment
-automatically: `synthetic-dataset#1`, `synthetic-dataset#2`, or
-`uploaded-dataset#1`, `uploaded-dataset#2`. Catalog datasets retain readable
-catalog names. Names are unique within the collection; duplicates receive a
-numeric suffix, never an internal ID. Renaming survives unloading and reloading.
+| Source | What to do |
+| --- | --- |
+| Catalog | Select a dataset family and one of its variants, then load it. |
+| Files: one file per view | Upload CSV, TSV or NPY files. Select labels separately if present. |
+| Files: NPZ / MATLAB container | Inspect the listed arrays, then choose features, labels, IDs and graphs explicitly. |
+| Synthetic | Choose samples, classes, views, feature dimensions and distributions. Optionally generate graphs. |
 
-Choose one source at a time:
+Name synthetic or file datasets before loading. Defaults increment as
+`synthetic-dataset#1`, `synthetic-dataset#2`, and `uploaded-dataset#1`.
+Use **Browse datasets** to switch between loaded items, rename them, unload
+their arrays from RAM, or remove them from the collection.
 
-- **Catalog** selects a dataset family and variant.
-- **Files → One file per view** accepts CSV, TSV, or NPY arrays. Under
-  **Ground-truth labels**, choose no labels, a labels file from the same batch
-  (such as `Y.npy`), an embedded label column, or a separate labels upload.
-  Labels are excluded from the selected features. Rows are samples; CSV/TSV
-  headers are detected automatically. Embedded columns use a one-based index
-  in the interface and must contain numeric labels in CSV/TSV files.
-- **Files → NPZ / MATLAB container** first lists every array and shape. Select
-  feature arrays, optional labels, transposes, modalities, sample-ID arrays,
-  and graph relations explicitly.
-- **Synthetic** controls samples, classes, view dimensions, per-view
-  distributions, overlap, imbalance, modality, noise, and graph relations.
+Rows are samples. CSV/TSV headers are detected automatically. A labels file
+may be uploaded with feature files, but select it as labels so it is not used
+as a feature view. A numeric label column can also be selected within a view;
+column numbers in the interface start at 1.
+
+For NPZ/MAT files, do not infer a field's meaning from its name: choose each
+array and its role. To align differently sampled views, select one sample-ID
+array per view. See [loading data](data.md) and [missing views](missing_views.md).
+
+**Add graphs to a view** accepts adjacency files (NPY, NPZ, CSV, TSV) and
+GraphML/GEXF graphs. Select the target view. Repeated uploads add relations;
+graph nodes and sample IDs must agree.
+
+### Inspect the data
+
+The Dataset page shows sample and class counts, class balance, view dimensions,
+feature statistics, missing observations, estimated memory, and graph properties.
+Inspect either original or applied/prepared data. Benchmark mode starts enabled
+when labels exist; uncheck it to use internal evaluation only.
+
+```{pymv-screenshot} dataset-details.png
+Dataset collection, benchmark setting, class distribution and per-view statistics.
+```
 
 ### Generate synthetic graphs
 
-Under **Dataset → Synthetic → Synthetic graphs**, choose **No graphs**,
-**Per-view graphs**, or **Shared graphs**. Per-view graphs use each selected
-view's features; shared graphs use one source view and attach identical
-relations to the selected views. Select one target view and one relation for
-a single graph, or increase **Relations per selected view** for multiple graphs.
+Under **Synthetic graphs**, choose **No graphs**, **Per-view graphs**, or
+**Shared graphs**. Per-view graphs use each target view's features. Shared
+graphs use one source view and attach the same relations to all selected targets.
 
-Each relation has its own type and neighbor count:
+One target view and one relation gives a single graph. Increase **Relations per
+selected view** to create multiple graphs. Each relation has its own settings:
 
-- **Binary kNN** connects samples if either is among the other's nearest neighbors.
-- **Mutual kNN** connects samples only when both neighbor directions exist.
-- **Weighted kNN (RBF)** uses kNN edges weighted by
-  `exp(-distance² / (2 × bandwidth²))`. Adjust the bandwidth to the feature scale.
+- **Binary kNN**: an edge exists if either neighbor direction exists.
+- **Mutual kNN**: both neighbor directions must exist.
+- **Weighted kNN (RBF)**: kNN edges weighted by `exp(-distance² / (2 × bandwidth²))`.
 
-Graphs are sparse, undirected, aligned with sample order and have no self-loops.
-Edges use features, never ground-truth labels. Mutual kNN and very small RBF
-bandwidths can produce isolated samples. Change each relation's neighbor count
-or type to create different relations; identical settings yield identical graphs.
-The random seed reproduces features and graphs, including after unloading and
-reloading the dataset. Graph settings do not change the generated features.
+Graphs are sparse, symmetric, have no self-loops, and never use class labels.
+Change neighbor counts or relation types to generate different relations.
+Mutual kNN and small RBF bandwidths may produce isolated nodes. The same seed
+reproduces the dataset, including after unloading and reloading it.
+Generation rejects requests above two million directed neighbor entries.
+See [Python graph examples](graphs.md#generate-synthetic-graphs-in-python).
 
-Generation rejects requests exceeding two million directed neighbor entries
-across attached relations, before allocating the data. Large nearest-neighbor
-searches can still be slow; start small. Use **Apply changes** to make the
-dataset available to experiments. In preprocessing, select sum or Hadamard
-fusion when using multiple relations. See also the
-[Python graph-generation example](graphs.md#generate-synthetic-graphs-in-python).
+### Apply preprocessing
 
-### Inspect loaded data
+Preprocessing stays on the Dataset page. Apply a shared transformation to all
+views, to selected views, or configure views separately. Options include
+normalization, TF-IDF, centering, scaling, graph propagation and relation fusion.
+Multiple graphs can be fused by weighted sum or Hadamard product.
 
-After validation, the Dataset page reports sample/view/class counts, missing
-pairs, estimated memory, feature density, mean, variance, per-feature variance,
-class imbalance, and graph density/symmetry. This information helps determine
-whether a model and preprocessing choice are appropriate.
+To test missing-view settings, choose a missing fraction and seed. To run a
+complete-input model, choose explicit mean or zero imputation. Models that
+cannot accept the prepared data are excluded from compatible experiment pairs.
 
-For differently sampled views, enable sample-ID alignment in the container
-mode and choose one ID array for each view. Graph matrices follow the local
-order of their associated view. No array name is silently treated as a feature,
-label, ID, or graph.
+Click **Apply changes** after loading or changing preparation. Only applied
+datasets appear in experiments and searches. This validates and saves the
+recipe; the original source stays unchanged. Preparation is applied once for
+each fit, and model-internal preprocessing is disabled when necessary to
+avoid applying feature transformations twice.
 
-Under **Add graphs to a view**, upload adjacency matrices or GraphML/GEXF files
-and select their feature view. Each file adds a relation; nothing is silently
-replaced. Adjacencies must be square and follow the dataset's sample order.
-Graph node IDs must match sample IDs, including isolated nodes. GraphML/GEXF IDs
-are matched against the exact string representation of each sample ID. Multiple
-array containers should instead use the explicit container mapping controls.
+```{pymv-screenshot} dataset-preprocessing.png
+Preprocessing controls, missing-view simulation, imputation and Apply changes.
+```
 
-**Benchmark mode** is enabled by default when the dataset has labels. Uncheck
-it here to use real-world evaluation. Unlabeled data always uses real-world mode.
-The mode belongs to the dataset, not the model or experiment page.
+## 2. Model: save named configurations
 
-## Preparation on the Dataset page
+Models can be prepared before any dataset is loaded. Select a method and edit
+its typed parameter controls, then choose a **Configuration name**. Defaults
+are names such as `LMGEC#1`. Save as many configurations as needed.
+See [available models and original implementations](../background/algorithms.md).
 
-After loading, inspect the dataset, choose its benchmark setting and configure
-preparation below its details. Click **Apply changes** to validate and save it.
-New datasets are offered in Experiment and Hyperparameter search only after
-this action. Adding graph relations also requires applying the updated
-preparation. You can prepare any number of datasets and browse them independently.
+Saved K values are used for real-world experiments and manual K comparisons.
+For benchmark experiments, dataset class counts are the default on Experiment;
+you can edit them there or switch to the saved model K values.
 
-After applying, switch **Inspect** between **Prepared data** and **Original
-data** to compare profiles. Prepared statistics are cached without retaining a
-second full dataset in memory. Editing controls does not change the saved
-preparation until you apply again. Each application starts from the original
-source, avoiding repeated normalization or propagation.
+LMGEC may need a smaller embedding on a low-dimensional dataset. Its limit is
+`min(samples, smallest view feature count) − 1`. Results show a short adjustment
+notice, the effective value used, and the requested value. Your saved configuration
+is unchanged. This limit is model-specific and is not applied to SCM.
 
-Transformations can be disabled, shared by all views, applied to selected
-views, or configured per view. Available operations are:
+## 3. Search: tune parameters independently
 
-- L2 normalization or TF-IDF + L2;
-- column centering and unit-variance scaling;
-- graph propagation with a configurable self-loop weight;
-- weighted-sum or Hadamard early fusion when a view has several relations.
+Select a prepared dataset, a compatible model, and **Random search** or
+**Grid search**. Enable parameters to search and type candidate values into
+their controls; press Enter to add each value. Invalid values are rejected.
 
-Missing-view simulation and explicit mean/zero imputation are configured in
-this step. Simulation retains at least one observed view per sample. The
-original dataset stays unchanged; the complete recipe is copied into each
-experiment record.
+Choose metrics and an **Optimize metric**, then the number of independent runs
+(1–20). Internal metrics work without labels; external metrics such as NMI
+require benchmark mode. Davies–Bouldin is minimized; the other built-in scores
+are maximized. Selection uses mean scores across repeated runs.
 
-If a dataset remains incomplete, combinations requiring complete views are
-excluded from experiments and those methods are unavailable for its search.
-Explicit imputation makes the combinations available again.
+Click **Run search** to see the summary and tuning steps. Choose a **Best model
+name** (default: `MODEL_strategy_best_#1`) and click **Copy best to experiment**
+to save the winning settings. The winning K is preserved. This does not start
+a new fit. Download the search report from **Export → Individual results**.
 
-## Models and hyperparameters
+```{pymv-screenshot} hyperparameter-search.png
+Grid or random search controls, objective, result table and named best-model action.
+```
 
-Model controls change with the selected registry entry. Numeric parameters,
-booleans, and layer dimensions are edited directly; there is no JSON editor.
-Models can be prepared before datasets. Choose the method, edit its name and
-parameters, then save it. Default names are `LMGEC#1`, `LMGEC#2`, `SCM#1`, etc.
-Dataset compatibility is checked when pairing configurations for experiments,
-not when building the model collection. When a dataset has generic feature
-preprocessing, model-internal preprocessing is disabled for its fit to avoid
-applying transformations twice.
+## 4. Experiment: compare combinations
 
-Independent model configurations start with K = 3; choose another K or compare
-several values as needed. Search settings start from the selected dataset's
-number of classes when labels exist. Both defaults are editable. Labels are
-never passed into model fitting, and combinations with K greater than the
-dataset's number of samples are excluded.
+Select prepared datasets and saved models. **All compatible pairs** evaluates
+their Cartesian combinations. **Choose in table** offers a dataset-by-model
+checkbox matrix, useful for larger collections. Incompatible pairs are excluded.
 
-Save each configuration with **Save model settings**, then prepare another
-method or parameter setting. Saved configurations can be selected together in
-Experiment and removed independently of existing results.
+For labeled benchmark datasets, K defaults to the number of unique true labels.
+Edit **K for dataset-name**, or uncheck **Use dataset class counts for benchmark
+datasets** to use the model's saved K values, including multiple-K comparisons.
+Real-world datasets always use manually configured model K values.
+Benchmark and real-world datasets cannot be mixed in one experiment batch.
 
-## Hyperparameter search
+Name the experiment and select 1–20 independent runs per configuration.
+Under **Reproducibility and saving**, choose a base seed and output directory.
+Run 1 uses the base seed; subsequent runs increment it. A JSON report is saved
+automatically, normally under `./experiments/` in the server's working directory.
 
-Open **Hyperparameter search** and choose **Random search** or **Grid search**.
-Select a prepared dataset, model, K values and parameters to search. Select suggested
-candidates or type a custom number and press Enter. Scientific notation such
-as `1e-4` is accepted; custom values remain available after saving and returning
-to the search page. Invalid values disable running: dimensions and iteration
-counts must be positive whole numbers, temperatures and learning rates must be
-positive, and rates must stay in [0, 1]. NaN, infinity, and empty candidate
-lists are rejected with an explanation. Random search samples discrete
-configurations with replacement; grid search evaluates every combination.
+Jobs run one fit at a time, with at most 2,000 fits per job. Start with a small
+trial: an individual model may still exceed available RAM or GPU memory.
 
-Choose **Search metrics** and **Optimize metric**. Internal objectives such as
-Silhouette are available in both modes; external objectives such as NMI require
-benchmark mode. Davies–Bouldin is minimized; the other built-in metrics are
-maximized. Selection uses the mean across repeats, and configurations with
-failed runs cannot win.
+## 5. Results and visualizations
 
-Results, tuning steps and JSON/CSV downloads remain on this page. **Prepare ZIP**
-adds a complete archive with run arrays on demand; only one record's ZIP is
-cached at a time. Enter a **Best model name**, defaulting to a name such as
-`LMGEC_grid_best_#1` or `LMGEC_random_best_#1`. **Copy best to experiment** adds
-the winning model parameters and K to the model collection under that name,
-selects its dataset, restores its preprocessing and opens Experiment. It does
-not start another fit automatically. Search reports also remain available for
-visualization and export after their source dataset has been removed.
+Results show one column per parameter, mean ± population standard deviation,
+and detailed runs. Failed fits remain visible with errors. You can reuse
+settings or delete a result. **Open Export** takes you to the download page.
 
-## Repeated experiments and evaluation
+Visualizations include cluster sizes, normalized loss, projections, a confusion
+matrix and cluster details. Choose an experiment/configuration/run by name.
+**Compare normalized loss** can combine models across experiments; Run 1 is
+selected by default. Normalization compares curve shape, not objective quality
+between different methods.
 
-Experiment names increment automatically (`Experiment 1`, `Experiment 2`, …).
-Select prepared datasets and saved model configurations. **All compatible
-pairs** runs their valid Cartesian combinations without listing every pair.
-Use **Choose in table** to select combinations in a matrix: one row per dataset,
-one column per model, and a checkbox per pairing. Blank incompatible cells cannot
-enable a fit. The table scrolls when the collection is large, and the fit count
-updates with your selection. The
-**Independent runs per configuration** slider ranges from 1 to 20. Each
-configuration and K runs with independent seeds.
-The Results page keeps every fit and groups repetitions into mean ± population
-standard deviation. Named configurations appear in result headings and reports.
-Each result has a consistent actions row and a separate downloads section.
+Compute a PCA, t-SNE or optional UMAP projection to compare predicted clusters
+and true labels. At most 5,000 samples are plotted. With more than 20 classes,
+a compact color scale replaces the long legend.
 
-In real-world mode, choose internal metrics only. Benchmark mode, set on the
-Dataset page, adds ACC, NMI, ARI, and F1. Benchmark labels are used
-for evaluation and visual comparison only; clustering remains unsupervised.
-Benchmark and real-world datasets cannot be combined in one batch. Use separate
-experiments or change the datasets' modes first.
+Confusion matrices use full Hungarian matching to maximize the diagonal before
+limiting the display. Predicted IDs are displayed as `0` through `K−1`; categorical
+axes avoid extra numeric ticks. Raw model labels remain unchanged in reports.
+Up to 30 high-frequency matched pairs are shown; other counts are grouped into
+separate Other buckets. Very large class matrices are rejected with an export
+suggestion. Toggle row normalization to show proportions or counts.
 
-**Reproducibility and saving** contains the base seed and output directory.
-The seed is retained because it lets you reproduce initialization sequences.
-One JSON file stores the entire batch; each model/dataset combination remains
-independently inspectable in Results. Summary and detailed tables give each
-hyperparameter its own column.
+Click **Save plot to Export** below any supported figure to capture its current
+settings and plotted values. Saving the same figure again replaces that snapshot.
 
-Training runs synchronously. Large datasets, deep methods, many K values, large
-searches, and many repetitions multiply runtime, so start with a small trial.
-Failed fits are recorded beside successful fits rather than erasing completed
-work.
-Jobs are limited to 2,000 fits in the interface, and configurations are executed
-sequentially. This is not a guarantee that an individual large model fits in
-available RAM or GPU memory. Start with a small trial and remove unused results.
+```{pymv-screenshot} results-visualizations.png
+Named runs, normalized loss comparison and a Hungarian-aligned confusion matrix.
+```
 
-## Visualizations
+## 6. Export: download reports, plots and data
 
-Choose any successful fit to inspect:
+| Export type | Contents |
+| --- | --- |
+| Experiment batches | One JSON/CSV/ZIP report covering the whole comparison. |
+| Individual results | Experiment or search JSON, metrics CSV, or ZIP with run arrays. |
+| Visualizations | Saved plot JSON, plotted-data CSV, or ZIP with standalone interactive HTML. |
+| Prepared datasets | MATLAB `.mat` file with applied preparation, views, graphs, IDs and availability mask. |
 
-- predicted cluster sizes;
-- min–max normalized optimization loss when the model exposes it;
-- PCA, t-SNE, or optional UMAP projections;
-- side-by-side predicted and ground-truth coloring in benchmark mode;
-- a confusion matrix and per-cluster size/purity details.
+For individual result arrays, use **Prepare ZIP** first. For visualizations,
+select a saved plot, enter its download name and select a format. Remove snapshots
+you no longer need. Snapshot data stays on disk until requested; only the chosen
+download is assembled. Up to 100 snapshots of at most 32 MB each are accepted.
 
-Projection sampling is capped at 5,000 rows. With more than 20 labels, plots
-switch from a large categorical legend to a compact color scale. Confusion
-matrices show the 30 largest classes/clusters and combine the remainder into an
-`Other` bucket. These limits affect display only, not clustering or metrics.
+For prepared data, select an applied dataset, choose whether labels should be
+included, and click **Prepare MATLAB file**, then **Download prepared data**.
+This exports Dataset preprocessing, not additional transformations inside a model.
+Arrays are named `view_1`, `view_2`, `graph_1_1`, etc. `graph_mapping` contains
+one-based view/relation pairs; `observed_mask` marks available observations.
+Reload through Files → NPZ / MATLAB container and select those arrays explicitly.
+The interface limits source data to 256 MB for this download; Python users can use
+`pymv.display.exporting.dataset_mat(data)` directly and write the returned bytes.
 
-**Compare normalized loss** selects models and runs across experiments and
-searches in one plot. Run 1 is selected as each configuration's representative
-by default; select another run or several runs to compare variation. Normalized
-loss curves compare optimization shape, not the quality of different objectives.
-Run choices identify the experiment, dataset, named model, configuration, K and
-repetition number, without internal session codes. Repeated jobs with identical
-names receive a readable **Result 1**, **Result 2**, etc. in the comparison list.
+```{pymv-screenshot} export-center.png
+Export categories, named report and plot downloads, and prepared MATLAB dataset export.
+```
 
-Confusion-matrix columns are aligned to true classes by maximum overlap using
-Hungarian matching. Original cluster IDs remain visible. The matrix can show
-counts or proportions per true class; overflow buckets preserve the total count.
-Matching uses the displayed classes/clusters, while evaluation metrics use all
-samples. Projections, confusion matrices and loss comparisons offer plot JSON,
-data CSV and a ZIP containing a standalone interactive HTML figure.
+## Session storage and hosting
 
-## Export and deployment safety
+Dataset recipes, run arrays and saved plots belong to the current session.
+Download what you need before restarting. Removing a result does not delete
+previously saved JSON reports. Catalog files remain in the download cache.
+Uploaded sources and generated run/plot files use temporary directories.
 
-Each run or batch automatically writes a detailed JSON report to the output
-directory, defaulting to `./experiments/` on the server. JSON includes per-run
-metrics, mean/std summaries, raw and normalized losses, available model
-diagnostics, and search tuning steps. Direct JSON/CSV downloads are available
-beside the results; Export also provides a single report for a complete batch.
-Downloaded files use readable experiment/dataset/model names and timestamps;
-plot downloads also identify the configuration and run. Machine-readable JSON
-retains internal identifiers for linking records, but these are not run names.
-Use **Prepare ZIP** only when run arrays are needed. Large ZIPs still require memory while downloading;
-prefer JSON/CSV for large comparisons and export individual run collections.
-
-The per-record ZIP export contains the recipe, library version, dataset fingerprint,
-sample IDs, observation mask, per-fit metrics, predictions, embeddings, loss,
-and benchmark labels used by the visualizations. Original feature matrices are
-not included. A separate metrics CSV is also available.
-
-Batch ZIPs contain the combined JSON and CSV; per-record ZIPs include arrays.
-Session history and run arrays are temporary. Download them before restarting
-the server. Automatically saved JSON reports persist; removing a session result
-does not delete a previously saved report from disk.
-The default launcher binds locally. Public hosting needs authentication, TLS,
-upload limits, execution limits, and operating-system resource controls; do not
-expose an unauthenticated research server to the internet.
+The interface binds locally by default. Public hosting requires authentication,
+TLS, upload limits and memory limits. Do not expose it publicly without those
+protections. Browser downloads save to your browser's configured location;
+automatic report paths refer to the machine running the server.

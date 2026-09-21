@@ -15,6 +15,43 @@ registries. Update source metadata rather than copying lists into documentation.
 API pages use autodoc. Add runnable offline examples and tests when introducing
 new workflows; the text should describe only implemented capabilities.
 
+## Which file should I edit?
+
+| Contribution | Documentation location |
+| --- | --- |
+| New model or changed assumptions | `docs/background/algorithms.md`, registry metadata and `docs/api/models.rst` |
+| New dataset or representation | `DatasetSpec` / `VARIANTS` in `src/pymv/data/registry.py`; generated catalog needs no manual row |
+| File format or alignment change | `docs/user_guide/data.md` with a small loading example |
+| Interface workflow | `docs/user_guide/workbench.md`, plus the README if launch/install changes |
+| New public function | Relevant `docs/api/*.rst` page and a task-oriented guide |
+| New tutorial | `examples/`, `docs/user_guide/examples.rst`, tests, and a toctree entry if it is a new page |
+
+Write for someone installing the published package: avoid branch status,
+maintainer-only instructions and claims about unimplemented capabilities.
+
+## Interface screenshots
+
+The guide contains `pymv-screenshot` references. Place your captures under
+`docs/_static/screenshots/` using these filenames:
+
+- `interface-overview.png`
+- `dataset-details.png`
+- `dataset-preprocessing.png`
+- `hyperparameter-search.png`
+- `results-visualizations.png`
+- `export-center.png`
+
+This entire image directory is ignored by Git. A clean checkout renders a short
+caption placeholder; adding a matching PNG and rebuilding replaces it with the
+image automatically. Use small synthetic data and omit personal paths or IDs.
+Do not force-add screenshot files to Git. Since ignored files do not reach
+GitHub or Read the Docs, hosted builds show placeholders unless your deployment
+process supplies the captures before building. A local HTML build includes them.
+
+Test the site with `sphinx-build -W --keep-going -b html docs docs/_build/html`.
+Warnings fail CI, including broken references. The HTML preview artifact on
+each pull request lets reviewers inspect the generated pages without deploying.
+
 The shared logo is `src/pymv/display/assets/logo.png`. Documentation colors live in
 `docs/_static/custom.css`, and interface colors in
 `src/pymv/display/theme.py`. Keep burgundy as an accent, with slate text and
