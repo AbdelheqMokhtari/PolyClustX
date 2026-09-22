@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import numpy as np
+import streamlit as st
 import pytest
 
 from pymv.data import dataset_from_arrays, load_files
