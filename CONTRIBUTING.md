@@ -1,5 +1,55 @@
 # Contributing Guide
 
+Contributions to models, datasets, bug fixes, documentation and the interface
+are welcome. For a substantial method or dataset, open an issue with the paper,
+source code/data link and license first. Use the issue templates on GitHub.
+
+## Set up a contribution
+
+1. Fork `AbdelheqMokhtari/pymv` on GitHub and clone your fork.
+2. Add the upstream repository and start from `develop`:
+
+   ```bash
+   git remote add upstream https://github.com/AbdelheqMokhtari/pymv.git
+   git fetch upstream
+   git switch -c fix/short-description upstream/develop
+   python -m venv .venv
+   source .venv/bin/activate  # PowerShell: .venv\Scripts\Activate.ps1
+   python -m pip install -e ".[dev,docs,ui]"
+   ```
+
+3. Make focused changes with tests and documentation, then run:
+
+   ```bash
+   ruff check src tests
+   pytest -m 'not network'
+   sphinx-build -W --keep-going -b html docs docs/_build/html
+   python -m build
+   ```
+
+4. Commit your changes, push the branch to your fork, and open a pull request
+   against **develop**. Fill in the PR checklist. Do not bump versions, publish
+   packages or merge into `main` as part of an ordinary contribution.
+
+Detailed recipes: [models](docs/contributing/models.md),
+[datasets and variants](docs/contributing/datasets.md),
+[documentation and screenshots](docs/contributing/documentation.md).
+Run `python examples/custom_datasets.py` for a complete offline data example.
+
+## What CI checks
+
+Pull requests run offline core tests, the full suite with interface dependencies,
+lint, a strict documentation build, and wheel/sdist validation. Interface checks
+cover the supported minimum Streamlit version and the current allowed release.
+Review test XML, built distributions and the HTML documentation artifact in
+GitHub Actions. A green build is evidence of tested behavior, not paper-result
+reproduction or approval to publish.
+
+New tests are discovered automatically. Use tiny local fixtures for new readers;
+mark download tests with `@pytest.mark.network`. Live dataset downloads remain
+an opt-in maintainer workflow. Fork pull requests need no repository secrets,
+and CI does not publish to PyPI, deploy, push or merge contributions.
+
 ## Branching Strategy
 
 A simplified GitFlow adapted to a research framework:

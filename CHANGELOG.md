@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog,
 and this project adheres to Semantic Versioning.
 
+## v1.3.1 (2026-09-22)
+
+### Fix
+
+- **ui,docs**: resolve interface issues and update documentation (#12)
+
 ## v1.3.0 (2026-09-17)
 
 ### Feat

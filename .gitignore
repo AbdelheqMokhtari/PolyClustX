@@ -14,6 +14,7 @@ dist/
 
 # Docs
 docs/_build/
+docs/_static/screenshots/
 
 # Local data, experiment output and scratch notes
 # Keep these anchored to the repository root so source packages such as

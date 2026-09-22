@@ -1,20 +1,26 @@
-name: Documentation and workbench
+name: Documentation and interface
 
 on:
   push:
-    branches: [main, develop, 'feature/**']
+    branches: [main, develop] # Removed 'feature/**' to prevent duplicate triggers
   pull_request:
+    branches: [main, develop]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   docs:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: pip
@@ -24,16 +30,36 @@ jobs:
         with:
           name: documentation-html
           path: docs/_build/html
-  workbench:
+          
+  interface:
+    name: Interface · ${{ matrix.streamlit }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: '3.10'
+            streamlit: minimum
+          - python: '3.11'
+            streamlit: latest
     env:
       TF_CPP_MIN_LOG_LEVEL: '3'
       CUDA_VISIBLE_DEVICES: ''
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python }}
           cache: pip
-      - run: pip install -e '.[dev,display]'
-      - run: pytest tests/test_workbench.py tests/test_data_contract.py tests/test_unsupervised_experiments.py
+      - run: pip install -e '.[dev,ui]'
+      - if: matrix.streamlit == 'minimum'
+        run: pip install 'streamlit==1.51.0'
+      - name: Full offline suite with interface dependencies
+        run: pytest -m 'not network' --junitxml=interface-test-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: interface-test-results-${{ matrix.streamlit }}
+          path: interface-test-results.xml
+          if-no-files-found: ignore

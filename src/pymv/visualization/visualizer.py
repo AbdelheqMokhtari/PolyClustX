@@ -17,6 +17,7 @@ def plot_loss(
     log_scale=False,
     ax=None,
     show=True,
+    normalize=False,
 ):
     """
     Plot the training loss curve.
@@ -63,6 +64,10 @@ def plot_loss(
         Call ``plt.show()`` at the end.  Set to ``False`` when
         composing multi-panel figures.
 
+    normalize : bool, default ``False``
+        Min–max normalize the trajectory to [0, 1]. Constant histories become
+        zero. The interactive interface enables normalization by default.
+
     Returns
     -------
     matplotlib.axes.Axes
@@ -86,6 +91,10 @@ def plot_loss(
         plt.show()
     """
     loss = np.asarray(loss_history).ravel()
+    if normalize:
+        from pymv.experiment.exports import normalized_loss
+        loss = np.asarray(normalized_loss(loss), dtype=float)
+        ylabel = "Normalized loss" if ylabel == "Loss" else ylabel
     iterations = np.arange(1, len(loss) + 1)
 
     if ax is None:
@@ -109,11 +118,49 @@ def plot_loss(
     if grid:
         ax.grid(True, alpha=0.3)
 
-    ax.set_xlim(1, len(loss))
+    if len(loss) > 1:
+        ax.set_xlim(1, len(loss))
 
     if show:
         plt.show()
 
+    return ax
+
+
+def plot_loss_comparison(reports, *, run=1, ax=None, show=True):
+    """Compare normalized trajectories across exported experiments/searches.
+
+    Pass a result object, report dictionary, or a list of either. Run 1 is the
+    representative for every configuration; use ``run=None`` for all runs.
+    Missing histories and failed runs are skipped. Losses with different
+    definitions are not comparable scores: this plot compares their shapes.
+    """
+    from pymv.experiment.exports import normalized_loss
+
+    if run is not None and (isinstance(run, bool) or not isinstance(run, int) or run < 1):
+        raise ValueError("run must be a positive integer or None")
+    if not isinstance(reports, (list, tuple)):
+        reports = [reports]
+    if ax is None:
+        _, ax = plt.subplots(figsize=(10, 5))
+    for report_index, source in enumerate(reports):
+        report = source.to_dict() if hasattr(source, "to_dict") else source
+        for index, experiment in enumerate(report["experiments"]):
+            for trial in experiment["runs"]:
+                if trial["status"] != "complete" or (run is not None and trial["run"] != run):
+                    continue
+                loss = normalized_loss(trial.get("loss_history"))
+                if not loss:
+                    continue
+                label = (f"{report.get('name') or report_index + 1} · {experiment['dataset']['name']} · "
+                         f"{experiment['model']['name']} · config {index + 1} · run {trial['run']}")
+                ax.plot(np.arange(1, len(loss) + 1), np.asarray(loss, dtype=float), label=label)
+    ax.set(xlabel="Iteration", ylabel="Normalized loss", title="Optimization trajectories")
+    ax.grid(True, alpha=.2)
+    if 0 < len(ax.lines) <= 12:
+        ax.legend(fontsize="small", bbox_to_anchor=(1.02, 1), loc="upper left")
+    if show:
+        plt.show()
     return ax
 
 

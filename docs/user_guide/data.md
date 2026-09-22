@@ -90,12 +90,38 @@ data = load_files(
 )
 ```
 
-CSV defaults to numeric and headerless. For a header, use
-`read_arrays("shape.csv", skip_header=1)` followed by `dataset_from_arrays`.
+CSV/TSV headers are detected automatically. Use `skip_header=0` or `1` in
+`read_arrays` to override detection when necessary.
 Store string IDs in separate NPY/NPZ vectors or pass them to `align_views`;
 numeric feature CSVs do not silently strip ID columns.
 Without IDs, you assert identical row order in every view and graph.
 Equal row counts alone do not prove alignment.
+
+Labels may be part of the same file batch; exclude their key from `view_keys`:
+
+```python
+data = load_files(
+    ["shape.npy", "texture.npy", "Y.npy"],
+    view_keys=["shape.npy:shape", "texture.npy:texture"],
+    label_key="Y.npy:Y",
+)
+```
+
+For labels embedded in a feature matrix, use `label_column=(view_key, index)`.
+The zero-based column is removed from that view before fitting. For example,
+with two feature columns followed by one label column:
+
+```python
+data = load_files(
+    ["measurements.csv"],
+    view_keys=["measurements.csv:measurements"],
+    label_column=("measurements.csv:measurements", 2),
+)
+```
+
+This mapping is retained when the interface unloads and reloads a dataset.
+If labels are duplicated across several files, remove the extra label columns
+before importing those views.
 
 ## Four settings, one interface
 

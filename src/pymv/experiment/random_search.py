@@ -161,8 +161,18 @@ class RandomSearchExperiment:
         console output is produced.
 
     save_path : str or None
-        Base directory for saving experiment results.  Only used
-        when ``save_markdown=True``.  Defaults to ``./experiments``.
+        Directory for JSON reports and optional Markdown folders. Defaults
+        to ``./experiments`` in the current working directory.
+
+    save_json : bool, default True
+        Automatically save the full search report, including every tuning step.
+
+    runs : int, default 1
+        Repeated fits per configuration. Selection uses their mean score.
+
+    strategy : {"random", "grid"}, default "random"
+        Random sampling or exhaustive Cartesian enumeration. Grid search
+        requires finite candidate sequences and ignores n_iter.
     """
 
     def __init__(
@@ -181,6 +191,9 @@ class RandomSearchExperiment:
         log: bool = False,
         save_path: str | None = None,
         benchmark: bool = True,
+        save_json: bool = True,
+        runs: int = 1,
+        strategy: str = "random",
     ):
         self.model_class = model_class
         self.param_distributions = param_distributions
@@ -196,6 +209,20 @@ class RandomSearchExperiment:
         self.experiment_name = experiment_name
         self.log = log
         self.save_path = save_path
+        self.save_json = save_json
+        if strategy not in {"random", "grid"}:
+            raise ValueError("strategy must be 'random' or 'grid'")
+        if not isinstance(runs, int) or isinstance(runs, bool) or runs < 1:
+            raise ValueError("runs must be a positive integer")
+        if not isinstance(n_iter, int) or isinstance(n_iter, bool) or n_iter < 1:
+            raise ValueError("n_iter must be a positive integer")
+        for values in param_distributions.values():
+            if callable(values) and strategy == "random":
+                continue
+            if not isinstance(values, (list, tuple, np.ndarray)) or len(values) == 0:
+                raise ValueError("Search candidates must be nonempty sequences (grid does not accept callables)")
+        self.runs = runs
+        self.strategy = strategy
 
         # Validate best_metric after normalisation
         if best_metric not in self.metrics:
@@ -236,6 +263,8 @@ class RandomSearchExperiment:
                 "name": self.model_class.__name__.lower(),
             },
             "search": {
+                "strategy": self.strategy,
+                "runs": self.runs,
                 "n_iter": self.n_iter,
                 "best_metric": self.best_metric,
                 "seed": self.seed,
@@ -269,7 +298,28 @@ class RandomSearchExperiment:
     # main loop
 
     def run(self) -> RandomSearchResult:
+        import inspect
+        import itertools
+        import math
+
+        from .exports import (
+            aggregate_runs,
+            dataset_details,
+            diagnostics,
+            model_details,
+            model_parameters,
+            new_report,
+            timestamp,
+        )
+
+        report = new_report("search", self.experiment_name)
         rng = np.random.RandomState(self.seed)
+        if self.strategy == "grid":
+            self.n_iter = math.prod(len(values) for values in self.param_distributions.values())
+            configurations = (dict(zip(self.param_distributions, values))
+                              for values in itertools.product(*self.param_distributions.values()))
+        else:
+            configurations = (self._sample_params(rng) for _ in range(self.n_iter))
 
         # Resolve experiment folder first so the log goes inside it
         experiment_dir: str | None = None
@@ -296,12 +346,12 @@ class RandomSearchExperiment:
 
         # Log header (file only unless verbose>=3)
         logger.debug("=" * 60)
-        logger.debug("  pymv Random Search")
+        logger.debug("  pymv %s Search", self.strategy.title())
         logger.debug("=" * 60)
         logger.debug("  Model     : %s", model_name)
         logger.debug("  Dataset   : %s", self.dataset_name)
         logger.debug("  Metrics   : %s", list(self.metrics.keys()))
-        logger.debug("  Best by   : %s (↑ higher is better)", self.best_metric)
+        logger.debug("  Objective : %s", self.best_metric)
         logger.debug("  Trials    : %d", self.n_iter)
         logger.debug("  Seed      : %s", self.seed)
         if experiment_dir:
@@ -341,6 +391,12 @@ class RandomSearchExperiment:
             best_metric_name=self.best_metric,
             higher_is_better=higher_is_better(self.metrics[self.best_metric]),
         )
+        self.result.strategy = self.strategy
+        self.result.report = report
+        report["search"] = {"strategy": self.strategy, "objective": self.best_metric,
+                            "direction": "maximize" if self.result.higher_is_better else "minimize",
+                            "space": self.param_distributions, "seed": self.seed,
+                            "runs_per_configuration": self.runs, "steps": []}
 
         use_pbar = self.verbose >= 2
 
@@ -349,7 +405,7 @@ class RandomSearchExperiment:
         if use_pbar:
             pbar = tqdm(
                 total=self.n_iter,
-                desc="Random Search",
+                desc=f"{self.strategy.title()} Search",
                 unit="trial",
                 dynamic_ncols=True,
                 file=sys.stdout,
@@ -359,8 +415,10 @@ class RandomSearchExperiment:
                 ),
             )
 
-        for i in range(self.n_iter):
-            params = self._sample_params(rng)
+        for i, params in enumerate(configurations):
+            entry = {"configuration": i + 1, "dataset": dataset_details(data, benchmark=self.benchmark),
+                     "model": model_details(self.model_class), "parameters": params, "runs": []}
+            report["experiments"].append(entry)
 
             logger.debug("  [%d/%d] params=%s", i + 1, self.n_iter, params)
 
@@ -369,36 +427,41 @@ class RandomSearchExperiment:
                     f"trial {i+1}/{self.n_iter}"
                 )
 
-            try:
-                model = self.model_class(**params)
-
+            for repeat in range(self.runs):
+                run = {"run": repeat + 1, "started_at": timestamp(), "status": "complete", "metrics": {}}
                 t0 = time.perf_counter()
-                data.fit(model)
-                elapsed = time.perf_counter() - t0
-
-                scores = evaluate_metrics(self.metrics, labels, model.labels_,
-                                          getattr(model, "embedding_", None), benchmark=self.benchmark)
-                self.result.add_trial(params, scores, elapsed)
-
-                # Show best so far in the progress bar
-                if pbar:
-                    best = self.result.best_score
-                    pbar.set_postfix_str(
-                        f"best {self.best_metric}={best:.4f}"
-                    )
-
-                logger.debug(
-                    "    → %s  (%.2fs)",
-                    ", ".join(f"{k}={v:.4f}" for k, v in scores.items()),
-                    elapsed,
-                )
-
-            except Exception as exc:
-                logger.error("    ✗ Trial %d FAILED: %s", i + 1, exc)
-                nan_scores = OrderedDict(
-                    (k, float("nan")) for k in self.metrics
-                )
-                self.result.add_trial(params, nan_scores, 0.0)
+                try:
+                    kwargs = dict(params)
+                    if "random_state" in inspect.signature(self.model_class.__init__).parameters:
+                        base = kwargs.get("random_state")
+                        if base is None:
+                            base = 0 if self.seed is None else self.seed
+                        kwargs["random_state"] = base + repeat
+                    model = self.model_class(**kwargs)
+                    # A custom model must not mutate the dataset used by later trials.
+                    import copy
+                    copy.deepcopy(data).fit(model)
+                    run.update(parameters=model_parameters(model), **diagnostics(model))
+                    run["metrics"] = dict(evaluate_metrics(
+                        self.metrics, labels, model.labels_, getattr(model, "embedding_", None),
+                        benchmark=self.benchmark,
+                    ))
+                except Exception as exc:
+                    run.update(status="failed", error=f"{type(exc).__name__}: {exc}")
+                    logger.error("Trial %d, run %d failed: %s", i + 1, repeat + 1, exc)
+                run.update(seconds=time.perf_counter() - t0, completed_at=timestamp())
+                entry["runs"].append(run)
+            entry["aggregate"] = aggregate_runs(entry["runs"])
+            scores = OrderedDict((key, entry["aggregate"]["metrics"].get(key, {}).get("mean")) for key in self.metrics)
+            scores = OrderedDict((key, np.nan if value is None else value) for key, value in scores.items())
+            # Incomplete configurations cannot win against fully evaluated ones.
+            if entry["aggregate"]["failed_runs"]:
+                scores[self.best_metric] = np.nan
+            elapsed = sum(run["seconds"] for run in entry["runs"]) / self.runs
+            self.result.add_trial(params, scores, elapsed)
+            report["search"]["steps"].append({"step": i + 1, "parameters": params,
+                                               "score": scores[self.best_metric],
+                                               "best_score_so_far": self.result.best_score})
 
             if pbar:
                 pbar.update(1)
@@ -481,4 +544,13 @@ class RandomSearchExperiment:
 
             logger.warning("Experiment saved to: %s", folder)
 
+        report["search"].update(best_parameters=self.result.best_params, best_score=self.result.best_score,
+                                 best_configuration=self.result.best_idx + 1 if self.result.best_trial else None)
+        report["completed_at"] = timestamp()
+        if self.save_json:
+            if experiment_dir:
+                from pathlib import Path
+                self.result.json_path = self.result.export(Path(experiment_dir) / "results.json")
+            else:
+                self.result.save_json(self.save_path)
         return self.result

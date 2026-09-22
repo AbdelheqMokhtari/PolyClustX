@@ -20,8 +20,16 @@ Python. Its records are session-local; exports do not persist original data.
 
 .. autofunction:: pymv.display.profiles.dataset_profile
 
+.. autoclass:: pymv.display.synthetic.SyntheticSpec
+   :members:
+
+.. autoclass:: pymv.display.synthetic.SyntheticGraphSpec
+   :members:
+
 .. autofunction:: pymv.display.synthetic.generate_synthetic
 
 .. autofunction:: pymv.display.workspace.export_record
 
 .. autofunction:: pymv.display.workspace.fingerprint
+
+.. autofunction:: pymv.display.exporting.dataset_mat

@@ -2,7 +2,11 @@ Available datasets and variants
 =================================
 
 This catalog is generated from the registry used by Python, the CLI, and the
-workbench. Each row is an artifact; related artifacts share a family and variant.
+interface. Each family appears once, with its variants and download links together.
+An artifact link identifies the actual hosted file. A reference link provides
+dataset background; provisional references are suggested reading, not verified
+provenance. Reference-collection counts describe that collection's version;
+inspect loaded arrays for the exact dimensions of your chosen representation.
 
 .. code-block:: python
 

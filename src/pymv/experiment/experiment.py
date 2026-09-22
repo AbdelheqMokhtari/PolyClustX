@@ -33,6 +33,7 @@ import html as _html_mod
 import sys
 import time
 from collections import OrderedDict
+from types import SimpleNamespace
 
 import numpy as np
 from tqdm import tqdm
@@ -252,8 +253,15 @@ class Experiment:
         console output is produced.
 
     save_path : str or None
-        Base directory for saving experiment results.  Only used
-        when ``save_markdown=True``.  Defaults to ``./experiments``.
+        Directory for JSON reports and optional Markdown folders. Defaults
+        to ``./experiments`` in the current working directory.
+
+    save_json : bool, default True
+        Automatically save one detailed JSON report containing every pair/run.
+
+    seed : int, default 0
+        Base seed when a model has no explicit random_state. Each repeat adds
+        its zero-based index to the base seed.
     """
 
     def __init__(
@@ -269,19 +277,25 @@ class Experiment:
         log: bool = False,
         save_path: str | None = None,
         benchmark: bool = True,
+        save_json: bool = True,
+        seed: int = 0,
     ):
         self.datasets = _normalize_datasets(datasets)
         self.models = _normalize_models(models)
         self.metrics = _normalize_metrics(metrics)
         self.benchmark = benchmark
         self._loaded_datasets = {}
-        self.runs = max(1, int(runs))
+        if not isinstance(runs, int) or isinstance(runs, bool) or runs < 1:
+            raise ValueError("runs must be a positive integer")
+        self.runs = runs
         self.log_dir = log_dir
         self.verbose = verbose
         self.save_markdown = save_markdown
         self.experiment_name = experiment_name
         self.log = log
         self.save_path = save_path
+        self.save_json = save_json
+        self.seed = seed
 
         # Filled after run()
         self.result: ExperimentResult | None = None
@@ -353,6 +367,17 @@ class Experiment:
 
     def run(self) -> ExperimentResult:
         """Execute the experiment and return an :class:`ExperimentResult`."""
+        from .exports import (
+            aggregate_runs,
+            dataset_details,
+            diagnostics,
+            model_details,
+            model_parameters,
+            new_report,
+            timestamp,
+        )
+
+        report = new_report(name=self.experiment_name)
 
         # Resolve experiment folder first (if saving), so the log goes
         # inside it from the very beginning.
@@ -397,6 +422,7 @@ class Experiment:
         model_names = [self._model_name(m) for m in self.models]
         from pymv.metrics.evaluation import evaluate_metrics, higher_is_better, validate_metrics
         self.result = ExperimentResult()
+        self.result.report = report
         self.result.metric_directions = {k: higher_is_better(fn) for k, fn in self.metrics.items()}
         self.result.set_models(self.models, model_names)
 
@@ -430,7 +456,7 @@ class Experiment:
                 pbar.set_postfix_str(f"loading {ds_name}…")
 
             data = _load_dataset(ds_entry)
-            self._loaded_datasets[ds_name] = data
+            self._loaded_datasets[ds_name] = SimpleNamespace(name=data.name, metadata=copy.deepcopy(data.metadata))
             Xs, As, labels = data.Xs, data.fused_graphs(), data.labels
             validate_metrics(self.metrics, labels, benchmark=self.benchmark)
             n_clusters = data.n_clusters if self.benchmark else None
@@ -457,6 +483,8 @@ class Experiment:
             }
 
             for model_template in self.models:
+                if not data.is_complete and not getattr(model_template, "supports_missing_views", False):
+                    raise ValueError("This model does not support missing views; explicitly impute first")
                 m_name = self._model_name(model_template)
 
                 logger.debug("  %s × %s", ds_name, m_name)
@@ -465,6 +493,12 @@ class Experiment:
                 run_metrics: dict[str, list] = {k: [] for k in self.metrics}
                 run_times: list[float] = []
                 run_alphas: list = []
+                entry = {"configuration": len(report["experiments"]) + 1,
+                         "dataset": dataset_details(data, benchmark=self.benchmark),
+                         "model": model_details(model_template), "parameters": model_parameters(model_template),
+                         "runs": []}
+                entry["dataset"]["name"] = ds_name
+                report["experiments"].append(entry)
 
                 for r in range(self.runs):
                     if pbar:
@@ -473,21 +507,33 @@ class Experiment:
                         )
 
                     model = copy.deepcopy(model_template)
+                    if hasattr(model, "random_state"):
+                        base = getattr(model_template, "random_state", None)
+                        model.random_state = (self.seed if base is None else base) + r
+                    started_at = timestamp()
 
                     t0 = time.perf_counter()
-                    data.fit(model)
+                    run = {"run": r + 1, "status": "complete", "started_at": started_at,
+                           "parameters": model_parameters(model)}
+                    try:
+                        copy.deepcopy(data).fit(model)
+                        scores = evaluate_metrics(self.metrics, labels, model.labels_,
+                                                  getattr(model, "embedding_", None), benchmark=self.benchmark)
+                        run.update(diagnostics(model))
+                    except Exception as exc:
+                        run.update(status="failed", error=f"{type(exc).__name__}: {exc}")
+                        scores = OrderedDict((key, np.nan) for key in self.metrics)
+                        logger.error("%s / %s run %d failed: %s", ds_name, m_name, r + 1, exc)
                     elapsed = time.perf_counter() - t0
-
-                    y_pred = model.labels_
-                    scores = evaluate_metrics(self.metrics, labels, y_pred,
-                                              getattr(model, "embedding_", None), benchmark=self.benchmark)
+                    run.update(completed_at=timestamp(), seconds=elapsed, metrics=dict(scores))
+                    entry["runs"].append(run)
 
                     for k, v in scores.items():
                         run_metrics[k].append(v)
                     run_times.append(elapsed)
                     
                     alpha_str = ""
-                    if hasattr(model, "alphas_") and model.alphas_ is not None:
+                    if run["status"] == "complete" and getattr(model, "alphas_", None) is not None:
                         run_alphas.append([float(a) for a in model.alphas_])
                         alpha_vals = [f"{a:.3f}" for a in model.alphas_]
                         alpha_str = f" | alphas=[{', '.join(alpha_vals)}]"
@@ -507,11 +553,13 @@ class Experiment:
                 avg = OrderedDict()
                 std = OrderedDict()
                 for k in self.metrics:
-                    vals = run_metrics[k]
-                    avg[k] = float(np.mean(vals))
-                    std[k] = float(np.std(vals))
+                    vals = np.asarray(run_metrics[k])
+                    vals = vals[np.isfinite(vals)]
+                    avg[k] = float(np.mean(vals)) if vals.size else float("nan")
+                    std[k] = float(np.std(vals)) if vals.size else float("nan")
 
                 avg_time = float(np.mean(run_times))
+                entry["aggregate"] = aggregate_runs(entry["runs"])
 
                 table_alpha_str = ""
                 if run_alphas:
@@ -658,4 +706,11 @@ class Experiment:
 
             logger.warning("Experiment saved to: %s", folder)
 
+        report["completed_at"] = timestamp()
+        if self.save_json:
+            if experiment_dir:
+                from pathlib import Path
+                self.result.json_path = self.result.export(Path(experiment_dir) / "results.json")
+            else:
+                self.result.save_json(self.save_path)
         return self.result

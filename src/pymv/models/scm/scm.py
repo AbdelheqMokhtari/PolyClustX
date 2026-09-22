@@ -60,6 +60,7 @@ class _SCMNetwork(tf.keras.Model):
 
 
 @register_model("scm", description="Contrastive clustering with concatenated feature views and a shared encoder.",
+                implementation="https://github.com/SubmissionsIn/SCM",
                 paper="https://www.ijcai.org/proceedings/2024/519", uses_graphs=False, defaults={
     "embedding_dim": 256,
     "projection_dim": 128,
@@ -282,6 +283,7 @@ class SCM(BaseModel):
         ).fit(self.embedding_)
         self.labels_ = clustering.labels_.astype(np.int32)
         self.centroids_ = clustering.cluster_centers_
+        self.inertia_ = float(clustering.inertia_)
         self.loss_history_ = np.asarray(losses)
         self.embedding_dim_ = self.projection_dim
         self.model_ = model

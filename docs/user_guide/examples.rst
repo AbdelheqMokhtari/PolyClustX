@@ -176,6 +176,14 @@ Pass your own pre-loaded data instead of built-in loaders:
    ).run()
 
 
+Local datasets and variants (offline)
+-------------------------------------
+
+Run ``python examples/custom_datasets.py`` in a repository checkout. The example
+creates two small MATLAB representations of the same samples and loads them
+without downloads. See :doc:`/contributing/datasets` to extend the example into
+a registered dataset family with variants.
+
 Example 8 — Visualize the embedding
 ------------------------------------
 
