@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 import textwrap
 
@@ -97,6 +98,11 @@ def _configure_verbosity(level: int) -> None:
     2 — **progress** : suppress TF/CUDA noise, show pymv progress + tables.
     3 — **debug**    : show *everything* including TF and system messages.
     """
+    if level <= 2:
+        os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+        os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+        os.environ["GRPC_VERBOSITY"] = "ERROR"
+
     # Python logging root — cap at WARNING for levels < 3
     if level == 0:
         logging.basicConfig(level=logging.CRITICAL + 1)
@@ -148,18 +154,20 @@ def _parse_json_or_csv(value: str):
 
 
 def _coerce(value: str, default):
-    """Coerce a CLI string to the same type as *default*."""
+    """Coerce a CLI string to the same type as *default*, allowing lists."""
+    value = value.strip()
+    
+    # Always parse lists first, regardless of the default type
+    if value.startswith("[") or "," in value:
+        return _parse_json_or_csv(value)
+
     if isinstance(default, bool):
         return value.lower() in ("true", "1", "yes")
     if isinstance(default, int):
         return int(value)
     if isinstance(default, float):
         return float(value)
-    if isinstance(default, list):
-        parsed = _parse_json_or_csv(value)
-        if isinstance(parsed, list):
-            return parsed
-        return [parsed]
+    
     return value
 
 
@@ -594,10 +602,10 @@ def main(argv: list[str] | None = None):
     # Discovery commands (no dataset needed)
     if args.list_datasets:
         cmd_list_datasets()
-        return
+        sys.exit(0)
     if args.list_models:
         cmd_list_models()
-        return
+        sys.exit(0)
 
     # Validate required --dataset
     if not args.dataset:

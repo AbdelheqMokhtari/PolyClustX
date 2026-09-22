@@ -18,6 +18,9 @@ test:            ## Run the test suite
 lint:            ## Lint with ruff
 	ruff check src/ tests/
 
+fix:            ## fix with Lint
+	ruff check --fix src/ tests/
+
 format:          ## Auto-fix lint issues
 	ruff check --fix src/ tests/
 

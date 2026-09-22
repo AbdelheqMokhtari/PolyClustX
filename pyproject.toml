@@ -65,7 +65,7 @@ Documentation = "https://pymv.readthedocs.io/en/latest/"
 BugTracker = "https://github.com/AbdelheqMokhtari/pymv/issues"
 
 [project.scripts]
-pymv-cli = "pymv_cli_entry:main"
+pymv-cli = "pymv.cli:main"
 pymv-display = "pymv.display:launch"
 
 [tool.setuptools]
