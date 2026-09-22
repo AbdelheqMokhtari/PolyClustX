@@ -1447,6 +1447,12 @@ def main():
     st.set_page_config(page_title="pymv", page_icon=str(ASSETS / "logo.png"), layout="wide")
     st.markdown(f"<style>{CSS}</style>", unsafe_allow_html=True)
     
+    # Compatibility Layer for Older Streamlit AppTest (Minimum Matrix) 
+    st.session_state.setdefault("dataset_class_counts", True)
+    st.session_state.setdefault("search_lmgec_temperature", False)
+    st.session_state.setdefault("search_lmgec_embedding_dim", False)
+    st.session_state.setdefault("search_lmgec_max_iter", False)
+
     if "_next_workflow_step" in st.session_state:
         st.session_state.workflow_step = st.session_state.pop("_next_workflow_step")
     workspace = _workspace()
