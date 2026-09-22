@@ -2,12 +2,12 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import streamlit as st
 
 from pymv.display.artifacts import StoredArtifact
 from pymv.display.workspace import ExperimentSpec, Workspace
 from tests.test_experiment_reports import ReportModel, dataset
 
+st = pytest.importorskip("streamlit")
 
 def app_test(workspace, page):
     pytest.importorskip("streamlit")

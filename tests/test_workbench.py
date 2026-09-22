@@ -5,7 +5,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import streamlit as st
 
 from pymv.data import MultiViewDataset
 from pymv.display.preprocessing import PreprocessingSpec, ViewPreprocessing, prepare_dataset
@@ -15,6 +14,7 @@ from pymv.display.synthetic import SyntheticSpec, generate_synthetic
 from pymv.display.workspace import INTERNAL_NAMES, ExperimentSpec, Workspace, export_record
 from tests.test_unsupervised_experiments import DummyModel
 
+st = pytest.importorskip("streamlit")
 
 @pytest.fixture
 def workspace(monkeypatch):

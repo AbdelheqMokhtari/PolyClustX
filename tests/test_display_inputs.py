@@ -4,11 +4,11 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import streamlit as st
 
 from pymv.data import dataset_from_arrays, load_files
 from pymv.display.model_controls import COMMON, parse_candidates
 
+st = pytest.importorskip("streamlit")
 
 def test_upload_batch_labels_are_not_features(tmp_path):
     first = np.arange(12).reshape(6, 2)
