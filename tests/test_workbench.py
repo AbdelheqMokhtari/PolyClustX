@@ -4,8 +4,8 @@ import zipfile
 from pathlib import Path
 
 import numpy as np
-import streamlit as st
 import pytest
+import streamlit as st
 
 from pymv.data import MultiViewDataset
 from pymv.display.preprocessing import PreprocessingSpec, ViewPreprocessing, prepare_dataset

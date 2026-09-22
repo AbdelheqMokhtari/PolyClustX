@@ -1,8 +1,8 @@
 from pathlib import Path
 
 import numpy as np
-import streamlit as st
 import pytest
+import streamlit as st
 
 from pymv.display.artifacts import StoredArtifact
 from pymv.display.workspace import ExperimentSpec, Workspace

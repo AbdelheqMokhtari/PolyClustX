@@ -3,8 +3,8 @@
 from pathlib import Path
 
 import numpy as np
-import streamlit as st
 import pytest
+import streamlit as st
 
 from pymv.data import dataset_from_arrays, load_files
 from pymv.display.model_controls import COMMON, parse_candidates
