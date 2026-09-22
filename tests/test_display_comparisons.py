@@ -37,6 +37,8 @@ def test_grid_search_copy_to_experiment_and_visualize():
     best_name = next(t for t in at.text_input if t.label == "Best model name")
     assert best_name.value == "LMGEC_grid_best_#1"
     best_name.set_value("Selected graph baseline")
+    at.session_state["search_lmgec_embedding_dim"] = False
+    at.session_state["search_lmgec_max_iter"] = False
     next(b for b in at.button if b.label == "Copy best to experiment").click().run()
     assert not at.exception and len(ws.models) == 1
     assert next(iter(ws.models.values()))["name"] == "Selected graph baseline"

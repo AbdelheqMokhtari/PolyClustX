@@ -154,6 +154,8 @@ def test_streamlit_create_run_duplicate_delete():
     ws = at.session_state["workspace"]
     assert len(ws.records) == 1
     assert all(r["status"] == "complete" for r in ws.records[0].rows)
+    for d_id in ws.datasets:
+        at.session_state[f"experiment_dataset_k_{d_id}"] = 3
     next(b for b in at.button if b.label == "Use these settings for a new experiment").click().run()
     assert not at.exception
     next(b for b in at.button if b.label == "Continue to experiment").click().run()

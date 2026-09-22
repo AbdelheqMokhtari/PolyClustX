@@ -1447,28 +1447,6 @@ def main():
     st.set_page_config(page_title="pymv", page_icon=str(ASSETS / "logo.png"), layout="wide")
     st.markdown(f"<style>{CSS}</style>", unsafe_allow_html=True)
     
-    # --- Proactive Session State Pre-Initialization (Minimum Streamlit Compatibility) ---
-    # Pre-populate global configuration keys
-    st.session_state.setdefault("dataset_class_counts", True)
-    st.session_state.setdefault("search_lmgec_temperature", False)
-    
-    # Pre-populate all known model parameters so AppTest never hits a KeyError when setting values
-    try:
-        from pymv.models.registry import list_models
-        for m_name in list_models():
-            defaults, controls = parameter_controls(m_name)
-            for p_name, ctrl in controls.items():
-                st.session_state.setdefault(f"parameter_{m_name}_{p_name}", defaults.get(p_name))
-                st.session_state.setdefault(f"search_{m_name}_{p_name}", False)
-    except Exception:
-        pass
-
-    # Pre-populate workspace dataset K-values if datasets are present
-    if "workspace" in st.session_state:
-        for d_id, res in st.session_state.workspace.datasets.items():
-            st.session_state.setdefault(f"experiment_dataset_k_{d_id}", res.hint.get("n_clusters", 3))
-    # ---------------------------------------------------------------------------------
-
     if "_next_workflow_step" in st.session_state:
         st.session_state.workflow_step = st.session_state.pop("_next_workflow_step")
     workspace = _workspace()
@@ -1496,7 +1474,6 @@ def main():
         "Search": render_search,
     }
     renderers[page](workspace)
-
 
 if __name__ == "__main__":
     main()

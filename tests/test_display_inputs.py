@@ -101,6 +101,8 @@ def test_custom_search_persists_across_navigation_and_rejects_bad_values():
     at.button(key="nav_Model").click().run()
     at.button(key="nav_Search").click().run()
     assert not at.exception
+    if not at.checkbox(key="search_lmgec_temperature").value:
+        at.checkbox(key="search_lmgec_temperature").check().run()
     assert at.multiselect(key="candidates_lmgec_temperature").value == ["0.0007", "250.0"]
     at.multiselect(key="candidates_lmgec_temperature").set_value(["-1", "nonsense"]).run()
     assert not at.exception and at.error
