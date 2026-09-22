@@ -15,6 +15,8 @@ from collections import OrderedDict
 
 import numpy as np
 
+from .exports import ExportableResult
+
 NUM_FMT = "{:.4f}"
 TIME_FMT = "{:.2f}s"
 MEAN_STD_FMT = "{:.4f} (±{:.4f})"
@@ -364,7 +366,7 @@ class Result:
         )
 
 
-class ExperimentResult:
+class ExperimentResult(ExportableResult):
     """
     Collects results across multiple datasets and models.
 
@@ -409,7 +411,8 @@ class ExperimentResult:
                 if not np.isnan(v) and v > best_val:
                     best_val = v
                     best_row = row_i
-            best[col_i] = best_row
+            if np.isfinite(best_val):
+                best[col_i] = best_row
         return best
 
     def config_table(self) -> str:
@@ -471,7 +474,7 @@ class ExperimentResult:
         return "\n".join(sections)
 
 
-class RandomSearchResult:
+class RandomSearchResult(ExportableResult):
     """
     Stores results of a random hyper-parameter search.
 
@@ -486,6 +489,7 @@ class RandomSearchResult:
         self.higher_is_better = higher_is_better
         self.trials: list[dict] = []
         self.best_idx: int = 0
+        self.strategy = "random"
 
     def add_trial(self, params: dict, metric_values: dict, train_time: float):
         self.trials.append({
@@ -505,15 +509,17 @@ class RandomSearchResult:
     @property
     def best_trial(self) -> dict | None:
         """The full best trial (``params`` / ``metrics`` / ``time``)."""
-        return self.trials[self.best_idx] if self.trials else None
+        if not self.trials or not np.isfinite(self.trials[self.best_idx]["metrics"].get(self.best_metric_name, np.nan)):
+            return None
+        return self.trials[self.best_idx]
 
     @property
     def best_params(self) -> dict:
-        return self.trials[self.best_idx]["params"]
+        return self.best_trial["params"] if self.best_trial else {}
 
     @property
     def best_metrics(self) -> OrderedDict:
-        return self.trials[self.best_idx]["metrics"]
+        return self.best_trial["metrics"] if self.best_trial else OrderedDict()
 
     @property
     def best_score(self) -> float:
@@ -537,15 +543,15 @@ class RandomSearchResult:
             row += [NUM_FMT.format(t["metrics"][m]) for m in metric_names]
             row.append(TIME_FMT.format(t["time"]))
             rows.append(row)
-            tag = "★ best" if i == self.best_idx else f"#{i + 1}"
+            tag = "★ best" if self.best_trial and i == self.best_idx else f"#{i + 1}"
             index.append(tag)
 
         # Best column = the one for best_metric_name
         bm_col = len(param_keys) + metric_names.index(self.best_metric_name)
-        best_cols = {bm_col: self.best_idx}
+        best_cols = {bm_col: self.best_idx} if self.best_trial else {}
 
         title = (
-            f"Random Search — {self.model_name} on {self.dataset_name}  "
+            f"{self.strategy.title()} Search — {self.model_name} on {self.dataset_name}  "
             f"({len(self.trials)} trials, best by {self.best_metric_name})"
         )
 

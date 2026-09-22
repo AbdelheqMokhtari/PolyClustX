@@ -1,7 +1,17 @@
-# Algorithm background and references
+# Available models, background and references
 
 The framework is method-independent. Its data representation and evaluation
 tools should not be confused with the assumptions of an individual algorithm.
+
+## Choose a model
+
+```{pymv-catalog} models
+```
+
+Check **Missing views** before fitting incomplete inputs; a model without
+native support needs explicit imputation. All listed models accept single or
+multiple feature views. The table is generated from the model registry.
+See the [model API](../api/models.rst) for constructor parameters.
 
 ## LMGEC
 
@@ -13,6 +23,7 @@ Chakib Fettal, Lazhar Labiod, and Mohamed Nadif. **Simultaneous Linear Multi-vie
 Attributed Graph Representation Learning and Clustering**. WSDM 2023, 303–311.
 [DOI: 10.1145/3539597.3570367](https://doi.org/10.1145/3539597.3570367).
 [Author-hosted paper](https://chakib401.github.io/assets/pdf/LMGEC.pdf).
+[Original implementation](https://github.com/chakib401/LMGEC).
 
 In pymv, feature normalization and optional graph propagation precede the
 linear optimization. With graphs, propagation uses
@@ -49,5 +60,5 @@ evaluation space when reporting comparisons. State whether you supplied K from
 ground truth. Imputed runs should report the imputation baseline. Framework
 tests check implementation behavior, not reproduction of every published table.
 
-Use the [model catalog](../catalog/models.rst) for current capabilities and
-the [API](../api/models.rst) for implemented parameters.
+Use the capability table above when choosing a method and the
+[API](../api/models.rst) for implemented parameters.

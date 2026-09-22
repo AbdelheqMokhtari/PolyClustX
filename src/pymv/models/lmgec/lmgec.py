@@ -128,7 +128,8 @@ def _get_train_loop(n_views):
 
 # Public model class
 
-@register_model("lmgec", description="Joint linear representation learning and clustering, with optional graphs.",
+@register_model("lmgec", description="Linear multiview attributed graph embedding and clustering.",
+                implementation="https://github.com/chakib401/LMGEC",
                 paper="https://doi.org/10.1145/3539597.3570367", uses_graphs=True, defaults={
     "embedding_dim": 16,
     "temperature": 1.0,
@@ -227,6 +228,17 @@ class LMGEC(BaseModel):
     >>> model = LMGEC(n_clusters=3, embedding_dim=4, preprocess=False)
     >>> model.fit([X1, X2])        # just feature matrices
     """
+
+    @staticmethod
+    def resolve_fit_parameters(Xs, params):
+        """Return the effective parameters for these views, without modifying inputs."""
+        resolved = dict(params)
+        limit = min(min(view.shape) - 1 for view in Xs)
+        if limit < 1:
+            raise ValueError("LMGEC needs at least two samples and two features in every view")
+        if "embedding_dim" in resolved:
+            resolved["embedding_dim"] = min(resolved["embedding_dim"], limit)
+        return resolved
 
     def __init__(
         self,
@@ -383,6 +395,7 @@ class LMGEC(BaseModel):
         k = self.n_clusters
 
         alphas = np.zeros(n_views, dtype=np.float64)
+        self.per_view_results_ = []
         XW_consensus = np.zeros((Hs[0].shape[0], m), dtype=np.float64)
 
         # Inertia is normalized by sqrt(N) so the softmax scale is invariant
@@ -393,6 +406,8 @@ class LMGEC(BaseModel):
             XWv = Hs[v] @ Wv
             Gv, Fv = _init_G_F(XWv, k, random_state=self.random_state)
             inertia = np.linalg.norm(XWv - Fv[Gv]) / np.sqrt(XWv.shape[0])
+            self.per_view_results_.append({"view": v, "stage": "initialization",
+                                           "normalized_inertia": float(inertia)})
             logger.info("[View %d] normalized inertia: %.4f", v, inertia)
 
             alphas[v] = np.exp(-inertia / self.temperature)
@@ -444,6 +459,8 @@ class LMGEC(BaseModel):
         self.embedding_ = XW_out.numpy()
         self.loss_history_ = losses.numpy()
         self.alphas_ = alphas_norm
+        residual = self.embedding_ - self.centroids_[self.labels_]
+        self.inertia_ = float(np.einsum("ij,ij->", residual, residual))
 
         # Release all TF tensors so GPU VRAM is freed for the next call
         del G_out, F_out, XW_out, losses

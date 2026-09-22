@@ -59,15 +59,22 @@ class MultiViewDataset:
             raise ValueError("As must contain exactly one entry per view (use None for no graph)")
         for j, entry in enumerate(self.As):
             relations = entry if isinstance(entry, (list, tuple)) else [entry]
+            converted = []
             if isinstance(entry, (list, tuple)) and (not entry or any(a is None for a in entry)):
                 raise ValueError("Relation lists must be nonempty and cannot contain None")
             for adjacency in relations:
                 if adjacency is None:
+                    converted.append(None)
                     continue
+                if hasattr(adjacency, "nodes") and hasattr(adjacency, "edges"):
+                    from .graphs import graph_adjacency
+                    adjacency = graph_adjacency(adjacency, np.arange(n) if sample_ids is None else sample_ids)
                 a = _matrix(adjacency, f"As[{j}]")
                 values = a.data if sparse.issparse(a) else a
                 if a.shape != (n, n) or not np.isfinite(values).all() or (values < 0).any():
                     raise ValueError("Graphs must be finite nonnegative (n_samples, n_samples) matrices")
+                converted.append(a)
+            self.As[j] = converted if isinstance(entry, (list, tuple)) else converted[0]
         self.labels = None if labels is None else np.asarray(labels).reshape(-1)
         if self.labels is not None and len(self.labels) != n:
             raise ValueError("Labels must have one entry per aligned sample")

@@ -1,9 +1,9 @@
 # Aligned and missing views
 
-The framework can represent missing views, but a model must explicitly
-implement an objective that uses the observation mask. **Neither current model
-natively consumes incomplete views.** SCM's training-time view-drop augmentation
-does not establish support for genuinely unavailable input views.
+Use missing views when some samples have no observation in one or more views.
+Not every model accepts incomplete inputs. Check the **Missing views** column
+in the [model guide](../background/algorithms.md), or choose explicit imputation
+before fitting a model that requires complete data.
 
 ## Align samples using IDs
 
@@ -43,19 +43,14 @@ complete = load_data("acm")
 data = simulate_missing_views(complete, missing_rate=0.2, random_state=42)
 ```
 
-Seeded constrained MCAR-style sampling removes
-`floor(rate × currently_observed_pairs)` sample-view pairs, without examining
-features or labels, and retains at least one view per sample. This constraint
-means the process is **not independent Bernoulli MCAR**.
+This creates an incomplete version of a complete dataset so you can test
+missing-view settings. `0.2` hides about 20% of available sample/view observations
+at random, while keeping at least one view for every sample. The original
+dataset, labels and graphs stay unchanged. Use the same `random_state` to
+reproduce the missing observations.
 
-“20%” means observed sample-view pairs, not whole samples or exactly 20% per
-view. The source stays unchanged. Requested/achieved rates and seed are stored
-in `data.metadata["missing_simulation"]`. Graphs and labels are unchanged:
-this simulates missing features, not deleted edges.
-
-Impossible rates, values outside [0, 1), and positive removal for single-view
-data are rejected. A view may become entirely unavailable, in which case
-mean imputation cannot estimate its feature means.
+Use at least two views and a rate below 1. Impossible removal requests are
+rejected. The availability mask records exactly what is missing.
 
 ## Choose a deliberate baseline
 
@@ -63,15 +58,14 @@ mean imputation cannot estimate its feature means.
 from pymv.data import impute_missing
 from pymv.models import LMGEC
 
-# data.fit(LMGEC(n_clusters=3)) rejects incomplete inputs.
 prepared = impute_missing(data, strategy="mean")  # or explicit "zero"
 model = prepared.fit(LMGEC(n_clusters=3, embedding_dim=8, random_state=42))
 ```
 
 Means use observed rows only, without labels; sparse inputs may be densified.
 The output is marked complete and retains the original mask in imputation
-metadata. Report this as **LMGEC/SCM after imputation**, not a new missing-aware
-version of either algorithm.
+metadata. If a view has no observed samples, choose zero imputation instead.
+Report the imputation strategy alongside the model in comparisons.
 
 Keep the dataset object when fitting. Legacy tuple unpacking loses the mask;
 raw zero-filled matrices do not reveal missingness. New missing-aware models

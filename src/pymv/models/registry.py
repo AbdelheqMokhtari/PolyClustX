@@ -36,7 +36,8 @@ _MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {}
 
 # ── Registration ──────────────────────────────────────────────────
 
-def register_model(name: str, *, defaults: dict | None = None, description="", paper="", uses_graphs=False):
+def register_model(name: str, *, defaults: dict | None = None, description="", paper="", uses_graphs=False,
+                   implementation=""):
     """Class decorator that registers a model in the global registry.
 
     Parameters
@@ -77,6 +78,7 @@ def register_model(name: str, *, defaults: dict | None = None, description="", p
             "defaults": defaults or _extract_defaults(cls),
             "description": description,
             "paper": paper,
+            "implementation": implementation,
             "uses_graphs": uses_graphs,
             "supports_missing_views": getattr(cls, "supports_missing_views", False),
         }

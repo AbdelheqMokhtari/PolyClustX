@@ -71,7 +71,7 @@ def read_arrays(source, *, filename=None, delimiter=",", skip_header="auto"):
     raise ValueError("Supported files: .npy, .npz, .csv, .tsv, .mat (v7 or earlier)")
 
 
-def dataset_from_arrays(arrays, *, view_keys, graph_keys=None, label_key=None,
+def dataset_from_arrays(arrays, *, view_keys, graph_keys=None, label_key=None, label_column=None,
                         id_keys=None, label_id_key=None, mask_key=None,
                         transpose_views=(), detect_nan_rows=False, modalities=None, name="uploaded"):
     """Build a dataset using explicit array roles, shared by all file formats.
@@ -81,19 +81,51 @@ def dataset_from_arrays(arrays, *, view_keys, graph_keys=None, label_key=None,
     that every selected matrix has the same row order. Fully NaN rows may be
     detected only when explicitly enabled; partial NaNs are rejected. An
     explicit mask uses global row order and cannot be combined with ID alignment.
+
+    ``label_column=(view_key, column_index)`` extracts labels from one feature
+    array and removes that column before fitting. The index is zero-based,
+    after any requested transpose. It cannot be combined with ``label_key``.
     """
     if not view_keys or len(set(view_keys)) != len(view_keys):
         raise ValueError("Select at least one unique view key")
+    if label_key in view_keys:
+        raise ValueError("A labels array cannot also be selected as a feature view")
     graph_keys = graph_keys or {}
     if set(graph_keys) - set(view_keys):
         raise ValueError("Every graph must be mapped to a selected view")
     Xs = [arrays[k].T if k in transpose_views else arrays[k] for k in view_keys]
+    labels = None if label_key is None else arrays[label_key]
+    if label_column is not None:
+        if label_key is not None:
+            raise ValueError("Choose a labels array or an embedded label column, not both")
+        if not isinstance(label_column, (list, tuple)) or len(label_column) != 2:
+            raise ValueError("label_column must contain a view key and a zero-based column index")
+        key, column = label_column
+        if key not in view_keys:
+            raise ValueError("The label column must belong to a selected feature view")
+        view = view_keys.index(key)
+        matrix = Xs[view]
+        if (len(matrix.shape) != 2 or isinstance(column, bool)
+                or not isinstance(column, (int, np.integer)) or not 0 <= column < matrix.shape[1]):
+            raise ValueError("Select a valid zero-based label column")
+        if matrix.shape[1] < 2:
+            raise ValueError("The label column must leave at least one feature column")
+        if sparse.issparse(matrix):
+            matrix = matrix.tocsr()
+            labels = matrix[:, column].toarray().ravel()
+            Xs[view] = matrix[:, np.arange(matrix.shape[1]) != column]
+        else:
+            labels = np.asarray(matrix)[:, column].copy()
+            Xs[view] = np.delete(matrix, column, axis=1)
+    if labels is not None:
+        labels = np.asarray(labels)
+        if labels.ndim not in {1, 2} or (labels.ndim == 2 and 1 not in labels.shape):
+            raise ValueError("Labels must be a vector with one value per sample")
     Xs = [x if sparse.issparse(x) else np.asarray(x, dtype=float) for x in Xs]
     As = [[arrays[k] for k in graph_keys.get(view, [])] or None for view in view_keys]
-    labels = None if label_key is None else arrays[label_key]
     options = {"name": name, "view_names": view_keys, "modalities": modalities,
                "metadata": {"import": {"view_keys": list(view_keys), "graph_keys": graph_keys,
-                                       "label_key": label_key, "id_keys": id_keys,
+                                       "label_key": label_key, "label_column": label_column, "id_keys": id_keys,
                                        "transpose_views": list(transpose_views)}}}
     if id_keys:
         if len(id_keys) != len(view_keys) or mask_key is not None or detect_nan_rows:

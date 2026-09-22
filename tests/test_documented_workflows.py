@@ -24,6 +24,10 @@ def test_real_models_one_two_many_views(count, cls):
     model = data.fit(cls(**kwargs))
     assert model.labels_.shape == (15,)
     assert model.embedding_.shape[0] == 15
+    assert model.inertia_ >= 0
+    if cls is LMGEC:
+        assert len(model.per_view_results_) == count
+        assert all(item["stage"] == "initialization" for item in model.per_view_results_)
 
 
 def test_direct_propagation_fuses_relations():
