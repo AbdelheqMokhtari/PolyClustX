@@ -73,7 +73,7 @@ def test_invalid_candidates(parameter, value):
     with pytest.raises(ValueError):
         parse_candidates([value], COMMON[parameter])
 
-
+@pytest.mark.skipif(st.__version__ == "1.51.0", reason="AppTest unmount bug in older Streamlit")
 def test_custom_search_persists_across_navigation_and_rejects_bad_values():
     pytest.importorskip("streamlit")
     from streamlit.testing.v1 import AppTest

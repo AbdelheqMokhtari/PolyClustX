@@ -17,7 +17,7 @@ def app_test(workspace, page):
     at.session_state["workflow_step"] = page
     return at.run()
 
-
+@pytest.mark.skipif(st.__version__ == "1.51.0", reason="AppTest unmount bug in older Streamlit")
 def test_grid_search_copy_to_experiment_and_visualize():
     ws = Workspace()
     data = dataset()

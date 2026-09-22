@@ -132,7 +132,7 @@ def test_aggregate_repeated_results_and_compact_confusion(workspace):
     assert matrix.shape == (13, 13)
     assert rows[-1] == "Other classes" and columns[-1] == "Other clusters"
 
-
+@pytest.mark.skipif(st.__version__ == "1.51.0", reason="AppTest unmount bug in older Streamlit")
 def test_streamlit_create_run_duplicate_delete():
     pytest.importorskip("streamlit")
     from streamlit.testing.v1 import AppTest
