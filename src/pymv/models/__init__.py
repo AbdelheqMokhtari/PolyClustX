@@ -1,6 +1,8 @@
 # Import model sub-packages so they self-register via @register_model.
 # Adding a new model only requires: create the class with the decorator
 # and add a single import line here.
+from .completer import COMPLETER, Completer
+from .dcp import DCP
 from .idec import IDEC
 from .lmgec import LMGEC
 from .multiview_kmeans import MultiViewKMeans, MultiviewKMeans
@@ -17,6 +19,9 @@ __all__ = [
     "LMGEC",
     "SCM",
     "IDEC",
+    "COMPLETER",
+    "Completer",
+    "DCP",
     "MultiViewKMeans",
     "MultiviewKMeans",
     "MultiViewSpectralClustering",
