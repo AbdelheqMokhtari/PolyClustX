@@ -1,4 +1,4 @@
-"""Co-EM clustering inspired by mvlearn; see THIRD_PARTY_NOTICES.md."""
+"""Co-EM clustering inspired by mvlearn; see LICENSE for third-party notices."""
 from __future__ import annotations
 
 import warnings

@@ -149,21 +149,21 @@ See the [CLI guide with complete examples](docs/api/cli.rst).
 Graphs ✓ means the method uses supplied adjacency matrices. Missing views ✓
 means native support for an observation mask.
 
-| Category | Method / command | Graphs | Missing views | Original publication |
-|---|---|:---:|:---:|---|
-| Graph-aware | LMGEC / `lmgec` | ✓ | — | [Fettal et al., WSDM 2023](https://doi.org/10.1145/3539597.3570367) |
-| Graph-aware | DGF / `dgf` | ✓ | — | [Zheng et al., Dual Graph Filtering](https://arxiv.org/abs/2511.20030) |
-| Graph-aware | SGLA / `sgla` | ✓ | — | [Li et al., ICDE 2025](https://arxiv.org/abs/2508.09452) |
-| Feature-based | MultiViewKMeans / `multiview-kmeans` | — | — | [Bickel & Scheffer, ICDM 2004](https://doi.org/10.1109/ICDM.2004.10095) |
-| Feature-based | MultiViewSpectralClustering / `multiview-spectral` | — | — | [Kumar & Daumé, ICML 2011](https://icml.cc/2011/papers/272_icmlpaper.pdf) |
-| Feature-based | G-CoMVKM / `g-comvkm` | — | — | [Sinaga & Yang, Electronics 2025](https://doi.org/10.3390/electronics14112129) |
-| Feature-based | IDEC / `idec` | — | — | [Guo et al., IJCAI 2017](https://www.ijcai.org/proceedings/2017/243) |
-| Feature-based | CONAN / `conan` | — | — | [Ke et al., BigData 2021](https://doi.org/10.1109/BigData52589.2021.9671851) |
-| Feature-based | SCM / `scm` | — | — | [Luo et al., IJCAI 2024](https://www.ijcai.org/proceedings/2024/519) |
-| Feature-based | MFLVC / `mflvc` | — | — | [Xu et al., CVPR 2022](https://openaccess.thecvf.com/content/CVPR2022/html/Xu_Multi-Level_Feature_Learning_for_Contrastive_Multi-View_Clustering_CVPR_2022_paper.html) |
-| Feature-based | UMC / `umc` | — | — | [Zhang et al., ACL 2024](https://aclanthology.org/2024.acl-long.2/) |
-| Incomplete-view | COMPLETER / `completer` | — | ✓ | [Lin et al., CVPR 2021](https://openaccess.thecvf.com/content/CVPR2021/papers/Lin_COMPLETER_Incomplete_Multi-View_Clustering_via_Contrastive_Prediction_CVPR_2021_paper.pdf) |
-| Incomplete-view | DCP / `dcp` | — | ✓ | [Lin et al., TPAMI](https://doi.org/10.1109/TPAMI.2022.3197238) |
+| Category | Method / command | Graphs | Missing views |
+|---|---|:---:|:---:|
+| Graph-aware | LMGEC / `lmgec` | ✓ | — |
+| Graph-aware | DGF / `dgf` | ✓ | — |
+| Graph-aware | SGLA / `sgla` | ✓ | — |
+| Feature-based | MultiViewKMeans / `multiview-kmeans` | — | — |
+| Feature-based | MultiViewSpectralClustering / `multiview-spectral` | — | — |
+| Feature-based | G-CoMVKM / `g-comvkm` | — | — |
+| Feature-based | IDEC / `idec` | — | — |
+| Feature-based | CONAN / `conan` | — | — |
+| Feature-based | SCM / `scm` | — | — |
+| Feature-based | MFLVC / `mflvc` | — | — |
+| Feature-based | UMC / `umc` | — | — |
+| Incomplete-view | COMPLETER / `completer` | — | ✓ |
+| Incomplete-view | DCP / `dcp` | — | ✓ |
 
 Capabilities differ by method. Some single-view and multi-view cases are
 framework adaptations; UMC uses supplied features without pretrained encoders.
@@ -199,9 +199,30 @@ start with the [worked examples](docs/user_guide/examples.rst), or follow the
 Centre Borelli · Université Paris Cité.
 Institutional marks remain separate from PolyClustX and do not imply endorsement.
 
+## References
+
+Cite the original papers when using these methods in research. Reference code
+links identify the implementations that informed the framework adaptations.
+
+| Method | Paper | Reference implementation |
+|---|---|---|
+| LMGEC | [Fettal et al., WSDM 2023](https://doi.org/10.1145/3539597.3570367) | [Code](https://github.com/chakib401/LMGEC) |
+| DGF | [Zheng et al., Dual Graph Filtering](https://arxiv.org/abs/2511.20030) | [Code](https://github.com/HaoranZ99/DGF) |
+| SGLA | [Li et al., ICDE 2025](https://arxiv.org/abs/2508.09452) | [Code](https://github.com/CyanideCentral/SGLA) |
+| MultiViewKMeans | [Bickel & Scheffer, ICDM 2004](https://doi.org/10.1109/ICDM.2004.10095) | [Code](https://github.com/mvlearn/mvlearn) |
+| MultiViewSpectralClustering | [Kumar & Daumé, ICML 2011](https://icml.cc/2011/papers/272_icmlpaper.pdf) | [Code](https://github.com/mvlearn/mvlearn) |
+| G-CoMVKM | [Sinaga & Yang, Electronics 2025](https://doi.org/10.3390/electronics14112129) | [Code](https://github.com/KristinaP09/G-CoMVKM) |
+| IDEC | [Guo et al., IJCAI 2017](https://www.ijcai.org/proceedings/2017/243) | [Code](https://github.com/XifengGuo/IDEC) |
+| CONAN | [Ke et al., BigData 2021](https://doi.org/10.1109/BigData52589.2021.9671851) | [Code](https://github.com/Guanzhou-Ke/conan) |
+| SCM | [Luo et al., IJCAI 2024](https://www.ijcai.org/proceedings/2024/519) | [Code](https://github.com/SubmissionsIn/SCM) |
+| MFLVC | [Xu et al., CVPR 2022](https://openaccess.thecvf.com/content/CVPR2022/html/Xu_Multi-Level_Feature_Learning_for_Contrastive_Multi-View_Clustering_CVPR_2022_paper.html) | [Code](https://github.com/SubmissionsIn/MFLVC) |
+| UMC | [Zhang et al., ACL 2024](https://aclanthology.org/2024.acl-long.2/) | [Code](https://github.com/thuiar/UMC) |
+| COMPLETER | [Lin et al., CVPR 2021](https://openaccess.thecvf.com/content/CVPR2021/papers/Lin_COMPLETER_Incomplete_Multi-View_Clustering_via_Contrastive_Prediction_CVPR_2021_paper.pdf) | [Code](https://github.com/XLearning-SCU/2021-CVPR-Completer) |
+| DCP | [Lin et al., TPAMI](https://doi.org/10.1109/TPAMI.2022.3197238) | [Code](https://github.com/XLearning-SCU/2022-TPAMI-DCP) |
+
+
 ## License
 
-The software is MIT licensed; see [LICENSE](LICENSE) and
-[third-party notices](THIRD_PARTY_NOTICES.md). Institutional logos are not
+The software license and third-party notices are in [LICENSE](LICENSE). Institutional logos are not
 covered by the software's MIT license. Cite the original algorithm papers
 when publishing results.

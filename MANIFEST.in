@@ -1,6 +1,4 @@
-include README.md LICENSE THIRD_PARTY_NOTICES.md .readthedocs.yaml
-# The documentation's release-history page includes this file.
-include CHANGELOG.md
+include README.md LICENSE .readthedocs.yaml
 include Makefile
 recursive-include scripts *.py
 recursive-include notebooks *.ipynb

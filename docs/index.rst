@@ -74,12 +74,6 @@ Start with :doc:`user_guide/quickstart`, explore
    api/visualization
    api/cli
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Project
-
-   user_guide/changelog
-
 Scientific scope
 ----------------
 

@@ -1,6 +1,6 @@
 """Contrastive fusion with divergence-based clustering (CONAN, BigData 2021).
 
-Feature-matrix MLP route; see THIRD_PARTY_NOTICES.md for the reference MIT notice.
+Feature-matrix MLP route; see LICENSE for the reference MIT notice.
 """
 from __future__ import annotations
 

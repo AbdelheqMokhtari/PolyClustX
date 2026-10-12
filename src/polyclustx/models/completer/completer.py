@@ -1,7 +1,7 @@
 """Contrastive prediction with observed-mask-aware latent completion.
 
 COMPLETER components are adapted from the MIT-licensed XLearning reference;
-see THIRD_PARTY_NOTICES.md. Framework fitting does not consume class labels.
+see LICENSE for third-party notices. Framework fitting does not consume class labels.
 """
 from __future__ import annotations
 

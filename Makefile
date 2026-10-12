@@ -74,14 +74,13 @@ list-models:     ## List registered models
 version:         ## Show the current library version
 	@polyclustx --version
 
-bump:            ## Bump version using commitizen (updates all version files + CHANGELOG.md)
+bump:            ## Bump version using commitizen (updates version files)
 	@echo "Bumping version with commitizen..."
 	cz bump
 	@echo ""
 	@echo "Version bumped. Files updated:"
 	@echo "  - pyproject.toml  (project.version + tool.commitizen.version)"
 	@echo "  - src/polyclustx/__init__.py  (__version__)"
-	@echo "  - CHANGELOG.md"
 	@echo ""
 	@echo "Run  make release  to merge into main and push tags."
 
@@ -98,7 +97,7 @@ release:         ## Full release: bump -> merge develop -> main, push tags
 		exit 1; \
 	fi
 
-	@echo "Bumping version (commitizen -> all version files + CHANGELOG.md)"
+	@echo "Bumping version (commitizen -> version files)"
 	cz bump
 
 	@echo "Switching to main"

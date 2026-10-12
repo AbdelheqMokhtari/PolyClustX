@@ -9,7 +9,7 @@ description = "A Unified Framework for Multi-View and Multimodal Representation 
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+license-files = ["LICENSE"]
 
 authors = [
     { name = "Abdelheq Mokhtari", email = "mokhtari.abdelheq@gmail.com" }
@@ -105,8 +105,7 @@ version_files = [
     "src/polyclustx/__init__.py:__version__",
 ]
 
-update_changelog_on_bump = true
-changelog_file = "CHANGELOG.md"
+update_changelog_on_bump = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
