@@ -40,12 +40,12 @@ The guide contains `polyclustx-screenshot` references. Place your captures under
 - `results-visualizations.png`
 - `export-center.png`
 
-This entire image directory is ignored by Git. A clean checkout renders a short
-caption placeholder; adding a matching PNG and rebuilding replaces it with the
-image automatically. Use small synthetic data and omit personal paths or IDs.
-Do not force-add screenshot files to Git. Since ignored files do not reach
-GitHub or Read the Docs, hosted builds show placeholders unless your deployment
-process supplies the captures before building. A local HTML build includes them.
+This image directory is ignored by Git. Add a matching PNG and run
+`make docs-build` to include it. Missing captures are omitted, so readers never
+see authoring placeholders. Use small synthetic data and omit personal paths
+or IDs. Do not force-add screenshot files to Git. Ignored files are not sent to
+GitHub: any build that needs the images must have them in this directory before
+Sphinx starts.
 
 Test the site with `sphinx-build -W --keep-going -b html docs docs/_build/html`.
 Warnings fail CI, including broken references. The HTML preview artifact on
@@ -55,33 +55,5 @@ The shared logo is `src/polyclustx/display/assets/logo.png`. Change palette valu
 only in `src/polyclustx/brand.py`: both Sphinx and the interface consume these
 tokens. Layout rules live in `docs/_static/custom.css` and
 `src/polyclustx/display/theme.py`. Keep light surfaces, readable text and restrained
-indigo accents. See [brand assets and provenance](branding.md) before modifying
+indigo accents. See [brand assets and provenance](https://github.com/AbdelheqMokhtari/PolyClustX/blob/develop/BRANDING.md) before modifying
 logos. Keep institutional marks unchanged and separate from the project logo.
-
-## Publish with Read the Docs
-
-The configured documentation address is https://polyclustx.readthedocs.io/en/latest/.
-The repository owner first connects this GitHub repository at
-https://app.readthedocs.org/, using project slug `polyclustx` and `.readthedocs.yaml`.
-For an existing `pymv` project, coordinate a project rename or redirect in Read
-the Docs and update its repository URL to the renamed GitHub repository. Changing
-these files does not rename a hosted project or reserve the new documentation URL.
-Select the branch/version to publish in the project's settings. Once connected,
-Read the Docs can automatically build pushed changes using its GitHub integration.
-The CI workflow also builds a downloadable preview; it does not deploy it.
-
-To request a build manually, set `READTHEDOCS_TOKEN` in your local environment
-using an API token from your Read the Docs profile (never commit it), then run:
-
-```bash
-make docs-deploy
-# A different activated version:
-make docs-deploy RTD_VERSION=develop
-```
-
-This calls the [Read the Docs build API](https://docs.readthedocs.com/platform/stable/api/v3.html#build-triggering).
-It prints the build-status link and does not claim publication until the build
-succeeds. It builds the remote version, not local uncommitted changes. The command
-does not push, merge, create a release or change project settings. If the project
-is not connected or the token is missing, it exits with setup instructions.
-Use `PORT=8001` with `make docs-serve` for another local port. Serving never rebuilds.

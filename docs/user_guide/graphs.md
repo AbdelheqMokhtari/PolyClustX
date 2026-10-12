@@ -11,7 +11,7 @@ edge weights are summed, and absent weights default to one. All weights must
 be finite and nonnegative.
 
 ```python
-import networkx as nx  # included with the display extra; otherwise install networkx
+import networkx as nx
 import numpy as np
 from polyclustx.data import MultiViewDataset
 

@@ -1,236 +1,152 @@
-Examples
-========
+Worked examples
+===============
 
-Start with the offline tutorial below, then use the focused benchmark examples.
-All examples using catalog datasets download their data on first use.
+These examples use Iris, Wine and generated data: no dataset downloads are
+needed. Training schedules are deliberately short to illustrate the workflow,
+not to reproduce paper results.
 
-Notebook tutorials
-------------------
+Download :download:`the complete script <../../examples/practical_workflows.py>`
+and run it with ``python practical_workflows.py``. Reports and plots are written
+to ``experiments/tutorial/``. To try individual examples, run the setup below
+first, then define and call the function you want.
 
-Download and open these notebooks in Jupyter (``python -m pip install notebook``
-if needed). All notebooks are supplied **without executed outputs**. Run them
-yourself with a kernel that has PolyClustX installed. The tutorials below do not
-download datasets; catalog examples in other notebooks may download on first use.
-
-* :download:`From features to attributed graphs <../../notebooks/06_polyclustx_feature_to_graph_study.ipynb>`:
-  start here for Iris/Wine comparisons, repeated experiments, projection and loss
-  visualizations, multiple graph relations, grid/random/Optuna search and exports.
-
-* :download:`All-method comparison <../../notebooks/04_all_methods_comparison.ipynb>`:
-  thirteen models, two datasets, repeated-run tables, graph relations, missing
-  inputs, single-view use, loss plots and ZIP reports.
-* :download:`Search strategies <../../notebooks/05_search_strategies.ipynb>`:
-  grid, random and Optuna search, continuous/integer ranges, internal objectives
-  and copying the best parameters into a repeated experiment.
-
-New clustering methods
-----------------------
-
-The :doc:`clustering_models` tutorial explains the method-specific assumptions.
-This small example compares six estimators and then runs COMPLETER/DCP on
-explicitly missing views. Small networks and short schedules illustrate the
-workflow; they are not publication benchmark settings.
-
-.. literalinclude:: ../../examples/new_models.py
-   :language: python
-
-Offline: single, multiple, missing and graph views
---------------------------------------------------
-
-This complete script creates synthetic views, runs LMGEC and SCM, explicitly
-imputes missing views, fuses relations and compares manually chosen K values.
-Small training settings keep the tutorial quick; they are not recommended
-research hyperparameters. From a development checkout, run
-``python examples/offline_workflows.py``.
-
-.. literalinclude:: ../../examples/offline_workflows.py
-   :language: python
-   :lines: 3-
-
-For file imports, see :doc:`data`; for interactive experiments see
-:doc:`workbench`.
-
-.. contents:: On this page
+.. contents:: Choose a task
    :local:
    :depth: 1
 
-Example 1 — Load, fit, evaluate
+Setup: two aligned feature views
 --------------------------------
 
-The simplest workflow: load a dataset, fit a model, evaluate.
+Rows correspond to the same samples in both views. We split Iris and Wine
+columns for demonstration; these are two views of tabular measurements, not
+different modalities. Scaling uses the whole dataset for this clustering study.
+
+.. literalinclude:: ../../examples/practical_workflows.py
+   :language: python
+   :start-at: from pathlib import Path
+   :end-before: def cluster_features
+
+1. Cluster one or two views
+---------------------------
+
+.. literalinclude:: ../../examples/practical_workflows.py
+   :language: python
+   :pyobject: cluster_features
 
 .. code-block:: python
 
-   from polyclustx.data import load_acm
-   from polyclustx.models import LMGEC
-   from polyclustx.metrics import clustering_accuracy, nmi_score, ari_score
+   data, model = cluster_features()
 
-   Xs, As, y = load_acm()
+``labels_`` has one cluster ID per row. Labels stored on the dataset are used
+only for the NMI evaluation, never to train the model.
 
-   model = LMGEC(n_clusters=3, embedding_dim=16)
-   labels = model.fit_predict(Xs, As)
-
-   print("ACC:", clustering_accuracy(y, labels))
-   print("NMI:", nmi_score(y, labels))
-   print("ARI:", ari_score(y, labels))
-
-
-Example 2 — Per-view preprocessing
------------------------------------
-
-LMGEC can apply different preprocessing to each view.
-Pass lists to ``beta`` and ``tf_idf``:
-
-.. code-block:: python
-
-   model = LMGEC(
-       n_clusters=3,
-       embedding_dim=16,
-       tf_idf=[True, False],      # TF-IDF on view 0, L2 on view 1
-       beta=[1.0, 0.5],           # different self-loop weights
-       center=False,             # TF-IDF requires nonnegative features
-   )
-   labels = model.fit_predict(Xs, As)
-
-
-Example 3 — Custom preprocessed views
---------------------------------------
-
-Set ``preprocess=False`` to skip all internal preprocessing:
-
-.. code-block:: python
-
-   from polyclustx.preprocessing import get_propagated_features, preprocess_features
-
-   # Xs and As come from Example 1. Center before row normalization;
-   # do not center features that are intended for TF-IDF.
-   H0 = get_propagated_features(Xs[0], As[0], beta=1.0, tf_idf=True)
-   H1 = get_propagated_features(Xs[1], As[1], beta=0.5, center=True)
-   Hs = [H0, H1]
-
-   model = LMGEC(n_clusters=3, embedding_dim=16, preprocess=False)
-   labels = model.fit_predict(Hs)      # no adjacency needed
-
-
-Example 4 — Feature-only clustering
-------------------------------------
-
-If your data has no natural graph structure, just pass raw feature matrices:
-
-.. code-block:: python
-
-   model = LMGEC(n_clusters=5, embedding_dim=32, preprocess=False)
-   labels = model.fit_predict([X_view1, X_view2, X_view3])
-
-
-Example 5 — Full comparative experiment
+2. Compare three methods on two datasets
 ----------------------------------------
 
-Compare multiple model configurations across multiple datasets:
+This runs 18 fits: two datasets × three methods × three repetitions.
+Iris and Wine both have three reference classes, so the same K is appropriate.
+For datasets with different class counts, prepare separate jobs with each K,
+or use the :doc:`multi-dataset CLI </api/cli>` to infer K per dataset.
+
+.. literalinclude:: ../../examples/practical_workflows.py
+   :language: python
+   :pyobject: compare_methods
 
 .. code-block:: python
 
-   from polyclustx.experiment import Experiment
-   from polyclustx.models import LMGEC
-   from polyclustx.metrics import clustering_accuracy, nmi_score, ari_score
+   results = compare_methods()
 
-   m1 = LMGEC(n_clusters=3, embedding_dim=16, temperature=1.0)
-   m1.name = "LMGEC-T1"
+The table contains mean and standard deviation across runs. ``comparison.zip``
+contains the JSON report and a CSV table of individual runs.
 
-   m2 = LMGEC(n_clusters=3, embedding_dim=16, temperature=10.0)
-   m2.name = "LMGEC-T10"
+3. Choose K without true labels
+-------------------------------
 
-   m3 = LMGEC(n_clusters=3, embedding_dim=32, temperature=5.0, tf_idf=True)
-   m3.name = "LMGEC-d32-tfidf"
-
-   result = Experiment(
-       datasets=["acm", "dblp", "imdb"],
-       models=[m1, m2, m3],
-       metrics=[clustering_accuracy, nmi_score, ari_score],
-       runs=10,
-       verbose=1,
-   ).run()
-
-   print(result.config_table())
-   print(result.results_tables())
-
-
-Example 6 — Hyper-parameter search
------------------------------------
-
-Find the best configuration for a single dataset with random search:
+.. literalinclude:: ../../examples/practical_workflows.py
+   :language: python
+   :pyobject: choose_k_without_labels
 
 .. code-block:: python
 
-   from polyclustx.experiment import RandomSearchExperiment
-   from polyclustx.models import LMGEC
-   from polyclustx.metrics import clustering_accuracy, nmi_score
+   internal_results = choose_k_without_labels()
+   print(internal_results.results_tables())
 
-   rs = RandomSearchExperiment(
-       model_class=LMGEC,
-       param_distributions={
-           "n_clusters": [3],
-           "embedding_dim": [4, 8, 16, 32, 64],
-           "temperature": [0.1, 0.5, 1.0, 5.0, 10.0],
-           "beta": [0.1, 0.5, 1.0, 2.0],
-           "max_iter": [30],
-       },
-       dataset="acm",
-       metrics=[clustering_accuracy, nmi_score],
-       best_metric="clustering_accuracy",
-       n_iter=30,
-   )
-   result = rs.run()
+Higher silhouette indicates better-separated groups in the representation
+being evaluated; it does not establish that the clusters have semantic meaning.
 
-   print("Best params:", result.best_params)
-   print("Best ACC:   ", result.best_score)
+4. Use three views with multiple graphs
+---------------------------------------
 
+Generate a binary kNN and a weighted kNN relation for each view. LMGEC receives
+their weighted sum. Graph construction uses features, not reference labels.
 
-Example 7 — Custom data in Experiment
---------------------------------------
-
-Pass your own pre-loaded data instead of built-in loaders:
+.. literalinclude:: ../../examples/practical_workflows.py
+   :language: python
+   :pyobject: cluster_graphs
 
 .. code-block:: python
 
-   from polyclustx.experiment import Experiment
-   from polyclustx.models import LMGEC
-   from polyclustx.metrics import clustering_accuracy
+   graph_data, graph_model = cluster_graphs()
 
-   my_data = (Xs, As, y)
+For your own data, pass ``MultiViewDataset([X1, X2], As=[[A1, A2], None])``:
+two relations belong to view 1, and view 2 has no graph. See :doc:`graphs`.
 
-   result = Experiment(
-       datasets={"my_dataset": my_data},
-       models=[LMGEC(n_clusters=5, embedding_dim=16)],
-       metrics=[clustering_accuracy],
-   ).run()
+5. Compare missing-view learning with imputation
+------------------------------------------------
 
+Hide 20% of observed sample-view pairs while retaining at least one view per
+sample. The original dataset stays unchanged.
 
-Local datasets and variants (offline)
+.. literalinclude:: ../../examples/practical_workflows.py
+   :language: python
+   :pyobject: cluster_missing_views
+
+.. code-block:: python
+
+   incomplete, completed_model, baseline = cluster_missing_views()
+
+COMPLETER receives the observation mask. The baseline receives mean-imputed
+features instead. Check :doc:`model capabilities </background/algorithms>`
+before fitting a different estimator to incomplete data.
+
+6. Grid, random and continuous search
 -------------------------------------
 
-Run ``python examples/custom_datasets.py`` in a repository checkout. The example
-creates two small MATLAB representations of the same samples and loads them
-without downloads. See :doc:`/contributing/datasets` to extend the example into
-a registered dataset family with variants.
+All three searches maximize mean NMI over two runs per candidate. Replace NMI
+with an internal metric and set ``benchmark=False`` for unlabeled data.
 
-Example 8 — Visualize the embedding
-------------------------------------
-
-Plot the learned consensus embedding with t-SNE or PCA:
+.. literalinclude:: ../../examples/practical_workflows.py
+   :language: python
+   :pyobject: tune_parameters
 
 .. code-block:: python
 
-   from polyclustx.data import load_acm
-   from polyclustx.models import LMGEC
-   from polyclustx.visualization.visualizer import plot_clusters
+   grid, random, optuna, best_model = tune_parameters()
 
-   Xs, As, y = load_acm()
-   model = LMGEC(n_clusters=3, embedding_dim=16)
-   model.fit(Xs, As)
+7. Save projections and compare losses
+--------------------------------------
 
-   plot_clusters(model.embedding_, model.labels_, method="tsne",
-                 title="LMGEC on ACM")
+Use the three-dimensional graph embedding from example 4 and the experiment
+report from example 2. This creates ``clusters.png`` and ``losses.svg``.
 
-   plot_clusters(model.embedding_, y, method="pca",
-                 title="Ground truth on ACM")
+.. literalinclude:: ../../examples/practical_workflows.py
+   :language: python
+   :pyobject: save_figures
+
+.. code-block:: python
+
+   save_figures(graph_data, graph_model, results)
+
+For another run, change ``run=1`` to ``run=2``. Pass a list of result objects to
+compare losses across experiments. Normalization compares curve shapes, not
+the absolute quality of different algorithms' objectives.
+
+Continue in a notebook
+----------------------
+
+* :download:`Feature-to-graph study <../../notebooks/06_polyclustx_feature_to_graph_study.ipynb>`
+* :download:`All-method comparison <../../notebooks/04_all_methods_comparison.ipynb>`
+* :download:`Search strategies <../../notebooks/05_search_strategies.ipynb>`
+
+For CSV, NumPy and MATLAB inputs, see :doc:`data`. For the same tasks without
+code, follow :doc:`workbench`.

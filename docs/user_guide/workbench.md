@@ -23,12 +23,22 @@ polyclustx-display --server.port=8502
 
 ## Your first experiment
 
-1. Open **Dataset**, choose **Synthetic**, and keep the small default example.
-2. Click **Create synthetic dataset**. Inspect the view and class summaries.
-3. Choose any preprocessing you need, then click **Apply changes**.
-4. Open **Model**, select a method, enter its parameters, and save a named configuration.
-5. Open **Experiment**, select your dataset and model, and click **Run experiment**.
-6. Read **Results**, explore **Visualizations**, then download from **Export**.
+Try a small comparison before loading your own data:
+
+1. In **Dataset → Synthetic**, name the dataset `Three groups`. Use 90 samples,
+   3 classes and 2 Gaussian views with 8 features each. Leave graphs disabled.
+2. Click **Create synthetic dataset**, keep benchmark mode enabled, then click
+   **Apply changes**. The dataset is now available for experiments.
+3. In **Model**, save `MultiViewKMeans` as `K-means baseline`. Save a second
+   configuration using `LMGEC`, embedding dimension 3 and `max_iter=10`.
+4. In **Experiment**, select `Three groups` and both models. Keep K=3 and choose
+   3 independent runs. Click **Run experiment**: this performs six fits.
+5. In **Results**, compare the mean NMI and its standard deviation. In
+   **Visualizations**, select Run 1 and compare reference and predicted labels.
+6. In **Export**, choose the experiment and download its ZIP report.
+
+To try unlabeled use, return to **Dataset**, disable benchmark mode and apply
+the change. Run a new experiment using silhouette instead of NMI.
 
 ```{polyclustx-screenshot} interface-overview.png
 Sidebar navigation with Dataset selected and a small synthetic dataset loaded.

@@ -24,8 +24,13 @@ spaces need care. Silhouette can be expensive for large datasets.
 from polyclustx.experiment import Experiment, RandomSearchExperiment, GridSearchExperiment
 from polyclustx.models import LMGEC
 from polyclustx.metrics import silhouette_score, davies_bouldin_score
+from polyclustx.data import MultiViewDataset
+from sklearn.datasets import load_wine
+from sklearn.preprocessing import StandardScaler
 
-# data is a MultiViewDataset created or loaded earlier.
+X, y = load_wine(return_X_y=True)
+X = StandardScaler().fit_transform(X)
+data = MultiViewDataset([X[:, :6], X[:, 6:]], labels=y, name="Wine")
 comparison = Experiment(
     data,
     [LMGEC(n_clusters=k, embedding_dim=4, random_state=42) for k in [2, 3, 7]],
@@ -37,7 +42,7 @@ comparison = Experiment(
 
 search = RandomSearchExperiment(
     model_class=LMGEC,
-    param_distributions={"n_clusters": [2, 3, 7], "embedding_dim": [4, 8]},
+    param_distributions={"n_clusters": [2, 3, 7], "embedding_dim": [2, 4]},
     dataset=data, metrics={"DB": davies_bouldin_score}, best_metric="DB",
     n_iter=6, seed=42, benchmark=False,
 )
@@ -45,7 +50,7 @@ result = search.run()
 
 grid = GridSearchExperiment(
     model_class=LMGEC,
-    param_grid={"n_clusters": [2, 3, 7], "embedding_dim": [4, 8]},
+    param_grid={"n_clusters": [2, 3, 7], "embedding_dim": [2, 4]},
     dataset=data, metrics={"DB": davies_bouldin_score}, best_metric="DB",
     runs=3, seed=42, benchmark=False, save_path="experiments/search",
 ).run()
@@ -79,7 +84,7 @@ from polyclustx.metrics import nmi_score
 
 search = OptunaSearchExperiment(
     LMGEC,
-    {"n_clusters": [data.n_clusters], "embedding_dim": [4, 8],
+    {"n_clusters": [data.n_clusters], "embedding_dim": [2, 4],
      "temperature": {"low": .1, "high": 5., "log": True}},
     data, metrics={"NMI": nmi_score}, best_metric="NMI",
     n_iter=10, runs=3, seed=42, save_path="experiments/optuna",

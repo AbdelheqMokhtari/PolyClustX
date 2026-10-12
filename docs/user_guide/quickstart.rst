@@ -40,6 +40,7 @@ A labeled benchmark
 .. code-block:: python
 
    from polyclustx.data import load_data
+   from polyclustx.models import LMGEC
    from polyclustx.metrics import nmi_score
 
    data = load_data("acm")

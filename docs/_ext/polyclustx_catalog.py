@@ -73,7 +73,7 @@ class Catalog(SphinxDirective):
 
 
 class Screenshot(SphinxDirective):
-    """Optional, git-ignored screenshots with useful placeholders in clean builds."""
+    """Render optional screenshots without exposing authoring notes to readers."""
 
     required_arguments = 1
     has_content = True
@@ -89,11 +89,7 @@ class Screenshot(SphinxDirective):
             figure += nodes.image(uri="/" + relative, alt=caption)
             figure += nodes.caption(text=caption)
             return [figure]
-        placeholder = nodes.admonition(classes=["note"])
-        placeholder += nodes.title(text="Screenshot guide")
-        placeholder += nodes.paragraph(text=caption)
-        placeholder += nodes.paragraph(text=f"Image reference: {filename}")
-        return [placeholder]
+        return []
 
 
 def setup(app):

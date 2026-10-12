@@ -6,6 +6,15 @@ and this project adheres to Semantic Versioning.
 
 ## Unreleased
 
+### User documentation and visual identity
+
+- Moved institutional affiliations into the documentation sidebar, away from
+  page navigation, and replaced the triangle logo with an interwoven symbol.
+- Added seven runnable offline tutorials covering feature/graph/missing inputs,
+  comparisons, three search strategies, report exports and figures.
+- Removed deployment setup and logo-production notes from published guides;
+  absent optional interface screenshots no longer show authoring placeholders.
+
 ### Model packages and command-line workflows
 
 - Unified every estimator under `models/<method>/<method>.py` with public exports
@@ -16,7 +25,6 @@ and this project adheres to Semantic Versioning.
   readable YAML/JSON plans, with dataset-specific K and a combined report.
 - Removed the `polyclustx-cli` executable. Use the standalone `polyclustx-display`
   launcher; archived single-model recipes remain replayable through the Python module.
-- Replaced the decorative logo with a minimal transparent three-node graph.
 
 ### PolyClustX rebrand
 

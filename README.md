@@ -164,16 +164,9 @@ losses, search hyperparameters and export results.
 
 ## Documentation
 
-```bash
-make docs-build    # build the documentation
-make docs-serve    # open http://127.0.0.1:8000; no rebuild
-make docs-deploy   # trigger a remote Read the Docs build; requires project access
-```
-
-The public documentation address is
-[polyclustx.readthedocs.io](https://polyclustx.readthedocs.io/en/latest/).
-Publication requires the renamed Read the Docs project to be connected.
-[Deployment instructions](docs/contributing/documentation.md).
+Browse the [documentation](https://polyclustx.readthedocs.io/en/latest/),
+start with the [worked examples](docs/user_guide/examples.rst), or follow the
+[interactive interface guide](docs/user_guide/workbench.md).
 
 ## Research affiliations
 
@@ -185,7 +178,7 @@ Publication requires the renamed Read the Docs project to be connected.
 
 Centre Borelli · Université Paris Cité.
 Institutional marks remain separate from PolyClustX and do not imply endorsement.
-See [asset provenance](docs/contributing/branding.md).
+See [asset provenance](BRANDING.md).
 
 ## License
 
