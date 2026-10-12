@@ -12,7 +12,8 @@ permissions:
   contents: read
 
 env:
-  TF_CPP_MIN_LOG_LEVEL: "3"
+  OMP_NUM_THREADS: "2"
+  MKL_NUM_THREADS: "2"
   CUDA_VISIBLE_DEVICES: ""
 
 jobs:
@@ -30,7 +31,9 @@ jobs:
           cache: pip
 
       - name: Install
-        run: pip install -e ".[dev]"
+        run: |
+          pip install 'torch>=2.4,<3' --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[dev]"
 
       - name: Load and validate ACM from Zenodo
         run: pytest tests/test_dataloader.py -m network -rs
