@@ -1,6 +1,19 @@
 """Light scientific styling using the shared PolyClustX palette."""
 
-from polyclustx.brand import css_variables
+from polyclustx.brand import BRAND, PLOT_COLORS, css_variables
+
+
+def style_figure(figure):
+    """Apply the palette to a figure and its exported copy, not global Plotly state."""
+    figure.update_layout(
+        template="plotly_white", colorway=PLOT_COLORS,
+        paper_bgcolor=BRAND["surface"], plot_bgcolor=BRAND["surface"],
+        font_color=BRAND["text"],
+        legend={"bgcolor": BRAND["surface"], "font_color": BRAND["text"]},
+    )
+    figure.update_xaxes(gridcolor=BRAND["border"], zerolinecolor=BRAND["border"])
+    figure.update_yaxes(gridcolor=BRAND["border"], zerolinecolor=BRAND["border"])
+    return figure
 
 CSS = css_variables() + """
 .stApp { color: var(--pcx-text); background: var(--pcx-background); }

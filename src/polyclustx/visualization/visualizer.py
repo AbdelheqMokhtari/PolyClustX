@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
-from polyclustx.brand import BRAND
+from polyclustx.brand import BRAND, PLOT_COLORS
 
 
 def plot_loss(
@@ -156,7 +156,9 @@ def plot_loss_comparison(reports, *, run=1, ax=None, show=True):
                     continue
                 label = (f"{report.get('name') or report_index + 1} · {experiment['dataset']['name']} · "
                          f"{experiment['model']['name']} · config {index + 1} · run {trial['run']}")
-                ax.plot(np.arange(1, len(loss) + 1), np.asarray(loss, dtype=float), label=label)
+                ax.plot(np.arange(1, len(loss) + 1), np.asarray(loss, dtype=float), label=label,
+                        color=PLOT_COLORS[len(ax.lines) % len(PLOT_COLORS)],
+                        linestyle=("-", "--", "-.", ":")[(len(ax.lines) // len(PLOT_COLORS)) % 4])
     ax.set(xlabel="Iteration", ylabel="Normalized loss", title="Optimization trajectories")
     ax.grid(True, alpha=.2)
     if 0 < len(ax.lines) <= 12:

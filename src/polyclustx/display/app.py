@@ -42,7 +42,7 @@ from polyclustx.display.results import (
     run_label,
 )
 from polyclustx.display.synthetic import SyntheticGraphSpec, SyntheticSpec, generate_synthetic
-from polyclustx.display.theme import CSS
+from polyclustx.display.theme import CSS, style_figure
 from polyclustx.display.workspace import (
     EXTERNAL_NAMES,
     INTERNAL_NAMES,
@@ -1288,7 +1288,7 @@ def _loss_comparison(workspace):
                     for i, loss in zip(iterations, losses))
     figure.update_layout(xaxis_title="Iteration", yaxis_title="Normalized loss", template="plotly_white",
                          height=500, showlegend=len(selected) <= 12)
-    st.plotly_chart(figure, width="stretch")
+    st.plotly_chart(style_figure(figure), width="stretch")
     if len(selected) > 12:
         st.caption("Legend hidden for more than 12 curves; hover over a curve to identify its run.")
     _figure_downloads(figure, pd.DataFrame(rows), "loss-comparison")
@@ -1320,7 +1320,7 @@ def render_visualizations(workspace):
         counts = pd.Series(labels).value_counts().sort_index()
         figure = go.Figure(go.Bar(x=counts.index.astype(str), y=counts.values, marker_color=BRAND["primary"]))
         figure.update_layout(xaxis_type="category", xaxis_title="Predicted cluster", yaxis_title="Samples")
-        st.plotly_chart(figure, width="stretch")
+        st.plotly_chart(style_figure(figure), width="stretch")
         _figure_downloads(figure, counts.rename_axis("cluster").reset_index(name="samples"),
                           f"sizes-{record.id}-{index}", filename=f"{plot_stem}_cluster-sizes")
     with right:
@@ -1330,7 +1330,7 @@ def render_visualizations(workspace):
             iterations = list(range(1, len(losses) + 1))
             figure = go.Figure(go.Scatter(x=iterations, y=losses, mode="lines", line_color=BRAND["primary"]))
             figure.update_layout(xaxis_title="Iteration", yaxis_title="Normalized loss")
-            st.plotly_chart(figure, width="stretch")
+            st.plotly_chart(style_figure(figure), width="stretch")
             _figure_downloads(figure, pd.DataFrame({"iteration": iterations, "normalized_loss": losses}),
                               f"loss-{record.id}-{index}", filename=f"{plot_stem}_loss")
         else:
@@ -1354,14 +1354,14 @@ def render_visualizations(workspace):
             projected, rows = st.session_state[cache_key]
             columns = st.columns(2 if "true_labels" in artifact else 1)
             predicted_figure = _scatter_figure(projected, labels[rows], "Predicted clusters", method)
-            columns[0].plotly_chart(predicted_figure, width="stretch")
+            columns[0].plotly_chart(style_figure(predicted_figure), width="stretch")
             projection_table = pd.DataFrame({"sample_index": rows, "x": projected[:, 0], "y": projected[:, 1],
                                              "predicted_cluster": labels[rows]})
             _figure_downloads(predicted_figure, projection_table, f"projection-{record.id}-{index}-{method}",
                               filename=f"{plot_stem}_projection-{method}")
             if "true_labels" in artifact:
                 true_figure = _scatter_figure(projected, artifact["true_labels"][rows], "Ground-truth classes", method)
-                columns[1].plotly_chart(true_figure, width="stretch")
+                columns[1].plotly_chart(style_figure(true_figure), width="stretch")
                 projection_table["true_class"] = artifact["true_labels"][rows]
                 _figure_downloads(true_figure, projection_table, f"true-projection-{record.id}-{index}-{method}",
                                   filename=f"{plot_stem}_true-projection-{method}")
@@ -1378,14 +1378,15 @@ def render_visualizations(workspace):
             return
         normalize = st.checkbox("Normalize confusion matrix by true class", value=True)
         values = matrix / np.maximum(matrix.sum(axis=1, keepdims=True), 1) if normalize else matrix
-        figure = go.Figure(go.Heatmap(z=values, x=column_names, y=row_names, colorscale="Blues",
+        figure = go.Figure(go.Heatmap(z=values, x=column_names, y=row_names,
+                                     colorscale=[BRAND["surface_alt"], BRAND["accent"], BRAND["primary"]],
                                      customdata=matrix,
                                      hovertemplate=("True class: %{y}<br>Cluster: %{x}<br>"
                                                     "Count: %{customdata}<extra></extra>")))
         figure.update_layout(xaxis_title="Predicted cluster", yaxis_title="True class", height=650)
         figure.update_xaxes(type="category", categoryorder="array", categoryarray=column_names)
         figure.update_yaxes(type="category", categoryorder="array", categoryarray=row_names, autorange="reversed")
-        st.plotly_chart(figure, width="stretch")
+        st.plotly_chart(style_figure(figure), width="stretch")
         st.caption("Hungarian matching maximizes the diagonal using every class before display compaction. "
                    "Rows are true classes; columns are matched predicted cluster IDs. "
                    "Unmatched clusters remain separate.")
