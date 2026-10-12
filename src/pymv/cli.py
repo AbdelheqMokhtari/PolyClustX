@@ -26,13 +26,11 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
 import textwrap
 
 # ── Model registry ────────────────────────────────────────────────
-# Lazy accessor — triggers TF import only when actually needed
-# (not on --help / --list-datasets / --version).
+# Query model metadata when constructing commands.
 
 
 def _get_model_registry() -> dict:
@@ -77,63 +75,19 @@ def _resolve_metrics(names: list[str]) -> list:
 # ── Helpers ───────────────────────────────────────────────────────
 
 def _die(msg: str, code: int = 1):
-    # Write to stdout (not stderr) so the message is visible even
-    # when stderr is suppressed to silence TF/CUDA C++ noise.
+    # Keep errors visible alongside the CLI's result output.
     print(f"Error: {msg}")
     sys.exit(code)
 
 
 def _configure_verbosity(level: int) -> None:
-    """
-    Configure **all** logging layers based on the ``--verbose`` level.
-
-    The C++ env vars (``TF_CPP_MIN_LOG_LEVEL``, etc.) are already set
-    at module load time (see top of file).  This function handles the
-    *Python-side* loggers: root, absl, tensorflow, and pymv.data.
-
-    Levels
-    ------
-    0 — **silent**   : suppress everything (TF, CUDA, absl, pymv).
-    1 — **tables**   : suppress TF/CUDA noise, show pymv result tables only.
-    2 — **progress** : suppress TF/CUDA noise, show pymv progress + tables.
-    3 — **debug**    : show *everything* including TF and system messages.
-    """
-    if level <= 2:
-        os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-        os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
-        os.environ["GRPC_VERBOSITY"] = "ERROR"
-
-    # Python logging root — cap at WARNING for levels < 3
+    """Configure logging: silent, tables, progress, or debug."""
     if level == 0:
         logging.basicConfig(level=logging.CRITICAL + 1)
     elif level <= 2:
         logging.basicConfig(level=logging.WARNING)
     else:
         logging.basicConfig(level=logging.DEBUG)
-
-    # Silence absl loggers (used internally by TF)
-    try:
-        import absl.logging  # type: ignore
-        if level <= 2:
-            absl.logging.set_verbosity(absl.logging.ERROR)
-        else:
-            absl.logging.set_verbosity(absl.logging.INFO)
-    except ImportError:
-        pass
-
-    # Silence TF's own Python logger
-    _TF_LOG_LEVEL = {
-        0: logging.CRITICAL + 1,
-        1: logging.ERROR,
-        2: logging.ERROR,
-        3: logging.DEBUG,
-    }
-    _level = _TF_LOG_LEVEL.get(level, logging.ERROR)
-
-    tf_logger = logging.getLogger("tensorflow")
-    tf_logger.setLevel(_level)
-    tf_logger.handlers.clear()
-    tf_logger.addHandler(logging.NullHandler())
 
 
 def _parse_json_or_csv(value: str):
@@ -277,7 +231,7 @@ def build_parser() -> argparse.ArgumentParser:
                           "0=silent, "
                           "1=results tables only (default), "
                           "2=progress + tables, "
-                          "3=debug (includes TF/CUDA logs).")
+                          "3=debug (includes library logs).")
 
     # ── Random search ──
     rs = p.add_argument_group("random search")

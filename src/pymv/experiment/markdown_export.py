@@ -146,24 +146,19 @@ def _get_environment_info() -> dict:
         info["pymv_version"] = "unknown"
 
     try:
-        import tensorflow as tf
-        info["tensorflow_version"] = tf.__version__
-        gpus = tf.config.list_physical_devices("GPU")
-        info["gpu_devices"] = [g.name for g in gpus] if gpus else []
-        if gpus:
-            # Try to get GPU name from device details
-            try:
-                details = tf.config.experimental.get_device_details(gpus[0])
-                info["gpu_name"] = details.get("device_name", "unknown")
-            except Exception:
-                info["gpu_name"] = "unknown"
+        import torch
+        info["torch_version"] = torch.__version__
+        info["cuda_version"] = torch.version.cuda
+        info["gpu_devices"] = [f"cuda:{i}" for i in range(torch.cuda.device_count())]
+        if info["gpu_devices"]:
+            info["gpu_name"] = torch.cuda.get_device_name(0)
     except Exception:
-        info["tensorflow_version"] = "not installed"
+        info.setdefault("torch_version", "not installed")
         info["gpu_devices"] = []
 
     for pkg in ["numpy", "scipy", "scikit-learn"]:
         try:
-            mod = __import__(pkg.replace("-", "_") if pkg == "scikit-learn" else pkg)
+            mod = __import__("sklearn" if pkg == "scikit-learn" else pkg)
             info[f"{pkg}_version"] = mod.__version__
         except Exception:
             info[f"{pkg}_version"] = "not installed"

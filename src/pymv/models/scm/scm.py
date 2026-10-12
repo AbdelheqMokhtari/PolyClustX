@@ -89,6 +89,8 @@ class SCM(BaseModel):
     CPU, and public result attributes remain NumPy arrays.
     """
 
+    backend = "pytorch"
+
     def __init__(
         self,
         n_clusters: int,

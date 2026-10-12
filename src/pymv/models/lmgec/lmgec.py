@@ -194,6 +194,8 @@ class LMGEC(BaseModel):
     >>> model.fit([X1, X2])        # just feature matrices
     """
 
+    backend = "pytorch"
+
     @staticmethod
     def resolve_fit_parameters(Xs, params):
         """Return the effective parameters for these views, without modifying inputs."""
