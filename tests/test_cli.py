@@ -23,6 +23,7 @@ _PYTHON = sys.executable
 def _run_cli(*args: str, timeout: int = 120) -> subprocess.CompletedProcess:
     """Run ``pymv-cli`` via the Python entry point."""
     env = os.environ.copy()
+    env["TF_CPP_MIN_LOG_LEVEL"] = "3"
     env["CUDA_VISIBLE_DEVICES"] = ""
 
     cmd = [_PYTHON, "-m", "pymv.cli", *args]

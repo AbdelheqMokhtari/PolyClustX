@@ -9,43 +9,52 @@ import logging
 
 import numpy as np
 import scipy.sparse as sp
-import torch
+import tensorflow as tf
 from sklearn.cluster import KMeans
 from sklearn.decomposition import TruncatedSVD
 
 from pymv.core import BaseModel
-from pymv.models._torch_utils import resolve_device
 from pymv.models.registry import register_model
 from pymv.preprocessing import get_propagated_features
 
 logger = logging.getLogger(__name__)
 
 
+# GPU memory configuration — runs once at import time
+
+def _configure_gpu():
+    """Enable memory growth on all visible GPUs.
+
+    Prevents TensorFlow from pre-allocating the entire GPU memory,
+    which causes OOM on devices with limited VRAM (e.g. laptops).
+    Must run before any TF operation.
+    """
+    try:
+        for gpu in tf.config.list_physical_devices("GPU"):
+            tf.config.experimental.set_memory_growth(gpu, True)
+    except RuntimeError:
+        pass  # already initialized skip silently
+
+
+_configure_gpu()
+
 # update rules  F, W, And G
 
 
 def _update_rule_F(XW, G, K):
-    centers = XW.new_zeros((K, XW.shape[1]))
-    centers.index_add_(0, G.long(), XW)
-    counts = torch.bincount(G.long(), minlength=K).clamp_min(1)
-    # Like TF unsorted_segment_mean, an empty cluster has a zero centroid.
-    return centers / counts[:, None]
+    return tf.math.unsorted_segment_mean(XW, G, num_segments=K)
 
 
 def _update_rule_W(X, F, G):
-    U, _, Vh = torch.linalg.svd(X.T @ F[G.long()], full_matrices=False)
-    return U @ Vh
+    _, U, V = tf.linalg.svd(tf.transpose(X) @ tf.gather(F, G), full_matrices=False)
+    W = U @ tf.transpose(V)
+    return W
 
 
 def _update_rule_G(XW, F):
-    # Chunk the direct squared-distance calculation to preserve TF's tie and
-    # rounding behavior without an unbounded samples × clusters × dimensions tensor.
-    chunk = max(1, 1_000_000 // max(F.numel(), 1))
-    labels = []
-    for start in range(0, len(XW), chunk):
-        diff = XW[start:start + chunk, None, :] - F[None, :, :]
-        labels.append(diff.square().sum(dim=-1).argmin(dim=1))
-    return torch.cat(labels)
+    diff = tf.expand_dims(XW, 1) - tf.expand_dims(F, 0)
+    dists = tf.reduce_sum(tf.square(diff), axis=-1)
+    return tf.cast(tf.argmin(dists, axis=1), tf.int32)
 
 
 # method to initialise W, G, and F
@@ -67,22 +76,54 @@ def _init_G_F(XW, k, random_state=None):
     return km.labels_.astype(np.int32), km.cluster_centers_
 
 
-@torch.no_grad()
-def _train_loop(Xs, F, G, alphas, k, max_iter):
-    """Original alternating updates and pre-update reconstruction loss, in float64."""
-    losses = []
-    for _ in range(max_iter):
-        consensus = Xs[0].new_zeros((Xs[0].shape[0], F.shape[1]))
-        loss = Xs[0].new_zeros(())
-        for view, weight in zip(Xs, alphas):
-            projection = _update_rule_W(view, F, G)
-            consensus = consensus + weight * (view @ projection)
-            reconstruction = (F @ projection.T)[G.long()]
-            loss = loss + torch.linalg.vector_norm(view - reconstruction)
-        G = _update_rule_G(consensus, F)
-        F = _update_rule_F(consensus, G, k)
-        losses.append(loss)
-    return G, F, consensus, torch.stack(losses)
+# Training loop (one per number of views — traced separately)
+
+def _make_train_loop(n_views):
+    """
+    Build a tf.function-traced training loop for exactly *n_views*
+    views.  Python-level indexing (``Xs[0]``, ``Xs[1]``, …) is
+    unrolled at trace time so TensorFlow never sees a Python list
+    indexed by a symbolic tensor.
+    """
+
+    @tf.function
+    def _train_loop(Xs, F, G, alphas, k, max_iter):
+        m = tf.shape(F)[1]
+        n = tf.shape(Xs[0])[0]
+        losses = tf.TensorArray(dtype=tf.float64, size=max_iter)
+
+        for t in tf.range(max_iter):
+            XW_consensus = tf.zeros((n, m), dtype=tf.float64)
+            loss_total = tf.constant(0.0, dtype=tf.float64)
+
+            # --- unrolled at trace time (Python for over a fixed range) ---
+            for v in range(n_views):
+                Wv = _update_rule_W(Xs[v], F, G)
+                XWv = tf.linalg.matmul(Xs[v], Wv)
+                XW_consensus = XW_consensus + alphas[v] * XWv
+
+                recon = tf.gather(
+                    tf.linalg.matmul(F, Wv, transpose_b=True), G
+                )
+                loss_total = loss_total + tf.linalg.norm(Xs[v] - recon)
+
+            G = _update_rule_G(XW_consensus, F)
+            F = _update_rule_F(XW_consensus, G, k)
+            losses = losses.write(t, loss_total)
+
+        return G, F, XW_consensus, losses.stack()
+
+    return _train_loop
+
+
+# Cache so we don't re-trace for the same view count
+_train_loop_cache: dict[int, callable] = {}
+
+
+def _get_train_loop(n_views):
+    if n_views not in _train_loop_cache:
+        _train_loop_cache[n_views] = _make_train_loop(n_views)
+    return _train_loop_cache[n_views]
 
 
 # Public model class
@@ -99,7 +140,6 @@ def _train_loop(Xs, F, G, alphas, k, max_iter):
     "preprocess": True,
     "max_iter": 30,
     "random_state": None,
-    "device": "auto",
 })
 class LMGEC(BaseModel):
     """Linear Multi-view Graph Embedding Clustering.
@@ -156,11 +196,6 @@ class LMGEC(BaseModel):
         KMeans for G/F).  Set it to make a fit reproducible; leave it
         as *None* for a different initialisation on every call.
 
-    device : str, default="auto"
-        ``auto`` selects CUDA when available and retries on CPU after CUDA
-        out-of-memory. ``cpu`` and ``cuda[:index]`` select an explicit device.
-        Results are NumPy arrays on CPU; optimization uses float64.
-
     Examples
     --------
     **Let the model preprocess (default):**
@@ -194,8 +229,6 @@ class LMGEC(BaseModel):
     >>> model.fit([X1, X2])        # just feature matrices
     """
 
-    backend = "pytorch"
-
     @staticmethod
     def resolve_fit_parameters(Xs, params):
         """Return the effective parameters for these views, without modifying inputs."""
@@ -219,7 +252,6 @@ class LMGEC(BaseModel):
         preprocess: bool = True,
         max_iter: int = 30,
         random_state: int | None = None,
-        device: str = "auto",
     ):
         self.n_clusters = n_clusters
         self.embedding_dim = embedding_dim
@@ -231,7 +263,6 @@ class LMGEC(BaseModel):
         self.preprocess = preprocess
         self.max_iter = max_iter
         self.random_state = random_state
-        self.device = device
 
         # Filled after fit()
         self.embedding_dim_ = None
@@ -305,18 +336,6 @@ class LMGEC(BaseModel):
             raise ValueError("At least one view is required")
         if As is not None and len(As) != n_views:
             raise ValueError("Provide exactly one adjacency entry per view; explicitly repeat shared graphs")
-        for name in ("n_clusters", "embedding_dim", "max_iter"):
-            value = getattr(self, name)
-            if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or value < 1:
-                raise ValueError(f"{name} must be a positive integer")
-        if not np.isfinite(self.temperature) or self.temperature <= 0:
-            raise ValueError("temperature must be finite and positive")
-        if any(len(x.shape) != 2 or x.shape[0] != Xs[0].shape[0] for x in Xs):
-            raise ValueError("All feature views must be two-dimensional and share the same sample count")
-        if self.n_clusters > Xs[0].shape[0]:
-            raise ValueError("n_clusters cannot exceed the number of samples")
-        self.resolve_fit_parameters(Xs, {"embedding_dim": self.embedding_dim})
-        device = resolve_device(self.device)
 
         # Prepare H views
 
@@ -357,8 +376,6 @@ class LMGEC(BaseModel):
             if sp.issparse(Hs[i]):
                 Hs[i] = Hs[i].toarray()
             Hs[i] = np.asarray(Hs[i], dtype=np.float64)
-            if not np.isfinite(Hs[i]).all():
-                raise ValueError("Xs contains NaN or infinite values")
 
         # Initialisation
 
@@ -408,38 +425,46 @@ class LMGEC(BaseModel):
 
         alphas_norm = alphas / (alpha_sum if alpha_sum > 0 else n_views)
 
-        def _run_on_device(target):
-            """Create tensors and run the loop on the given device."""
-            _Hs = tuple(torch.as_tensor(H, dtype=torch.float64, device=target) for H in Hs)
-            _F = torch.as_tensor(F_init, dtype=torch.float64, device=target)
-            _G = torch.as_tensor(G_init, dtype=torch.long, device=target)
-            _a = torch.as_tensor(alphas_norm, dtype=torch.float64, device=target)
-            return tuple(t.cpu().numpy() for t in _train_loop(_Hs, _F, _G, _a, k, self.max_iter))
+        train_loop = _get_train_loop(n_views)
 
-        output = None
-        try:
-            output = _run_on_device(device)
-        except torch.cuda.OutOfMemoryError:
-            if self.device != "auto" or device.type != "cuda":
-                raise
-            logger.warning("CUDA out of memory; retrying LMGEC on CPU")
-        if output is None:
-            # Retry outside the exception block so its traceback releases GPU tensors.
-            torch.cuda.empty_cache()
-            device = torch.device("cpu")
-            output = _run_on_device(device)
-        G_out, F_out, XW_out, losses = output
-        self.device_ = str(device)
+        def _run_on_device(device: str):
+            """Create tensors and run the loop on the given device."""
+            with tf.device(device):
+                _Hs = tuple(tf.constant(H, dtype=tf.float64) for H in Hs)
+                _F = tf.constant(F_init, dtype=tf.float64)
+                _G = tf.constant(G_init, dtype=tf.int32)
+                _a = tf.constant(alphas_norm, dtype=tf.float64)
+                return train_loop(_Hs, _F, _G, _a, k, self.max_iter)
+
+        has_gpu = bool(tf.config.list_physical_devices("GPU"))
+
+        if has_gpu:
+            try:
+                G_out, F_out, XW_out, losses = _run_on_device("/GPU:0")
+            except (tf.errors.ResourceExhaustedError,
+                    tf.errors.InternalError):
+                logger.warning(
+                    "GPU out of memory — falling back to CPU. "
+                    "This run will be slower but will complete."
+                )
+                tf.keras.backend.clear_session()
+                G_out, F_out, XW_out, losses = _run_on_device("/CPU:0")
+        else:
+            G_out, F_out, XW_out, losses = _run_on_device("/CPU:0")
 
         # Store results & free GPU memory
 
-        self.labels_ = G_out.astype(np.int32, copy=False)
-        self.centroids_ = F_out
-        self.embedding_ = XW_out
-        self.loss_history_ = losses
+        self.labels_ = G_out.numpy()
+        self.centroids_ = F_out.numpy()
+        self.embedding_ = XW_out.numpy()
+        self.loss_history_ = losses.numpy()
         self.alphas_ = alphas_norm
         residual = self.embedding_ - self.centroids_[self.labels_]
         self.inertia_ = float(np.einsum("ij,ij->", residual, residual))
+
+        # Release all TF tensors so GPU VRAM is freed for the next call
+        del G_out, F_out, XW_out, losses
+        tf.keras.backend.clear_session()
 
         return self
 

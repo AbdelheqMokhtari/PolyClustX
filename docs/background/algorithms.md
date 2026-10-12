@@ -31,21 +31,6 @@ $S=D^{-1}(A+\beta I)$; without a graph, features are normalized without
 propagation. Parameters include embedding dimension, temperature, per-view
 self-loop weights, TF-IDF, centering and scaling.
 
-The optimization runs in PyTorch using float64. It preserves the previous
-TensorFlow implementation's preprocessing, scikit-learn initialization, view
-weights, alternating SVD/assignment/centroid updates, and pre-update loss
-definition. An empty cluster receives a zero centroid. Public results remain
-NumPy arrays; no automatic differentiation is needed by this model.
-
-When the embedding dimension exceeds the number of clusters (or the update
-matrix is otherwise rank-deficient), the SVD projection is not unique.
-TensorFlow and PyTorch can choose different valid null-space bases. Both solve
-the same orthogonal projection objective, but embeddings and subsequent
-optimization trajectories can differ; cross-backend bitwise equivalence is
-not a reproducibility guarantee. Regression tests check orthogonality and the
-optimal projection objective for this case, rather than requiring a specific
-null-space basis.
-
 Early relation fusion is framework preprocessing, not a claim that the original
 paper learns relation weights. Incomplete views require explicit imputation;
 the implemented loss does not use an observation mask.
@@ -60,61 +45,13 @@ Multi-View Clustering with Data-Level Fusion**. IJCAI 2024, 4697–4705.
 [Original proceedings and paper](https://www.ijcai.org/proceedings/2024/519).
 [Authors' reference implementation](https://github.com/SubmissionsIn/SCM).
 
-The pymv implementation uses PyTorch, a shared encoder/projector, and
+The pymv implementation uses TensorFlow, a shared encoder/projector, and
 K-means on its learned representation. Adjacencies are accepted for interface
 compatibility but ignored. The paper discusses several variants; the available
 class is the implemented feature-clustering route, not every paper variant.
 Its `miss_rate` parameter controls augmentation of complete training inputs,
 not the framework's missing-view simulation rate. Native missing-input fitting
 is not currently implemented.
-
-The default encoder has hidden widths 500, 500, and 2000, followed by
-`embedding_dim`; a linear projector produces L2-normalized `projection_dim`
-features. Training uses the reference's symmetric feature contrastive loss,
-uniform nonempty/non-full view masks, independent per-view Gaussian-noise
-selection, and Adam with coupled L2 `weight_decay`. Setting
-`reconstruction_weight` above zero adds clean and augmented reconstruction
-losses. The fitted `model_` is now a PyTorch module, not a Keras model; use its
-`state_dict()` for network weights. It is returned on CPU in evaluation mode.
-
-For reproducible comparisons, note the framework's deliberate conventions:
-
-- `max_iter` counts **full epochs**, whereas the reference training script
-  processes one minibatch per iteration.
-- Partial minibatches with at least two samples are trained; a trailing
-  singleton is skipped because it has no contrastive negatives.
-- `preprocess=True` performs per-feature min-max scaling. The reference uses
-  dataset-specific preprocessing, so match it explicitly when reproducing papers.
-- The base contrastive/K-means route is implemented, not the paper's ETC route.
-
-Switching from TensorFlow changes SCM's initialization and numerical training
-trajectory. Nonzero weight decay and augmentation sampling also now follow the
-PyTorch reference; old TensorFlow SCM scores are not expected to match exactly.
-
-## Device selection and reproducibility
-
-Both models accept `device="auto"` (default), `"cpu"`, `"cuda"`, or
-`"cuda:0"` for a specific accelerator. Automatic selection uses CUDA when
-available and restarts on CPU after CUDA out-of-memory. Explicit CUDA requests
-raise an error if unavailable or out of memory, rather than silently changing
-the requested device. The fitted `device_` and exported diagnostics record
-where training ran. Only CPU and CUDA are supported.
-
-Set `random_state` and fix the software environment for repeated experiments.
-Exact reproducibility across devices and PyTorch versions is not guaranteed.
-SCM initialization preserves the caller's PyTorch CPU random-generator state;
-augmentations use a model-local NumPy generator.
-
-Migration checks compare LMGEC's loop against independent NumPy equations
-and SCM's contrastive loss and gradients against the explicit objective. During
-migration, six seeded CPU LMGEC fits (one/two/three views, preprocessing on/off)
-also matched the saved TensorFlow implementation's labels exactly, with
-embeddings, centroids and losses agreeing within `rtol=1e-9, atol=1e-10`.
-Additional three-view checks cover weighted graphs, centering/scaling and
-per-view TF-IDF with the same tolerance.
-SCM's default network parameters and outputs matched the supplied reference
-exactly; contrastive loss and gradients agreed within `1e-12`. These checks do
-not establish identical results for every dataset or hardware configuration.
 
 ## Responsible comparisons
 

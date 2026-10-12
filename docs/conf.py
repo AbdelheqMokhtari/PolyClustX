@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT / "docs" / "_ext"))
 project = "pymv"
 author = "Abdelheq Mokhtari"
 copyright = "2026, Abdelheq Mokhtari"
-# Read the version without importing the numerical backend at configuration time.
+# Read the version without importing TensorFlow at configuration time.
 import re
 release = re.search(r'__version__ = "([^"]+)"', (ROOT / "src/pymv/__init__.py").read_text()).group(1)
 version = ".".join(release.split(".")[:2])
@@ -23,7 +23,7 @@ extensions = [
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 master_doc = "index"
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
-autodoc_mock_imports = ["torch", "streamlit", "plotly"]
+autodoc_mock_imports = ["tensorflow", "streamlit", "plotly"]
 autodoc_default_options = {"members": True, "member-order": "bysource", "show-inheritance": True}
 autodoc_typehints = "none"
 autosummary_generate = True

@@ -498,7 +498,7 @@ def _save_json(data: dict, filepath: str) -> None:
 
 
 def _to_python(value: Any) -> Any:
-    """Convert NumPy scalars to plain Python types."""
+    """Convert numpy/TF scalars to plain Python types."""
     import numpy as np
     if isinstance(value, (np.integer,)):
         return int(value)
@@ -530,20 +530,24 @@ def _get_environment_info() -> dict:
         info["pymv_version"] = "unknown"
 
     try:
-        import torch
-        info["torch_version"] = torch.__version__
-        info["cuda_version"] = torch.version.cuda
-        info["gpu_devices"] = [f"cuda:{i}" for i in range(torch.cuda.device_count())]
-        if info["gpu_devices"]:
-            info["gpu_name"] = torch.cuda.get_device_name(0)
+        import tensorflow as tf
+        info["tensorflow_version"] = tf.__version__
+        gpus = tf.config.list_physical_devices("GPU")
+        info["gpu_devices"] = [g.name for g in gpus] if gpus else []
+        if gpus:
+            try:
+                details = tf.config.experimental.get_device_details(gpus[0])
+                info["gpu_name"] = details.get("device_name", "unknown")
+            except Exception:
+                info["gpu_name"] = "unknown"
     except Exception:
-        info.setdefault("torch_version", "not installed")
+        info["tensorflow_version"] = "not installed"
         info["gpu_devices"] = []
 
     for pkg in ["numpy", "scipy", "scikit-learn"]:
         try:
             mod = __import__(
-                "sklearn" if pkg == "scikit-learn" else pkg
+                pkg.replace("-", "_") if pkg == "scikit-learn" else pkg
             )
             info[f"{pkg}_version"] = mod.__version__
         except Exception:

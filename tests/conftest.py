@@ -15,9 +15,10 @@ import numpy as np
 import pytest
 
 # ---------------------------------------------------------------------------
-# Environment: default to CPU during tests (override to exercise CUDA)
+# Environment: suppress TF/CUDA noise during tests
 # ---------------------------------------------------------------------------
 
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
 
 

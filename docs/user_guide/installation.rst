@@ -38,39 +38,6 @@ The package name on PyPI is **pymv-clustering**; imports use **pymv**.
 ``[ui]`` selects the interface dependencies. The older ``[display]`` option
 remains an equivalent alias; no separate package is needed.
 
-PyTorch: CPU or NVIDIA GPU
------------------------------------
-
-The built-in models use PyTorch; TensorFlow is not required. For a CPU-only
-environment on Linux or Windows, install the CPU wheel **before** installing
-pymv to avoid downloading CUDA dependencies:
-
-.. code-block:: bash
-
-   python -m pip install "torch>=2.4,<3" --index-url https://download.pytorch.org/whl/cpu
-
-For macOS or an NVIDIA GPU, follow the platform-specific command from the
-`official PyTorch installation selector <https://pytorch.org/get-started/locally/>`_,
-then install pymv normally. The package supports CPU and CUDA execution, not MPS.
-Check the installed backend:
-
-.. code-block:: bash
-
-   python -c "import torch; print(torch.__version__); print('CUDA:', torch.cuda.is_available())"
-
-Models choose an available CUDA device automatically. To force CPU execution:
-
-.. code-block:: python
-
-   from pymv.models import LMGEC, SCM
-
-   linear = LMGEC(n_clusters=3, embedding_dim=16, device="cpu")
-   contrastive = SCM(n_clusters=3, device="cpu")
-
-See :doc:`/background/algorithms` for numerical precision, device fallback and
-the SCM training conventions. Existing environments may retain TensorFlow,
-but pymv does not import it or require it.
-
 Interactive interface
 ---------------------
 
