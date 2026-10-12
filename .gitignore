@@ -39,3 +39,6 @@ to_do_list.md
 
 
 notebooks/experiments/
+
+# Manuscripts and reference papers are maintained separately from the library.
+/paper/
