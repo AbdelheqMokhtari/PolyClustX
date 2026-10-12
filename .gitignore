@@ -1,5 +1,9 @@
 # Python
 /SCM/
+/IDEC/
+/Completer/
+/DCP/
+/MFLVC/
 __pycache__/
 *.egg-info/
 src/*.egg-info
