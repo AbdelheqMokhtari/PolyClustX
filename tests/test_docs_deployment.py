@@ -6,6 +6,8 @@ from types import SimpleNamespace
 import pytest
 import requests
 
+from polyclustx.brand import DEFINITION, NAME
+
 
 @pytest.mark.parametrize("prefix", ["_static/", "../_static/", "../../../_static/"])
 def test_docs_logo_and_favicon_use_shared_content_version(prefix):
@@ -13,6 +15,9 @@ def test_docs_logo_and_favicon_use_shared_content_version(prefix):
     config = runpy.run_path(str(root / "docs/conf.py"))
     logo = root / "src/polyclustx/display/assets/logo.png"
     version = hashlib.sha256(logo.read_bytes()).hexdigest()[:12]
+    assert config["project"] == NAME
+    assert config["html_title"].startswith(NAME)
+    assert config["html_context"]["polyclustx_definition"] == DEFINITION
     assert config["html_logo"] == str(logo)
     assert config["html_context"]["polyclustx_logo_version"] == version
     context = {

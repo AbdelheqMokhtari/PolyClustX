@@ -1,5 +1,5 @@
 .PHONY: help guide cli run search list-datasets list-models \
-        install test lint fix build docs docs-build docs-serve docs-deploy clean version bump release
+        install test lint fix format build docs docs-build docs-serve docs-deploy clean version bump release
 
 PYTHON ?= python
 PORT ?= 8000
@@ -18,19 +18,19 @@ install:         ## Install the complete package, including the interface
 	$(PYTHON) -m pip install .
 
 test:            ## Run the test suite
-	pytest -q $(ARGS)
+	$(PYTHON) -m pytest $(ARGS)
 
 lint:            ## Lint with ruff
-	ruff check src/ tests/
+	$(PYTHON) -m ruff check src/ tests/
 
 fix:             ## Auto-fix lint issues
-	ruff check --fix src/ tests/
+	$(PYTHON) -m ruff check --fix src/ tests/
 
 format:          ## Format code (Black-compatible)
-	ruff format src/ tests/
+	$(PYTHON) -m ruff format src/ tests/
 
 build:           ## Build wheel and sdist
-	python -m build
+	$(PYTHON) -m build
 
 docs: docs-build  ## Alias for docs-build
 
@@ -46,8 +46,8 @@ docs-deploy:     ## Trigger Read the Docs; requires READTHEDOCS_TOKEN in the env
 	$(PYTHON) scripts/deploy_docs.py --project $(RTD_PROJECT) --version $(RTD_VERSION)
 
 clean:           ## Remove build, cache and docs artifacts
-	rm -rf build dist *.egg-info src/*.egg-info docs/_build .pytest_cache .ruff_cache .coverage
-	find . -name __pycache__ -type d -prune -exec rm -rf {} +
+	rm -rf build dist src/polyclustx.egg-info docs/_build .pytest_cache .ruff_cache .coverage htmlcov test-results.xml
+	find src tests docs scripts -name __pycache__ -type d -prune -exec rm -rf {} +
 
 # ── CLI helpers ───────────────────────────────────────────────────
 
@@ -72,7 +72,7 @@ list-models:     ## List registered models
 # ── Release ───────────────────────────────────────────────────────
 
 version:         ## Show the current library version
-	@polyclustx --version
+	@$(PYTHON) -m polyclustx --version
 
 bump:            ## Bump version using commitizen (updates version files)
 	@echo "Bumping version with commitizen..."
@@ -116,4 +116,4 @@ release:         ## Full release: bump -> merge develop -> main, push tags
 
 	@echo ""
 	@echo "Release completed successfully"
-	@polyclustx --version
+	@$(PYTHON) -m polyclustx --version

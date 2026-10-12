@@ -43,8 +43,8 @@ polyclustx-display
 
 Open the address printed in the terminal, normally http://localhost:8501.
 If the command is not found, use `python -m polyclustx.display`.
-The [installation guide](docs/user_guide/installation.rst) covers environments
-and migration from the former `pymv` package.
+The [installation guide](https://polyclustx.readthedocs.io/en/latest/user_guide/installation.html)
+covers environments and upgrading an existing installation.
 
 ## Use Python
 
@@ -102,8 +102,8 @@ plot_clusters(model.embedding_, model.labels_, method="pca")
 
 Use `MultiViewDataset([view_1, view_2], labels=None)` for your own feature
 matrices. Add graphs, align samples by ID or simulate missing views as needed.
-See the [data guide](docs/user_guide/data.md) and
-[experiment guide](docs/user_guide/experiments.md).
+See the [data guide](https://polyclustx.readthedocs.io/en/latest/user_guide/data.html) and
+[experiment guide](https://polyclustx.readthedocs.io/en/latest/user_guide/experiments.html).
 
 ## Use the command line
 
@@ -142,7 +142,7 @@ Dataset-specific default K is handled automatically. Short commands may conflict
 with other installed tools; use a dedicated environment or `polyclustx lmgec acm`.
 
 **Interface:** `polyclustx-display` is a standalone command.
-See the [CLI guide with complete examples](docs/api/cli.rst).
+See the [CLI guide with complete examples](https://polyclustx.readthedocs.io/en/latest/api/cli.html).
 
 ## Available methods
 
@@ -167,7 +167,7 @@ means native support for an observation mask.
 
 Capabilities differ by method. Some single-view and multi-view cases are
 framework adaptations; UMC uses supplied features without pretrained encoders.
-See [algorithm details, assumptions and references](docs/user_guide/clustering_models.md).
+See [algorithm details, assumptions and references](https://polyclustx.readthedocs.io/en/latest/user_guide/clustering_models.html).
 These implementations do not claim to reproduce the papers' benchmark scores.
 
 ## Explore and visualize
@@ -175,7 +175,7 @@ These implementations do not claim to reproduce the papers' benchmark scores.
 The interface provides dataset preparation, named models, repeated experiments,
 hyperparameter search, visualizations and JSON/CSV/ZIP exports.
 Labels enable benchmark metrics; without labels, use internal metrics.
-[Interface guide](docs/user_guide/workbench.md).
+[Interface guide](https://polyclustx.readthedocs.io/en/latest/user_guide/workbench.html).
 
 The [notebooks](notebooks/) are **unexecuted tutorials** for you to run.
 Start with [the end-to-end study](notebooks/06_polyclustx_feature_to_graph_study.ipynb)
@@ -185,8 +185,8 @@ losses, search hyperparameters and export results.
 ## Documentation
 
 Browse the [documentation](https://polyclustx.readthedocs.io/en/latest/),
-start with the [worked examples](docs/user_guide/examples.rst), or follow the
-[interactive interface guide](docs/user_guide/workbench.md).
+start with the [worked examples](https://polyclustx.readthedocs.io/en/latest/user_guide/examples.html), or follow the
+[interactive interface guide](https://polyclustx.readthedocs.io/en/latest/user_guide/workbench.html).
 
 ## Research affiliations
 

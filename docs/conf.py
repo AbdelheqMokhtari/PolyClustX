@@ -36,7 +36,7 @@ myst_enable_extensions = ["colon_fence", "deflist", "dollarmath", "fieldlist"]
 myst_heading_anchors = 3
 
 html_theme = "sphinx_rtd_theme"
-html_title = "PolyClustX — From Feature Views to Attributed Graphs"
+html_title = f"{project} — From Feature Views to Attributed Graphs"
 LOGO_PATH = ROOT / "src/polyclustx/display/assets/logo.png"
 html_logo = str(LOGO_PATH)
 html_favicon = html_logo
@@ -48,6 +48,7 @@ html_static_path = ["_static", str(ROOT / "src/polyclustx/display/assets")]
 html_css_files = ["custom.css"]
 templates_path = ["_templates"]
 html_context = {
+    "polyclustx_definition": identity["DEFINITION"],
     "polyclustx_css": identity["css_variables"](),
     # Also invalidate incremental HTML builds when the shared logo changes.
     "polyclustx_logo_version": hashlib.sha256(LOGO_PATH.read_bytes()).hexdigest()[:12],

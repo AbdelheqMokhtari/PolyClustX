@@ -1,4 +1,44 @@
 # Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+/build/
+/dist/
+/.venv/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+/htmlcov/
+/test-results.xml
+.ipynb_checkpoints/
+
+# Generated documentation and local screenshots
+/docs/_build/
+/docs/_static/screenshots/
+
+# Local credentials; example environment files may be versioned.
+.env
+.env.*
+!.env.example
+
+# Local data, experiment output and scratch notes
+# Keep these anchored to the repository root so source packages such as
+# src/polyclustx/data are never ignored accidentally.
+/data/
+/*.mat
+/experiments/
+/notebooks/experiments/
+/logs/
+/src/polyclustx/configs/*.local.yaml
+/START.md
+/FINDING.md
+/to_do_list.md
+/deployment.md
+
+# Standalone reference implementations, never the integrated model packages.
 /SCM/
 /IDEC/
 /Completer/
@@ -9,36 +49,7 @@
 /G-CoMVKM/
 /SGLA/
 /UMC/
-__pycache__/
-*.egg-info/
-src/*.egg-info
-build/
-dist/
-.venv/
-
-# Tooling caches
-.pytest_cache/
-.ruff_cache/
-.coverage
-.ipynb_checkpoints/
-
-# Docs
-docs/_build/
-docs/_static/screenshots/
-
-# Local data, experiment output and scratch notes
-# Keep these anchored to the repository root so source packages such as
-# src/polyclustx/data are never ignored accidentally.
-/data/
-*.mat
-/experiments/
-src/polyclustx/configs/*.local.yaml
-START.md
-FINDING.md
-to_do_list.md
-
-
-notebooks/experiments/
+/GMVC/
 
 # Manuscripts and reference papers are maintained separately from the library.
 /paper/
