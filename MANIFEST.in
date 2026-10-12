@@ -1,4 +1,7 @@
-include README.md LICENSE .readthedocs.yaml
+include README.md LICENSE THIRD_PARTY_NOTICES.md .readthedocs.yaml
+include Makefile
+recursive-include scripts *.py
+recursive-include notebooks *.ipynb
 recursive-include docs *.rst *.md *.py *.txt *.css Makefile make.bat
 prune docs/_build
 recursive-include examples *.py

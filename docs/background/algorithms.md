@@ -116,6 +116,58 @@ SCM's default network parameters and outputs matched the supplied reference
 exactly; contrastive loss and gradients agreed within `1e-12`. These checks do
 not establish identical results for every dataset or hardware configuration.
 
+## Co-EM K-means and spectral co-training
+
+`MultiViewKMeans` follows the two-view partition exchange described by Steffen
+Bickel and Tobias Scheffer, **Multi-View Clustering**, ICDM 2004.
+[Paper DOI](https://doi.org/10.1109/ICDM.2004.10095).
+`MultiViewSpectralClustering` follows Abhishek Kumar and Hal Daumé III,
+**A Co-training Approach for Multi-view Spectral Clustering**, ICML 2011.
+[Paper](https://icml.cc/2011/papers/272_icmlpaper.pdf).
+The [mvlearn implementations](https://mvlearn.github.io/references/cluster.html)
+are behavioral references, not runtime dependencies. Single-view reductions,
+the cyclic >2-view K-means extension, numerical safeguards and convergence
+conventions are explained in the [model tutorial](../user_guide/clustering_models.md).
+
+## IDEC
+
+Xifeng Guo, Long Gao, Xinwang Liu and Jianping Yin. **Improved Deep Embedded
+Clustering with Local Structure Preservation**, IJCAI 2017.
+[Paper](https://www.ijcai.org/proceedings/2017/243) ·
+[Reference](https://github.com/XifengGuo/IDEC).
+The PyTorch implementation combines reconstruction with Student-t clustering
+and a sharpened target distribution. Multiple input views use early fusion;
+this is an application of IDEC, not a claim of a multi-view IDEC objective.
+
+## COMPLETER and DCP
+
+Yijie Lin et al. **COMPLETER: Incomplete Multi-view Clustering via Contrastive
+Prediction**, CVPR 2021.
+[Paper](https://openaccess.thecvf.com/content/CVPR2021/html/Lin_COMPLETER_Incomplete_Multi-View_Clustering_via_Contrastive_Prediction_CVPR_2021_paper.html) ·
+[Reference](https://github.com/XLearning-SCU/2021-CVPR-Completer).
+
+Yijie Lin et al. **Dual Contrastive Prediction for Incomplete Multi-view
+Representation Learning**, IEEE TPAMI.
+[DOI](https://doi.org/10.1109/TPAMI.2022.3197238) ·
+[Reference](https://github.com/XLearning-SCU/2022-TPAMI-DCP).
+Both learn cross-view latent prediction on fully observed training samples,
+then complete missing latent views before clustering. DCP here implements
+the unsupervised two-view / complete-graph routes, not label-supervised
+classification. Details and overlap requirements appear in the
+[model tutorial](../user_guide/clustering_models.md).
+
+## MFLVC
+
+Jie Xu, Huayi Tang, Yazhou Ren, Liang Peng, Xiaofeng Zhu and Lifang He.
+**Multi-Level Feature Learning for Contrastive Multi-View Clustering**, CVPR 2022.
+[Paper](https://openaccess.thecvf.com/content/CVPR2022/papers/Xu_Multi-Level_Feature_Learning_for_Contrastive_Multi-View_Clustering_CVPR_2022_paper.pdf) ·
+[Reference](https://github.com/SubmissionsIn/MFLVC).
+View-specific autoencoders feed shared feature and cluster heads. Training
+uses reconstruction, feature/cluster contrast and aligned pseudo-label
+fine-tuning. The final prediction averages view cluster probabilities.
+Implementation conventions and the one-view reduction are documented in the
+[model tutorial](../user_guide/clustering_models.md).
+
 ## Responsible comparisons
 
 Fix dataset variants, sample alignment, preprocessing, graph fusion, seeds and

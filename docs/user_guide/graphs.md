@@ -66,7 +66,9 @@ dense features.
 Direct LMGEC calls sum nested relation lists by default. Use `data.fit` for
 custom weighting. Shared graphs must be repeated explicitly, such as `As=[A, A]`;
 the last graph is no longer silently assigned to unmentioned views.
-SCM ignores graphs, and LMGEC uses them only with preprocessing enabled.
+SCM and the feature-only estimators ignore supplied graphs. Spectral co-training
+constructs its own feature affinities. LMGEC uses supplied graphs only with
+preprocessing enabled. Check the [model catalog](../background/algorithms.md).
 
 ## Generate synthetic graphs in Python
 

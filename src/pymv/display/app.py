@@ -685,6 +685,17 @@ def _draft(workspace, dataset_id, data):
 def _parameter_input(model, name, control, default, existing, *, disabled=False):
     key = f"parameter_{model}_{name}"
     value = existing.get(name, default)
+    if control.nullable:
+        automatic = st.checkbox(f"Automatic {control.label.lower()}", value=value is None,
+                                key=f"auto_{key}", disabled=disabled, help=control.help)
+        if automatic:
+            return None
+        if value is None:
+            value = 0 if control.kind == "int" else 1.0
+    if control.kind == "choice":
+        options = list(control.choices)
+        return st.selectbox(control.label, options, index=options.index(value) if value in options else 0,
+                            key=key, help=control.help, disabled=disabled)
     if control.kind == "bool":
         return st.checkbox(control.label, value=bool(value), key=key, help=control.help, disabled=disabled)
     if control.kind == "int":
@@ -721,17 +732,29 @@ def render_model(workspace, *, search=False):
     draft = _draft(workspace, dataset_id, data)
     available, unavailable = compatible_models(data, recipe) if search else (list_models(), [])
     if unavailable:
-        st.warning("Unavailable until missing views are imputed: " + ", ".join(name.upper() for name in unavailable))
+        st.warning("Unavailable for this observation pattern: " + ", ".join(name.upper() for name in unavailable)
+                   + ". Impute missing views or provide enough fully observed training samples.")
     if not available:
         st.error("No registered model can use this incomplete dataset. Select imputation on the Dataset page.")
         return
-    index = available.index(draft["model"]) if draft["model"] in available else 0
+    preferred = draft["model"] if draft["model"] in available else ("lmgec" if "lmgec" in available else available[0])
+    index = available.index(preferred)
     model = st.selectbox("Model", available, index=index, format_func=str.upper)
     if not search:
         config_name = st.text_input("Configuration name", workspace.suggested_name(model.upper()),
                                     key=f"model_name_{model}_{workspace.name_counters.get(model.upper(), 0)}")
     info = get_model_info(model)
     st.write(info.get("description", ""))
+    if model in {"completer", "dcp"}:
+        st.info("Training needs at least two samples observed in every view. Missing latent views are predicted "
+                "after training; set the prediction start below the number of training epochs.")
+    elif model == "idec":
+        st.caption("Multiple views are concatenated before IDEC. Training iterations count minibatch updates.")
+    elif model == "mflvc":
+        st.caption("Training has reconstruction, contrastive and pseudo-label phases. No true labels are used.")
+    elif model == "multiview_spectral":
+        st.caption("Dense spectral co-training: quadratic memory and cubic eigensolver time. "
+                   "Use a subset for large datasets; the memory budget rejects oversized jobs.")
     if info.get("paper"):
         st.caption(f"Original paper: {info['paper']}")
     defaults, controls = parameter_controls(model)
@@ -750,7 +773,7 @@ def render_model(workspace, *, search=False):
                 else:
                     try:
                         params[name] = _parameter_input(model, name, control, defaults[name], draft["params"])
-                        if control.kind in {"int", "float"}:
+                        if control.kind in {"int", "float"} and params[name] is not None:
                             params[name] = parse_candidates([params[name]], control)[0]
                     except ValueError as exc:
                         validation_errors.append(str(exc))
@@ -780,7 +803,8 @@ def render_model(workspace, *, search=False):
                 validation_errors.append(str(exc))
     clusters = list(dict.fromkeys(clusters))
 
-    strategy = st.selectbox("Search strategy", ["Random search", "Grid search"]) if search else "Fixed parameters"
+    strategy = st.selectbox("Search strategy", ["Random search", "Grid search", "Optuna (TPE)"]) \
+        if search else "Fixed parameters"
     search_space = {}
     trials = 1
     if search:
@@ -791,7 +815,28 @@ def render_model(workspace, *, search=False):
             if st.checkbox(
                 f"Search {control.label}", value=name in draft["search_space"], key=f"search_{model}_{name}"
             ):
-                saved = [str(value) for value in draft["search_space"].get(name, control.search_values[:2])]
+                if strategy == "Optuna (TPE)" and control.kind in {"int", "float"} and st.toggle(
+                    f"Use a range for {control.label}", key=f"range_{model}_{name}"
+                ):
+                    cast = int if control.kind == "int" else float
+                    left, right = st.columns(2)
+                    low = left.number_input(f"Minimum {control.label}", value=cast(min(control.search_values)),
+                                            key=f"low_{model}_{name}")
+                    high = right.number_input(f"Maximum {control.label}", value=cast(max(control.search_values)),
+                                              key=f"high_{model}_{name}")
+                    log = st.checkbox(f"Log scale for {control.label}", key=f"log_{model}_{name}")
+                    try:
+                        parse_candidates([low, high], control)
+                        if low > high or (log and low <= 0):
+                            raise ValueError("Range minimum must be ≤ maximum; logarithmic ranges must be positive.")
+                        search_space[name] = {"type": control.kind, "low": low, "high": high, "log": log}
+                    except ValueError as exc:
+                        validation_errors.append(str(exc))
+                    continue
+                previous = draft["search_space"].get(name, control.search_values[:2])
+                if isinstance(previous, dict):
+                    previous = control.search_values[:2]
+                saved = [str(value) for value in previous]
                 options = list(dict.fromkeys([*map(str, control.search_values), *saved]))
                 candidates = st.multiselect(
                     f"Candidates for {control.label}", options,
@@ -804,8 +849,8 @@ def render_model(workspace, *, search=False):
                     validation_errors.append(str(exc))
         if not search_space and not validation_errors:
             validation_errors.append("Select at least one parameter to search.")
-        if strategy == "Random search":
-            trials = st.number_input("Random configurations", 1, 1000, int(draft.get("trials", 1)))
+        if strategy != "Grid search":
+            trials = st.number_input("Trial budget", 1, 1000, int(draft.get("trials", 1)))
     for message in validation_errors:
         st.error(message)
     if search:
@@ -845,6 +890,17 @@ def render_model(workspace, *, search=False):
         if st.button("Remove configuration"):
             workspace.models.pop(selected)
             st.rerun()
+
+
+def _fit_status():
+    status = st.empty()
+
+    def update(event):
+        remaining = event["remaining"]
+        eta = "estimating after initial work" if remaining is None else f"about {remaining:.0f}s left in this stage"
+        status.info(f"{event['model']} · fit {event['fit']}/{event['fits']} · "
+                    f"{event['stage']} {event['completed']}/{event['total']} · {eta}")
+    return update
 
 
 def render_experiment(workspace):
@@ -930,9 +986,11 @@ def render_experiment(workspace):
                 preprocessing=workspace.preprocessing.get(dataset_id, PreprocessingSpec()),
             ))
         progress = st.progress(0.0, text="Running fits")
+        fit_status = _fit_status()
         try:
-            with st.spinner("Fitting models"):
-                workspace.run_batch(specs, name=name, output_dir=output_dir, progress=progress.progress)
+            with st.spinner("Fitting models", show_time=True):
+                workspace.run_batch(specs, name=name, output_dir=output_dir, progress=progress.progress,
+                                    fit_progress=fit_status)
             _set_page("Results")
             st.rerun()
         except Exception as exc:
@@ -983,7 +1041,7 @@ def _search_runner(workspace, dataset_id, data, model, params, clusters, search_
     with st.expander("Reproducibility and saving"):
         seed = st.number_input("Base random seed", 0, 2**31 - 21, 0, key="search_seed")
         output_dir = st.text_input("Output directory", "experiments", key="search_output_dir")
-    count = trials if strategy == "Random search" else math.prod(len(values) for values in search_space.values())
+    count = math.prod(len(values) for values in search_space.values()) if strategy == "Grid search" else trials
     total = count * len(clusters) * repeats
     st.caption(f"{count * len(clusters)} configurations × {repeats} runs = {total} fits.")
     if total > 2000:
@@ -995,12 +1053,14 @@ def _search_runner(workspace, dataset_id, data, model, params, clusters, search_
             dataset_id, model=model, name=f"Search {sum(r.spec.kind == 'search' for r in workspace.records) + 1}",
             params=params, clusters=clusters, repeats=repeats, seed=seed, benchmark=benchmark, metrics=metrics,
             search_space=search_space, trials=trials, kind="search", objective=objective,
-            search_strategy="random" if strategy == "Random search" else "grid",
+            search_strategy={"Random search": "random", "Grid search": "grid", "Optuna (TPE)": "optuna"}[strategy],
             preprocessing=workspace.preprocessing.get(dataset_id, PreprocessingSpec()),
         )
         progress = st.progress(0.0, text="Searching")
+        fit_status = _fit_status()
         try:
-            workspace.run(spec, progress=progress.progress, output_dir=output_dir)
+            with st.spinner("Searching", show_time=True):
+                workspace.run(spec, progress=progress.progress, fit_progress=fit_status, output_dir=output_dir)
             st.rerun()
         except Exception as exc:
             st.error(str(exc))

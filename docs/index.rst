@@ -15,8 +15,8 @@ selected model's capabilities.
 
 .. code-block:: bash
 
-   pip install "pymv-clustering[ui]"
-   pymv-display
+   pip install pymv-clustering
+   pymv display
 
 .. code-block:: python
 
@@ -40,6 +40,7 @@ Start with :doc:`user_guide/quickstart`, explore
    user_guide/data
    user_guide/missing_views
    user_guide/graphs
+   user_guide/clustering_models
    user_guide/experiments
    user_guide/workbench
 

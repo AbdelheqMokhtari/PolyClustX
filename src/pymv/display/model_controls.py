@@ -21,9 +21,27 @@ class ParameterControl:
     step: float | int | None = None
     search_values: tuple = ()
     strictly_positive: bool = False
+    choices: tuple = ()
+    nullable: bool = False
 
 
 COMMON = {
+    "theta": ParameterControl("Feature entropy weight", "float", minimum=0., strictly_positive=True,
+                               search_values=(.1, 1., 4.)),
+    "contrastive_weight": ParameterControl("Contrastive loss weight", "float", minimum=0.,
+                                            search_values=(.1, 1., 5.)),
+    "num_layers": ParameterControl("Filter depth", "int", minimum=1, search_values=(2, 5, 10)),
+    "walks_per_node": ParameterControl("Walks per node", "int", minimum=1, search_values=(1, 2, 5)),
+    "walk_length": ParameterControl("Walk length", "int", minimum=1, search_values=(3, 5, 10)),
+    "context_size": ParameterControl("Walk context size", "int", minimum=2, search_values=(2, 3, 4)),
+    "community_fraction": ParameterControl("Community positive fraction", "float", minimum=0., maximum=1.,
+                                            search_values=(.1, .3, .5)),
+    "filter_std": ParameterControl("Edge filter threshold (standard deviations)", "float", minimum=0.),
+    "initial_fraction": ParameterControl("Initial curriculum fraction", "float", minimum=0., maximum=1.,
+                                          strictly_positive=True, search_values=(.1, .25, .5)),
+    "core_view": ParameterControl("Core view (zero-based)", "int", minimum=0),
+    "augmentation_rate": ParameterControl("Single-view feature dropout", "float", minimum=0., maximum=.99,
+                                           search_values=(.05, .1, .2)),
     "embedding_dim": ParameterControl("Embedding dimension", "int", minimum=1, step=1,
                                       search_values=(8, 16, 32, 64, 128, 256)),
     "projection_dim": ParameterControl("Projection dimension", "int", minimum=1, step=1,
@@ -54,6 +72,35 @@ COMMON = {
                                               step=0.1, search_values=(0.0, 0.1, 0.5, 1.0)),
     "hidden_dims": ParameterControl("Hidden dimensions", "int_tuple",
                                     help="Comma-separated layer widths, for example 500, 500, 2000"),
+    "prediction_dims": ParameterControl("Prediction network widths", "int_tuple",
+                                         help="Comma-separated widths, for example 128, 256, 128"),
+    "device": ParameterControl("Compute device", "choice", choices=("auto", "cpu", "cuda")),
+    "affinity": ParameterControl("Affinity", "choice", choices=("rbf", "nearest_neighbors", "poly"),
+                                  search_values=("rbf", "nearest_neighbors", "poly")),
+    "init": ParameterControl("Initialization", "choice", choices=("k-means++", "random")),
+    "n_init": ParameterControl("Initializations", "int", minimum=1, search_values=(1, 5, 10, 20)),
+    "n_neighbors": ParameterControl("Nearest neighbors", "int", minimum=1, search_values=(5, 10, 20)),
+    "patience": ParameterControl("Patience (sweeps)", "int", minimum=1),
+    "tol": ParameterControl("Convergence tolerance", "float", minimum=0., step=.0001,
+                             search_values=(0., .0001, .001)),
+    "alpha": ParameterControl("Alpha", "float", minimum=0., strictly_positive=True, step=.1),
+    "gamma": ParameterControl("Clustering loss weight", "float", minimum=0., step=.1,
+                               search_values=(.01, .1, 1.)),
+    "info_view": ParameterControl("Informative view (zero-based)", "int", minimum=0, nullable=True,
+                                   help="Automatic concatenates embeddings from every view."),
+    "degree": ParameterControl("Polynomial degree", "int", minimum=1),
+    "coef0": ParameterControl("Polynomial offset", "float", minimum=0., step=.1),
+    "max_memory_mb": ParameterControl("Memory safety budget (MiB)", "int", minimum=1,
+                                       help="Preflight estimate, not a guarantee on total process memory."),
+    "pretrain_epochs": ParameterControl("Reconstruction pretraining epochs", "int", minimum=1),
+    "finetune_epochs": ParameterControl("Pseudo-label fine-tuning epochs", "int", minimum=1),
+    "update_interval": ParameterControl("Target refresh interval (minibatches)", "int", minimum=1),
+    "prediction_start": ParameterControl("Start prediction at epoch (zero-based)", "int", minimum=0,
+                                          help="Must be below training epochs to learn missing-view completion."),
+    "prediction_weight": ParameterControl("Prediction loss weight", "float", minimum=0., step=.1,
+                                           search_values=(.01, .1, 1.)),
+    "label_temperature": ParameterControl("Cluster contrast temperature", "float", minimum=0.,
+                                           strictly_positive=True, step=.1, search_values=(.5, 1., 2.)),
 }
 
 
@@ -61,6 +108,10 @@ def parse_candidates(values, control):
     """Validate user-entered numeric candidates without truncating integers."""
     if not values:
         raise ValueError(f"{control.label}: add at least one candidate")
+    if control.kind == "choice":
+        if any(value not in control.choices for value in values):
+            raise ValueError(f"{control.label}: choose from {control.choices}")
+        return list(dict.fromkeys(values))
     parsed = []
     for value in values:
         try:
@@ -94,7 +145,24 @@ def parameter_controls(model_name):
     for name, default in info["defaults"].items():
         if name == "random_state":
             continue
-        if name in COMMON:
+        if name == "gamma" and model_name == "g_comvkm":
+            controls[name] = ParameterControl("Collaboration exponent (greater than 1)", "float",
+                                              minimum=1.000001, search_values=(2., 5., 10.))
+        elif name == "gamma" and model_name == "sgla":
+            controls[name] = ParameterControl("Laplacian weight regularization", "float", minimum=0.,
+                                              search_values=(0., .1, .5, 1.))
+        elif name == "gamma" and default is None:
+            controls[name] = ParameterControl("Kernel scale (gamma)", "float", minimum=0.,
+                                              strictly_positive=True, nullable=True,
+                                              search_values=(.01, .1, 1.),
+                                              help="Automatic estimates a separate scale for each view.")
+        elif name == "max_iter" and model_name == "idec":
+            controls[name] = ParameterControl("Clustering minibatch updates", "int", minimum=1,
+                                              search_values=(100, 500, 1000))
+        elif name == "reconstruction_weight" and model_name in {"completer", "dcp"}:
+            controls[name] = ParameterControl("Reconstruction loss weight", "float", minimum=0.,
+                                              strictly_positive=True, step=.1, search_values=(.01, .1, 1.))
+        elif name in COMMON:
             controls[name] = COMMON[name]
         elif isinstance(default, bool):
             controls[name] = ParameterControl(name.replace("_", " ").title(), "bool")
@@ -113,7 +181,10 @@ def compatible_models(data, preprocessing=None):
     available, unavailable = [], []
     for name in list_models():
         info = get_model_info(name)
-        if complete or info.get("supports_missing_views", False):
+        min_complete = getattr(info["class"], "min_complete_samples", 0)
+        # Missing simulation changes the mask, so validate the prepared data at run time too.
+        too_few_pairs = (not complete and min_complete and data.observed_mask.all(axis=1).sum() < min_complete)
+        if (complete or info.get("supports_missing_views", False)) and not too_few_pairs:
             available.append(name)
         else:
             unavailable.append(name)

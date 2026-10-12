@@ -9,14 +9,13 @@ discarding your work.
 Use Python 3.10 or newer; Python 3.11 is recommended.
 
 ```bash
-python -m pip install "pymv-clustering[ui]"
-pymv-display
+python -m pip install pymv-clustering
+pymv display
 ```
 
 Open the local address printed in the terminal, normally http://localhost:8501.
 For environment creation, Windows activation, repository downloads and restarting,
-follow the [installation tutorial](installation.rst). `[display]` remains an
-equivalent installation extra. To choose another port:
+follow the [installation tutorial](installation.rst). To choose another port:
 
 ```bash
 pymv-display --server.port=8502
@@ -123,6 +122,15 @@ its typed parameter controls, then choose a **Configuration name**. Defaults
 are names such as `LMGEC#1`. Save as many configurations as needed.
 See [available models and original implementations](../background/algorithms.md).
 
+K-means, spectral co-training, IDEC, COMPLETER, DCP and MFLVC use the same
+configuration workflow. See the [model tutorial](clustering_models.md) for
+single-view reductions, original formulations and training-stage meanings.
+Device, affinity and initialization use dropdowns. Spectral gamma and the
+informative view have **Automatic** switches; disabling them reveals typed
+numeric controls. COMPLETER/DCP require at least two fully observed training
+samples and trained predictors for missing-view completion. These requirements
+are checked before incompatible experiments run.
+
 Saved K values are used for real-world experiments and manual K comparisons.
 For benchmark experiments, dataset class counts are the default on Experiment;
 you can edit them there or switch to the saved model K values.
@@ -131,12 +139,18 @@ LMGEC may need a smaller embedding on a low-dimensional dataset. Its limit is
 `min(samples, smallest view feature count) − 1`. Results show a short adjustment
 notice, the effective value used, and the requested value. Your saved configuration
 is unchanged. This limit is model-specific and is not applied to SCM.
+It is also not applied to neural hidden dimensions or spectral cluster counts.
 
 ## 3. Search: tune parameters independently
 
-Select a prepared dataset, a compatible model, and **Random search** or
-**Grid search**. Enable parameters to search and type candidate values into
+Select a prepared dataset, a compatible model, and **Random search**,
+**Grid search**, or **Optuna (TPE)**. Enable parameters to search and type candidate values into
 their controls; press Enter to add each value. Invalid values are rejected.
+For Optuna, enable **Use a range** on a numeric parameter to set minimum,
+maximum and optional logarithmic scale. Otherwise Optuna chooses among your
+explicit candidate values. Grid evaluates every combination; random and Optuna
+use the specified trial budget. Each K has its own Optuna study so scores from
+different cluster counts do not distort one another's parameter suggestions.
 
 Choose metrics and an **Optimize metric**, then the number of independent runs
 (1–20). Internal metrics work without labels; external metrics such as NMI
@@ -171,6 +185,12 @@ automatically, normally under `./experiments/` in the server's working directory
 
 Jobs run one fit at a time, with at most 2,000 fits per job. Start with a small
 trial: an individual model may still exceed available RAM or GPU memory.
+The status panel shows the current fit, training stage and completed iterations.
+After a stage makes progress, its elapsed time estimates the remaining stage
+time. This is an estimate, not a deadline; it excludes later stages and can
+change with early stopping, dataset size and device. No iterations are removed
+to make a run appear faster. Initial graph construction, spectral decomposition
+and final K-means can take time before the next update.
 
 ## 5. Results and visualizations
 

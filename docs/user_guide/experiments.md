@@ -70,6 +70,43 @@ Custom functions default to external, higher-is-better scores. Set
 `fn.requires_features = True` for an internal function and
 `fn.higher_is_better = False` for minimization.
 
+## Optuna: adaptive discrete or continuous search
+
+```python
+from pymv.experiment import OptunaSearchExperiment
+from pymv.models import LMGEC
+from pymv.metrics import nmi_score
+
+search = OptunaSearchExperiment(
+    LMGEC,
+    {"n_clusters": [data.n_clusters], "embedding_dim": [4, 8],
+     "temperature": {"low": .1, "high": 5., "log": True}},
+    data, metrics={"NMI": nmi_score}, best_metric="NMI",
+    n_iter=10, runs=3, seed=42, save_path="experiments/optuna",
+)
+result = search.run()
+print(result.best_params)
+print(search.study_.trials)  # full Optuna trial objects
+```
+
+Lists restrict choices to your selected values. A range uses `low`, `high`,
+optional `log`, and optional `step`; add `"type": "int"` for integer ranges.
+Float ranges are continuous when `step` is omitted. Logarithmic bounds must
+be positive; a float range cannot combine logarithmic sampling and a step.
+Use grid search when every candidate combination must be evaluated. Optuna's
+TPE sampler uses prior trial scores to suggest subsequent configurations.
+
+The selected metric is optimized using the mean of repeated fits, with the
+same seeds per configuration. Failed/nonfinite trials cannot win. All fits
+finish normally; pruning is not enabled. The standard JSON report records
+strategy, search space, each trial's parameters, scores, diagnostics and
+best-so-far steps. Optuna is included in the normal installation.
+Layer-width choices can be nested lists, for example `hidden_dims=[[64,32],[128,64]]`.
+Optuna stores such choices as indices internally; `result.best_params` and
+exported reports contain the actual widths. A trial's `resolved_parameters`
+user attribute also preserves them.
+[Optuna trial API](https://optuna.readthedocs.io/en/stable/reference/generated/optuna.trial.Trial.html).
+
 ## Prepare a comparison batch
 
 Datasets and model configurations can be prepared separately. `Experiment`

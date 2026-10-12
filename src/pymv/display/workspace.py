@@ -216,6 +216,7 @@ class Workspace:
         profile = dataset_profile(prepared)
         self.preprocessing[dataset_id] = copy.deepcopy(recipe)
         self.datasets[dataset_id].hint.update(prepared_complete=prepared.is_complete,
+                                               prepared_n_complete=int(prepared.observed_mask.all(axis=1).sum()),
                                                prepared_profile=profile,
                                                prepared_observed=prepared.observed_mask.sum(axis=0).tolist())
         self.pending_datasets.discard(dataset_id)
@@ -233,15 +234,19 @@ class Workspace:
             if dataset_id in self.pending_datasets:
                 continue
             resource = self.datasets[dataset_id]
-            if "complete" not in resource.hint or "n_samples" not in resource.hint:
+            if "complete" not in resource.hint or "n_samples" not in resource.hint or "n_complete" not in resource.hint:
                 data = self.load_dataset(dataset_id)
-                resource.hint.update(complete=data.is_complete, n_samples=data.n_samples)
+                resource.hint.update(complete=data.is_complete, n_samples=data.n_samples,
+                                     n_complete=int(data.observed_mask.all(axis=1).sum()))
             recipe = self.preprocessing.get(dataset_id, PreprocessingSpec())
             complete = recipe.will_be_complete(resource.hint["complete"])
             for model_id in model_ids:
                 settings = self.models[model_id]
                 cls = get_model(settings["model"])
                 if not complete and not getattr(cls, "supports_missing_views", False):
+                    continue
+                paired = resource.hint.get("prepared_n_complete", resource.hint["n_complete"])
+                if not complete and paired < getattr(cls, "min_complete_samples", 0):
                     continue
                 clusters = (clusters_by_dataset or {}).get(dataset_id, settings["clusters"])
                 if all(1 <= k <= resource.hint["n_samples"] for k in clusters):
@@ -261,7 +266,7 @@ class Workspace:
             self.benchmark[dataset_id] = self.load_dataset(dataset_id).labels is not None
         return self.benchmark[dataset_id]
 
-    def run_batch(self, specs, *, name=None, output_dir=None, progress=None):
+    def run_batch(self, specs, *, name=None, output_dir=None, progress=None, fit_progress=None):
         """Run selected combinations sequentially and persist one combined report."""
         specs = list(specs)
         if not specs:
@@ -278,7 +283,7 @@ class Workspace:
         counter = self.experiment_counter
         for i, spec in enumerate(specs):
             callback = (lambda value, i=i: progress((i + value) / len(specs))) if progress else None
-            record = self.run(spec, progress=callback, save_json=False)
+            record = self.run(spec, progress=callback, fit_progress=fit_progress, save_json=False)
             record_ids.append(record.id)
             report["experiments"].extend(record.report["experiments"])
         report["completed_at"] = timestamp()
@@ -300,6 +305,7 @@ class Workspace:
                 "n_views": data.n_views,
                 "n_clusters": data.n_clusters,
                 "complete": data.is_complete,
+                "n_complete": int(data.observed_mask.all(axis=1).sum()),
                 "category": data.category,
             },
             _data=snapshot,
@@ -344,7 +350,7 @@ class Workspace:
                                                if entry.get("record_id") != record_id]
         self.batches = [batch for batch in self.batches if batch["record_ids"]]
 
-    def run(self, spec, *, progress=None, output_dir=None, save_json=True, validate_only=False):
+    def run(self, spec, *, progress=None, fit_progress=None, output_dir=None, save_json=True, validate_only=False):
         """Append one independent record, retaining per-trial failures and artifacts.
 
         Structural/configuration errors raise before history changes. Training
@@ -362,7 +368,7 @@ class Workspace:
         if (not isinstance(spec.seed, int) or isinstance(spec.seed, bool)
                 or not 0 <= spec.seed <= 2**32 - spec.repeats):
             raise ValueError("Choose a nonnegative seed below 2**32 minus the number of repeats")
-        if spec.search_strategy not in {"random", "grid"}:
+        if spec.search_strategy not in {"random", "grid", "optuna"}:
             raise ValueError("Unknown search strategy")
         source = self.load_dataset(spec.dataset_id)
         if any(k < 1 or k > source.n_samples for k in spec.clusters):
@@ -373,7 +379,10 @@ class Workspace:
         parameters = inspect.signature(cls.__init__).parameters
         if (set(spec.params) | set(spec.search_space)) - set(parameters):
             raise ValueError("Unknown model parameter; consult the model API")
-        if any(not isinstance(v, list) or not v for v in spec.search_space.values()):
+        if spec.search_strategy == "optuna":
+            from pymv.experiment.optuna_search import validate_space
+            validate_space(spec.search_space)
+        elif any(not isinstance(v, list) or not v for v in spec.search_space.values()):
             raise ValueError("Each search parameter needs a nonempty candidate list")
         if spec.kind == "search" and spec.objective not in spec.metrics:
             raise ValueError("Choose a search objective from the selected metrics")
@@ -393,6 +402,8 @@ class Workspace:
         data = prepare_dataset(source, recipe)
         if not data.is_complete and not getattr(cls, "supports_missing_views", False):
             raise ValueError(f"{cls.__name__} does not support missing views. Choose explicit mean/zero imputation.")
+        if data.observed_mask.all(axis=1).sum() < getattr(cls, "min_complete_samples", 0):
+            raise ValueError(f"{cls.__name__} requires at least two fully observed training samples")
         count = math.prod(len(v) for v in spec.search_space.values()) if spec.search_strategy == "grid" else spec.trials
         total = (count if spec.search_space else 1) * len(spec.clusters) * spec.repeats
         if total > 2000:
@@ -431,7 +442,13 @@ class Workspace:
         if spec.kind == "experiment":
             self.experiment_counter += 1
         rng = np.random.default_rng(spec.seed)
-        if spec.search_strategy == "grid":
+        samplers = {}
+        if spec.search_strategy == "optuna":
+            from pymv.experiment.optuna_search import OptunaSampler
+            samplers = {k: OptunaSampler(spec.search_space, spec.seed,
+                                        higher_is_better(METRICS[spec.objective])) for k in spec.clusters}
+            configurations = ({} for _ in range(spec.trials))
+        elif spec.search_strategy == "grid":
             configurations = (dict(zip(spec.search_space, values))
                               for values in itertools.product(*spec.search_space.values()))
         else:
@@ -441,6 +458,8 @@ class Workspace:
         for candidates in configurations:
             params = {**spec.params, **candidates}
             for k in spec.clusters:
+                if samplers:
+                    params = {**spec.params, **samplers[k].ask()}
                 configuration += 1
                 for repeat in range(spec.repeats):
                     run_seed = spec.seed + repeat
@@ -465,7 +484,17 @@ class Workspace:
                             for key, value in kwargs.items() if key in requested and value != requested[key]
                         }
                         model = cls(**kwargs)
-                        copy.deepcopy(data).fit(model)
+                        from pymv.progress import training_progress
+
+                        def notify(event):
+                            if fit_progress:
+                                fit_progress({**event, "model": spec.model, "run": repeat + 1,
+                                              "fit": len(record.rows) + 1, "fits": total})
+
+                        notify({"stage": "Initializing", "completed": 0, "total": 1,
+                                "elapsed": 0., "remaining": None})
+                        with training_progress(notify):
+                            copy.deepcopy(data).fit(model)
                         row["diagnostics"] = diagnostics(model)
                         embedding = getattr(model, "embedding_", None)
                         row.update(
@@ -494,6 +523,12 @@ class Workspace:
                         record.artifacts.append({})
                     if progress:
                         progress(len(record.rows) / total)
+                if samplers:
+                    rows = record.rows[-spec.repeats:]
+                    scores = [row.get(spec.objective) for row in rows]
+                    valid = all(row["status"] == "complete" for row in rows)
+                    valid = valid and all(value is not None and np.isfinite(value) for value in scores)
+                    samplers[k].tell(float(np.mean(scores)) if valid else None)
         record.completed_at = timestamp()
         record.report = record_report(record)
         if save_json:

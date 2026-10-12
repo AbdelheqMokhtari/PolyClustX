@@ -113,7 +113,23 @@ def _coerce(value: str, default):
     
     # Always parse lists first, regardless of the default type
     if value.startswith("[") or "," in value:
-        return _parse_json_or_csv(value)
+        parsed = _parse_json_or_csv(value)
+        if isinstance(default, tuple):
+            numbers = [float(item) for item in parsed]
+            if any(not item.is_integer() or item < 1 for item in numbers):
+                raise ValueError("Layer widths must be positive integers")
+            return tuple(int(item) for item in numbers)
+        return parsed
+
+    if default is None:
+        if value.lower() in {"none", "null"}:
+            return None
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return value
+    if isinstance(default, tuple):
+        return (int(value),)
 
     if isinstance(default, bool):
         return value.lower() in ("true", "1", "yes")
@@ -217,6 +233,15 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Disable internal preprocessing (preprocess=False).")
     params.add_argument("--max-iter", type=int, default=None,
                         help="Max optimisation iterations (default: 30).")
+    # Make registered model parameters available without maintaining a second
+    # hand-written model list. Each selected model coerces its own defaults.
+    reserved = {action.dest for action in p._actions} | {"random_state", "preprocess"}
+    for info in _get_model_registry().values():
+        for name in info["defaults"]:
+            if name not in reserved:
+                params.add_argument("--" + name.replace("_", "-"), default=None,
+                                    help=f"Model-specific {name.replace('_', ' ')}.")
+                reserved.add(name)
 
     # ── Experiment ──
     exp = p.add_argument_group("experiment")

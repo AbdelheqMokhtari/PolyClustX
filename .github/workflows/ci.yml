@@ -42,7 +42,7 @@ jobs:
       fail-fast: false
       matrix:
         # Core compatibility floor and recommended user environment.
-        python-version: ["3.9", "3.11"]
+        python-version: ["3.10", "3.11"]
 
     steps:
       - uses: actions/checkout@v4
@@ -102,9 +102,13 @@ jobs:
           requirements = package.requires or []
           assert any(req.startswith("torch") for req in requirements)
           assert not any("tensorflow" in req.lower() for req in requirements)
-          assert not any(path.startswith("SCM/") for path in files)
+          assert any(path.endswith("/licenses/THIRD_PARTY_NOTICES.md") for path in files)
+          assert not any(path.startswith(("SCM/", "IDEC/", "Completer/", "DCP/", "MFLVC/",
+                                          "conan/", "DGF/", "G-CoMVKM/", "SGLA/", "UMC/", "GMVC/")) for path in files)
           scripts = {entry.name for entry in package.entry_points}
-          assert {"pymv-cli", "pymv-display"} <= scripts
+          assert {"pymv", "pymv-cli", "pymv-display"} <= scripts
+          for dependency in ("streamlit", "pandas", "plotly", "networkx", "optuna"):
+              assert any(req.startswith(dependency) and "extra ==" not in req for req in requirements)
           assert {"ui", "display"} <= set(package.metadata.get_all("Provides-Extra"))
           PY
 

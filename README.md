@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://github.com/AbdelheqMokhtari/pymv/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/AbdelheqMokhtari/pymv?color=8A1538"></a>
-  <img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-blue?logo=python&logoColor=white">
+  <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white">
   <a href="https://github.com/AbdelheqMokhtari/pymv/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/AbdelheqMokhtari/pymv/actions/workflows/ci.yml/badge.svg?branch=main"></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-green"></a>
   <a href="https://pymv.readthedocs.io/en/latest/"><img alt="Documentation" src="https://img.shields.io/badge/docs-Read%20the%20Docs-475569"></a>
@@ -24,37 +24,28 @@ Use Python, the command line, or the graphical interface.
 
 ## Installation
 
-Use Python 3.11 for a new environment (core: 3.9+; interface: 3.10+).
+Use Python **3.10+** (3.11 recommended). Installation includes the interface,
+Python API, CLI, and Optuna. There is no separate interface installation.
+
+From PyPI, once this version is published:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows PowerShell: .venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install "pymv-clustering[ui]"
-pymv-display
+python -m pip install pymv-clustering
 ```
 
-For Python-only use, install `pymv-clustering` without `[ui]`.
-The built-in algorithms use **PyTorch**, not TensorFlow. For a CPU-only Linux
-or Windows environment, install PyTorch before pymv with
-`python -m pip install "torch>=2.4,<3" --index-url https://download.pytorch.org/whl/cpu`.
-For GPU/platform-specific packages, use the
-[PyTorch installation selector](https://pytorch.org/get-started/locally/).
-Both models accept `device="cpu"`, `"cuda"`, or `"auto"` (default).
-
-For a cloned or downloaded repository, open the folder containing `pyproject.toml`,
-create and activate an environment as above, then:
+Or from the repository:
 
 ```bash
-python -m pip install -e ".[ui]"
-pymv-display
+git clone https://github.com/AbdelheqMokhtari/pymv.git
+cd pymv
+python -m pip install .
 ```
 
-Open the address printed in the terminal, normally `http://localhost:8501`.
-To launch again later, activate the same environment and run `pymv-display`.
-The previous `[display]` extra remains supported. Optional UMAP projections use
-`python -m pip install "pymv-clustering[ui,umap]"`.
-[Step-by-step installation guide](https://pymv.readthedocs.io/en/latest/user_guide/installation.html).
+Launch the interface with **`pymv display`** (or `pymv-display`), then open the
+address printed in the terminal, normally `http://localhost:8501`.
+An isolated environment is recommended; see the
+[installation guide](https://pymv.readthedocs.io/en/latest/user_guide/installation.html).
+PyTorch is installed automatically; TensorFlow is not required.
 
 ## A first experiment
 
@@ -92,7 +83,7 @@ print(results.json_path)  # one JSON report containing every configuration and r
 External metrics such as ACC, NMI, and ARI require labels. Internal metrics
 such as Silhouette, Calinski–Harabasz, and Davies–Bouldin evaluate clustering
 without labels. See the [experiment guide](https://pymv.readthedocs.io/en/latest/user_guide/experiments.html)
-for evaluation settings, random/grid search, and choosing a search objective.
+for evaluation settings, random/grid/Optuna search, and choosing a search objective.
 Reports include per-run scores, mean ± standard deviation, hyperparameters,
 timestamps, and available loss histories and model diagnostics. Use
 `results.export("comparison.zip")` for a JSON/CSV bundle. Without `save_path`,
@@ -103,12 +94,33 @@ reports go to `./experiments/` in the current working directory.
 Every method exposes cluster assignments and a learned representation through
 the common model API. New methods can be added through the model registry.
 
-| Method | Input support | Original publication |
-|---|---|---|
-| LMGEC | Feature views with optional graphs | Fettal, Labiod & Nadif. [Simultaneous Linear Multi-view Attributed Graph Representation Learning and Clustering](https://doi.org/10.1145/3539597.3570367), WSDM 2023. |
-| SCM | Feature views; graphs are not used | Luo et al. [Simple Contrastive Multi-View Clustering with Data-Level Fusion](https://www.ijcai.org/proceedings/2024/519), IJCAI 2024. |
+“Graphs” means the method uses supplied adjacency matrices, not just internally
+constructed similarities. Missing-view ✓ means native observation-mask support.
 
-Both current implementations require complete or explicitly imputed views.
+| Category | Method | Graphs | Missing views | Original publication |
+|---|---|:---:|:---:|---|
+| Graph-aware | LMGEC | ✓ | — | [Fettal et al., WSDM 2023](https://doi.org/10.1145/3539597.3570367) |
+| Graph-aware | DGF | ✓ | — | [Zheng et al., Dual Graph Filtering](https://arxiv.org/abs/2511.20030) |
+| Graph-aware | SGLA | ✓ | — | [Li et al., ICDE 2025](https://arxiv.org/abs/2508.09452) |
+| Feature-based | MultiViewKMeans | — | — | [Bickel & Scheffer, ICDM 2004](https://doi.org/10.1109/ICDM.2004.10095) |
+| Feature-based | MultiViewSpectralClustering | — | — | [Kumar & Daumé, ICML 2011](https://icml.cc/2011/papers/272_icmlpaper.pdf) |
+| Feature-based | G-CoMVKM | — | — | [Sinaga & Yang, Electronics 2025](https://doi.org/10.3390/electronics14112129) |
+| Feature-based | IDEC | — | — | [Guo et al., IJCAI 2017](https://www.ijcai.org/proceedings/2017/243) |
+| Feature-based | CONAN | — | — | [Ke et al., BigData 2021](https://doi.org/10.1109/BigData52589.2021.9671851) |
+| Feature-based | SCM | — | — | [Luo et al., IJCAI 2024](https://www.ijcai.org/proceedings/2024/519) |
+| Feature-based | MFLVC | — | — | [Xu et al., CVPR 2022](https://github.com/SubmissionsIn/MFLVC) |
+| Feature-based | UMC | — | — | [Zhang et al., ACL 2024](https://aclanthology.org/2024.acl-long.2/) |
+| Incomplete-view | COMPLETER | — | ✓ | [Lin et al., CVPR 2021](https://github.com/XLearning-SCU/2021-CVPR-Completer) |
+| Incomplete-view | DCP | — | ✓ | [Lin et al., TPAMI](https://doi.org/10.1109/TPAMI.2022.3197238) |
+
+COMPLETER and DCP learn missing-view completion from at least two fully observed
+training samples; other methods require complete or explicitly imputed views.
+Single-view reductions and extensions beyond a paper's original view count are
+documented in the [model tutorial](https://pymv.readthedocs.io/en/latest/user_guide/clustering_models.html).
+All models are available in the interface, Python API and model registry.
+UMC uses user-supplied features, without downloading pretrained encoders.
+DGF builds kNN graphs when none are supplied; SGLA combines feature kNN graphs
+with supplied graphs. Implementations are not claims of reproduced paper scores.
 See [algorithm details and scope](https://pymv.readthedocs.io/en/latest/background/algorithms.html)
 and the [model catalog](https://pymv.readthedocs.io/en/latest/catalog/models.html).
 
@@ -146,7 +158,7 @@ hyperparameter search, results, visualizations, and exports. Prepare multiple
 named datasets and model configurations in either order. Load, inspect and
 preprocess each dataset on the Dataset page, then click **Apply changes**.
 Compare all compatible combinations or choose pairs in a dataset-by-model table. Run
-random or grid search with a selectable metric, name and copy the best configuration into
+random, grid or Optuna search with a selectable metric, name and copy the best configuration into
 an experiment, and repeat fits 1–20 times to obtain mean ± standard deviation.
 Benchmark mode starts enabled for labeled datasets and can be disabled on the
 Dataset page. Compare normalized losses across runs and download JSON, CSV or ZIP
@@ -160,17 +172,37 @@ one or several relations per view, built separately or shared across views.
 
 [Read the interface guide](https://pymv.readthedocs.io/en/latest/user_guide/workbench.html).
 
-## Command line and saved configurations
+## Command line
 
 ```bash
-pymv-cli --dataset acm --model lmgec --runs 5 --seed 42
-pymv-cli --config experiment --dataset acm --runs 5
+pymv models                       # list methods
+pymv models idec                  # inspect parameters
+pymv datasets
+pymv run acm --model lmgec --param embedding_dim=8 --runs 5
+pymv search acm --model lmgec --strategy grid --vary 'temperature=[0.5,1,2]'
+pymv search acm --model lmgec --strategy optuna --vary 'temperature={"low":0.1,"high":5.0}' --trials 10
 ```
 
-Optional YAML/JSON configs save your dataset, parameters, metrics, seeds, and
-search space in a reusable recipe. They are useful for repeating or sharing
-experiments without retyping a long command; Python and interface users do not
-need them. See the [CLI reference](https://pymv.readthedocs.io/en/latest/api/cli.html).
+Repeat `--param name=value` for fixed settings and `--vary name=values` for
+searched settings. Use `--objective nmi`, or choose internal metrics with
+`--no-benchmark --clusters 3 --metrics silhouette --objective silhouette`.
+Reports go to `experiments/`; choose another folder with `--output`.
+The older `pymv-cli` remains supported.
+[CLI reference](https://pymv.readthedocs.io/en/latest/api/cli.html).
+
+## Examples and local documentation
+
+The [notebooks](notebooks/) demonstrate offline multi-dataset comparisons,
+repeated-run tables, graph inputs, missing views and hyperparameter search.
+In a repository checkout:
+
+```bash
+make docs-build    # build HTML, installing documentation tools if necessary
+make docs-serve    # serve existing HTML at http://127.0.0.1:8000
+make docs-deploy   # trigger Read the Docs (requires project access)
+```
+
+Deployment builds a version already pushed to GitHub, not uncommitted files.
 
 ## Extend the framework
 

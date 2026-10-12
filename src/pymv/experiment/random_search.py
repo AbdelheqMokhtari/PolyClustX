@@ -210,13 +210,16 @@ class RandomSearchExperiment:
         self.log = log
         self.save_path = save_path
         self.save_json = save_json
-        if strategy not in {"random", "grid"}:
-            raise ValueError("strategy must be 'random' or 'grid'")
+        if strategy not in {"random", "grid", "optuna"}:
+            raise ValueError("strategy must be 'random', 'grid' or 'optuna'")
         if not isinstance(runs, int) or isinstance(runs, bool) or runs < 1:
             raise ValueError("runs must be a positive integer")
         if not isinstance(n_iter, int) or isinstance(n_iter, bool) or n_iter < 1:
             raise ValueError("n_iter must be a positive integer")
-        for values in param_distributions.values():
+        if strategy == "optuna":
+            from .optuna_search import validate_space
+            validate_space(param_distributions)
+        for values in ([] if strategy == "optuna" else param_distributions.values()):
             if callable(values) and strategy == "random":
                 continue
             if not isinstance(values, (list, tuple, np.ndarray)) or len(values) == 0:
@@ -314,7 +317,16 @@ class RandomSearchExperiment:
 
         report = new_report("search", self.experiment_name)
         rng = np.random.RandomState(self.seed)
-        if self.strategy == "grid":
+        sampler = None
+        if self.strategy == "optuna":
+            from pymv.metrics.evaluation import higher_is_better
+
+            from .optuna_search import OptunaSampler
+            sampler = OptunaSampler(self.param_distributions, self.seed,
+                                    higher_is_better(self.metrics[self.best_metric]))
+            self.study_ = sampler.study
+            configurations = (sampler.ask() for _ in range(self.n_iter))
+        elif self.strategy == "grid":
             self.n_iter = math.prod(len(values) for values in self.param_distributions.values())
             configurations = (dict(zip(self.param_distributions, values))
                               for values in itertools.product(*self.param_distributions.values()))
@@ -459,6 +471,8 @@ class RandomSearchExperiment:
                 scores[self.best_metric] = np.nan
             elapsed = sum(run["seconds"] for run in entry["runs"]) / self.runs
             self.result.add_trial(params, scores, elapsed)
+            if sampler is not None:
+                sampler.tell(scores[self.best_metric])
             report["search"]["steps"].append({"step": i + 1, "parameters": params,
                                                "score": scores[self.best_metric],
                                                "best_score_so_far": self.result.best_score})

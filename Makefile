@@ -1,5 +1,10 @@
 .PHONY: help guide cli run search list-datasets list-models \
-        install test lint fix build docs clean version bump release
+        install test lint fix build docs docs-build docs-serve docs-deploy clean version bump release
+
+PYTHON ?= python
+PORT ?= 8000
+RTD_PROJECT ?= pymv
+RTD_VERSION ?= latest
 
 # ── Help ──────────────────────────────────────────────────────────
 
@@ -9,8 +14,8 @@ help:            ## Show this list of targets
 
 # ── Development ───────────────────────────────────────────────────
 
-install:         ## Editable install with dev + docs extras
-	pip install -e ".[dev,docs]"
+install:         ## Install the complete package, including the interface
+	$(PYTHON) -m pip install .
 
 test:            ## Run the test suite
 	pytest -q $(ARGS)
@@ -27,8 +32,18 @@ format:          ## Format code (Black-compatible)
 build:           ## Build wheel and sdist
 	python -m build
 
-docs:            ## Build the HTML documentation
-	python -m sphinx -b html docs docs/_build/html
+docs: docs-build  ## Alias for docs-build
+
+docs-build:      ## Install documentation tools and build HTML
+	$(PYTHON) -m pip install -r docs/requirements.txt
+	$(PYTHON) -m sphinx -W --keep-going -b html docs docs/_build/html
+
+docs-serve:      ## Serve existing HTML without rebuilding at http://127.0.0.1:8000
+	@test -f docs/_build/html/index.html || { echo "Run make docs-build first."; exit 1; }
+	$(PYTHON) -m http.server $(PORT) --directory docs/_build/html --bind 127.0.0.1
+
+docs-deploy:     ## Trigger Read the Docs; requires READTHEDOCS_TOKEN in the environment
+	$(PYTHON) scripts/deploy_docs.py --project $(RTD_PROJECT) --version $(RTD_VERSION)
 
 clean:           ## Remove build, cache and docs artifacts
 	rm -rf build dist *.egg-info src/*.egg-info docs/_build .pytest_cache .ruff_cache .coverage
@@ -36,59 +51,23 @@ clean:           ## Remove build, cache and docs artifacts
 
 # ── CLI helpers ───────────────────────────────────────────────────
 
-guide:           ## Show the pymv-cli quick-start guide
-	@pymv-cli
+guide:           ## Show short command-line help
+	@$(PYTHON) -m pymv.command
 
-cli:             ## Run pymv-cli with forwarded arguments   ->  make cli ARGS="--dataset acm"
-	@pymv-cli $(ARGS) || { \
-		echo ""; \
-		echo "------------------------------------------------------------"; \
-		echo "Error: Something went wrong with pymv-cli"; \
-		echo ""; \
-		echo "Try one of:"; \
-		echo "  make guide               # quick-start guide"; \
-		echo "  make list-datasets       # available datasets"; \
-		echo "  make list-models         # available models"; \
-		echo "  pymv-cli --help          # full usage"; \
-		echo "------------------------------------------------------------"; \
-		exit 1; \
-	}
+cli:             ## Forward arguments, e.g. make cli ARGS="models idec"
+	@$(PYTHON) -m pymv.command $(ARGS)
 
-run:             ## Run an experiment   ->  make run DATASET=acm BETA=2 RUNS=3
-	@pymv-cli --dataset $(DATASET) \
-		$(if $(BETA),--beta $(BETA)) \
-		$(if $(TEMPERATURE),--temperature $(TEMPERATURE)) \
-		$(if $(TFIDF),--tf-idf $(TFIDF)) \
-		$(if $(RUNS),--runs $(RUNS)) \
-		$(if $(METRICS),--metrics $(METRICS)) \
-		$(if $(SAVE),--save) \
-	|| { \
-		echo ""; \
-		echo "Error: Experiment failed."; \
-		echo "  Use  make list-datasets  to check the dataset name."; \
-		echo "  Use  pymv-cli --help     for the full list of options."; \
-		exit 1; \
-	}
+run:             ## Run a model: make run DATASET=acm MODEL=lmgec ARGS="--runs 3"
+	@$(PYTHON) -m pymv.command run $(DATASET) --model $(or $(MODEL),multiview_kmeans) $(ARGS)
 
-search:          ## Run a random search ->  make search DATASET=acm TRIALS=20
-	@pymv-cli --dataset $(DATASET) --random-search \
-		$(if $(TRIALS),--n-trials $(TRIALS)) \
-		$(if $(SEED),--seed $(SEED)) \
-		$(if $(METRICS),--metrics $(METRICS)) \
-		$(if $(SAVE),--save) \
-	|| { \
-		echo ""; \
-		echo "Error: Random search failed."; \
-		echo "  Use  make list-datasets  to check the dataset name."; \
-		echo "  Use  pymv-cli --help     for the full list of options."; \
-		exit 1; \
-	}
+search:          ## Tune a model: pass --strategy and --vary through ARGS
+	@$(PYTHON) -m pymv.command search $(DATASET) --model $(or $(MODEL),multiview_kmeans) $(ARGS)
 
-list-datasets:   ## List all available datasets
-	@pymv-cli --list-datasets
+list-datasets:   ## List dataset families
+	@$(PYTHON) -m pymv.command datasets
 
-list-models:     ## List all available models
-	@pymv-cli --list-models
+list-models:     ## List registered models
+	@$(PYTHON) -m pymv.command models
 
 # ── Release ───────────────────────────────────────────────────────
 

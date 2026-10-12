@@ -54,6 +54,14 @@ rejected. The availability mask records exactly what is missing.
 
 ## Choose a deliberate baseline
 
+For native latent completion, choose `COMPLETER` or `DCP`. They train on
+fully observed rows, so at least two such samples must remain after missing-view
+simulation. Set `prediction_start < max_iter` and `prediction_weight > 0`.
+The [model tutorial](clustering_models.md) includes a complete example and
+explains how the learned predictors use observed views at inference time.
+
+## Explicit imputation baseline
+
 ```python
 from pymv.data import impute_missing
 from pymv.models import LMGEC

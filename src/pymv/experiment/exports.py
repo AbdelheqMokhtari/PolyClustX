@@ -81,6 +81,19 @@ def diagnostics(model):
         "inertia": getattr(model, "inertia_", None),
         "per_view_results": getattr(model, "per_view_results_", None),
         "per_view_loss_history": getattr(model, "per_view_loss_history_", None),
+        "pretrain_loss_history": getattr(model, "pretrain_loss_history_", None),
+        "loss_stages": getattr(model, "loss_stages_", None),
+        "loss_components": getattr(model, "loss_components_", None),
+        "loss_component_names": getattr(model, "loss_component_names_", None),
+        "subspace_change_history": getattr(model, "subspace_change_history_", None),
+        "coem_objective": getattr(model, "coem_objective_", None),
+        "restart_objectives": getattr(model, "restart_objectives_", None),
+        "consensus_counts": getattr(model, "consensus_counts_", None),
+        "feature_weights": getattr(model, "feature_weights_", None),
+        "selected_features": getattr(model, "selected_features_", None),
+        "selected_counts": getattr(model, "selected_counts_", None),
+        "graph_source": getattr(model, "graph_source_", None),
+        "graph_sources": getattr(model, "graph_sources_", None),
     })
 
 

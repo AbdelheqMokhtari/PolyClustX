@@ -34,6 +34,11 @@ Grid search
 Result containers and reports
 -----------------------------
 
+.. autoclass:: pymv.experiment.OptunaSearchExperiment
+   :members:
+   :inherited-members:
+   :special-members: __init__
+
 Runner results expose ``to_dict()``, ``json_path``, ``save_json(output_dir)``
 and ``export(path)`` for JSON, CSV or ZIP output. Automatic JSON export defaults
 to ``./experiments``; pass ``save_path=`` or ``save_json=False`` to a runner.
