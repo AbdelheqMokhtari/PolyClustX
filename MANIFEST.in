@@ -1,9 +1,11 @@
-include README.md BRANDING.md LICENSE THIRD_PARTY_NOTICES.md .readthedocs.yaml
+include README.md LICENSE THIRD_PARTY_NOTICES.md .readthedocs.yaml
+# The documentation's release-history page includes this file.
+include CHANGELOG.md
 include Makefile
 recursive-include scripts *.py
 recursive-include notebooks *.ipynb
 recursive-include docs *.rst *.md *.py *.txt *.css *.html Makefile make.bat
 prune docs/_build
-recursive-include examples *.py *.yaml
+recursive-include examples *.yaml
 recursive-include tests *.py
 recursive-include src/polyclustx/display/assets *.png

@@ -6,6 +6,14 @@ and this project adheres to Semantic Versioning.
 
 ## Unreleased
 
+### Simpler documentation
+
+- Moved affiliations below the documentation sidebar navigation.
+- Replaced tutorial helper functions with direct, runnable code examples and
+  added a concrete offline LMGEC comparison and visualization to the README.
+- Limited extension guides to adding models and datasets; removed screenshot
+  support, redundant tutorial scripts and presentation-only tests.
+
 ### User documentation and visual identity
 
 - Moved institutional affiliations into the documentation sidebar, away from

@@ -12,7 +12,8 @@ with their respective institutions. Reuse must follow institutional requirements
 - https://centreborelli.ens-paris-saclay.fr/fr
 - https://u-paris.fr/charte-graphique-et-outils/
 
-See `BRANDING.md` for provenance and the generated project mark.
+The separate PolyClustX project mark is an original AI-generated transparent
+X-and-nodes design. It is not an institutional mark.
 
 ## Algorithm adaptations
 
