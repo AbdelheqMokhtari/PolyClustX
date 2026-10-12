@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog,
 and this project adheres to Semantic Versioning.
 
+## Unreleased
+
+### Changed
+
+- Migrate LMGEC and SCM from TensorFlow to PyTorch; TensorFlow is no longer a
+  dependency. LMGEC retains float64 alternating updates, initialization,
+  preprocessing, view weights and loss semantics.
+- SCM follows the reference PyTorch network, contrastive objective, Adam L2
+  weight decay and augmentation distributions. Its existing full-epoch API,
+  optional reconstruction loss and NumPy results remain available. Fitted
+  `SCM.model_` is now a CPU/evaluation-mode PyTorch module, not a Keras model;
+  old SCM training trajectories are not bitwise compatible.
+- Add explicit CPU/CUDA selection and automatic CPU retry on CUDA out-of-memory.
+  Chunk LMGEC assignments and SCM inference to limit accelerator memory use.
+- Record PyTorch/CUDA versions and actual fit devices in experiment metadata;
+  update installation instructions and CI to support CPU-only PyTorch wheels.
+- Add equation, gradient, reproducibility, device and TensorFlow-free regression
+  checks. Keep the local standalone SCM reference out of package distributions.
+
 ## v1.3.1 (2026-09-22)
 
 ### Fix

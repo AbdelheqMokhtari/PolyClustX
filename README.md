@@ -35,6 +35,13 @@ pymv-display
 ```
 
 For Python-only use, install `pymv-clustering` without `[ui]`.
+The built-in algorithms use **PyTorch**, not TensorFlow. For a CPU-only Linux
+or Windows environment, install PyTorch before pymv with
+`python -m pip install "torch>=2.4,<3" --index-url https://download.pytorch.org/whl/cpu`.
+For GPU/platform-specific packages, use the
+[PyTorch installation selector](https://pytorch.org/get-started/locally/).
+Both models accept `device="cpu"`, `"cuda"`, or `"auto"` (default).
+
 For a cloned or downloaded repository, open the folder containing `pyproject.toml`,
 create and activate an environment as above, then:
 
