@@ -110,10 +110,14 @@ def test_spectral_categorical_grid_search(tmp_path):
     assert all(row["status"] == "complete" for row in record.rows)
 
 
-def test_offline_new_model_example(tmp_path):
-    from examples.new_models import run
+def test_complete_and_missing_model_batches(tmp_path):
+    from polyclustx.data import simulate_missing_views
 
-    complete, missing = run(tmp_path)
+    models = [get_model(key)(3, **options(key)) for key in KEYS]
+    complete = Experiment(dataset(), models, [nmi_score], runs=2,
+                          verbose=0, save_path=tmp_path).run()
+    missing = Experiment(simulate_missing_views(dataset(), .2, random_state=42), models[3:5],
+                         [nmi_score], runs=2, verbose=0, save_path=tmp_path).run()
     assert len(complete.report["experiments"]) == 6
     assert len(missing.report["experiments"]) == 2
     for result in (complete, missing):
