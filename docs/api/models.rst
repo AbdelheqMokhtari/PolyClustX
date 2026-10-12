@@ -1,6 +1,27 @@
 Models and registry
 ===================
 
+.. autoclass:: pymv.models.CONAN
+   :members:
+   :special-members: __init__
+
+.. autoclass:: pymv.models.DGF
+   :members:
+   :special-members: __init__
+
+.. autoclass:: pymv.models.GCoMVKM
+   :members:
+   :special-members: __init__
+
+.. autoclass:: pymv.models.SGLA
+   :members:
+   :special-members: __init__
+
+.. autoclass:: pymv.models.UMC
+   :members:
+   :special-members: __init__
+
+
 .. autoclass:: pymv.models.LMGEC
    :members:
    :special-members: __init__

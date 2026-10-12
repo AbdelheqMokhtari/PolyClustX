@@ -10,7 +10,9 @@ For an implementation:
 
 1. Fork the repository and create a focused feature branch.
 2. Create and activate an environment using the [installation guide](../user_guide/installation.rst),
-   then install `python -m pip install -e ".[dev,docs,ui]"`.
+   then install `python -m pip install -e .` and the check tools with
+   `python -m pip install pytest ruff build` and
+   `python -m pip install -r docs/requirements.txt`.
 3. Implement the model contract and registry metadata; keep optional heavy
    dependencies isolated where possible.
 4. Preserve applicable third-party notices and document implementation origins.

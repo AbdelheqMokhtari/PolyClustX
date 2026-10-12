@@ -15,7 +15,9 @@ source code/data link and license first. Use the issue templates on GitHub.
    git switch -c fix/short-description upstream/develop
    python -m venv .venv
    source .venv/bin/activate  # PowerShell: .venv\Scripts\Activate.ps1
-   python -m pip install -e ".[dev,docs,ui]"
+   python -m pip install -e .
+   python -m pip install pytest ruff build
+   python -m pip install -r docs/requirements.txt
    ```
 
 3. Make focused changes with tests and documentation, then run:

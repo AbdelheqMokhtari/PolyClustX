@@ -8,6 +8,15 @@ and this project adheres to Semantic Versioning.
 
 ### Added
 
+- CONAN, DGF, G-CoMVKM, SGLA and feature-input UMC, with explicit adaptation
+  scope, graph/missing-view capabilities, model controls and regression tests.
+- Adaptive Optuna/TPE search over discrete choices or continuous/integer ranges,
+  reusing repeated-run objectives, failure handling, tuning reports and exports.
+- Simple `pymv display/models/datasets/run/search` commands with repeatable
+  model-independent parameters; the existing CLI remains supported.
+- Within-fit training stages and elapsed-time stage estimates in the interface.
+- Documentation build, serve-without-rebuild and Read the Docs deployment commands.
+
 - PyTorch Co-EM K-means and spectral co-training, with single-view reductions
   and explicit multi-view extension conventions.
 - PyTorch IDEC, COMPLETER, DCP clustering and MFLVC, including masked latent
@@ -19,6 +28,11 @@ and this project adheres to Semantic Versioning.
 - MIT notices for mvlearn and COMPLETER, included in built distributions.
 
 ### Changed
+
+- Standard installation includes the interface and Optuna; the unified minimum
+  Python version is 3.10. Legacy installation extras remain compatible aliases.
+- Interface launch defaults CPU worker pools to two threads unless explicitly
+  configured; Python API use preserves process-wide thread settings.
 
 - Migrate LMGEC and SCM from TensorFlow to PyTorch; TensorFlow is no longer a
   dependency. LMGEC retains float64 alternating updates, initialization,

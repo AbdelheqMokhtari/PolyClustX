@@ -4,6 +4,19 @@ Examples
 Start with the offline tutorial below, then use the focused benchmark examples.
 All examples using catalog datasets download their data on first use.
 
+Executed offline notebooks
+--------------------------
+
+Download and open these notebooks in Jupyter (``python -m pip install notebook``
+if needed). They include actual executed outputs and use no dataset downloads.
+
+* :download:`All-method comparison <../../notebooks/04_all_methods_comparison.ipynb>`:
+  thirteen models, two datasets, repeated-run tables, graph relations, missing
+  inputs, single-view use, loss plots and ZIP reports.
+* :download:`Search strategies <../../notebooks/05_search_strategies.ipynb>`:
+  grid, random and Optuna search, continuous/integer ranges, internal objectives
+  and copying the best parameters into a repeated experiment.
+
 New clustering methods
 ----------------------
 

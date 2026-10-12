@@ -15,8 +15,8 @@ selected model's capabilities.
 
 .. code-block:: bash
 
-   pip install "pymv-clustering[ui]"
-   pymv-display
+   pip install pymv-clustering
+   pymv display
 
 .. code-block:: python
 
