@@ -20,13 +20,13 @@ static output; do not maintain separate copies.
 ## Project logo
 
 `logo.png` is an original, AI-generated transparent raster mark produced using
-the built-in image-generation tool on 12 October 2026. It suggests a handwritten
-mathematical X with connected nodes and grouped observations. Display it with
+the built-in image-generation tool on 12 October 2026. It contains only three circular
+nodes joined by straight edges, replacing the earlier decorative X-shaped mark. Display it with
 its original aspect ratio and alpha channel on a light surface.
 
 The generation prompt was:
 
-> Use case: logo-brand. Asset type: transparent square logo mark for PolyClustX, an academic Python framework for multi-view and multimodal representation learning and clustering, from feature views to attributed graphs. Create one original minimal scientific symbol: a graceful mathematical handwritten-style X formed by two clean curved strokes, with a small purposeful arrangement of connected circular nodes and grouped dots integrated into the strokes, suggesting multiple feature views converging into graph clusters. Elegant geometry, balanced negative space, precise flat vector-like edges, legible at small sidebar/favicon scale. No literal words, no letters other than the abstract X-like form, no equations, no extra ornaments. Palette exclusively Borelli indigo #4E4E92 and lighter #7478AE, muted violet #634E87, cool steel blue #557AA3; prefer the lighter indigo and steel blue, with sparse primary indigo accents. Airy, light, scientific, not dark or heavy. Centered single mark taking most of the canvas with modest transparent padding. Genuinely transparent background with alpha, no white rectangle, no checkerboard drawn into the artwork. No gradients, no shadows, no glow, no 3D, no mockup, no watermark. Do not incorporate institutional logos.
+> Use case: logo-brand. Create a replacement project logo for PolyClustX, an academic clustering and representation-learning library. Extremely simple flat scientific mark: exactly three solid circular nodes at the vertices of a compact equilateral triangle, joined by three thin straight lines. No surrounding shape. Two nodes and lines in muted indigo #7478AE, one node in cool steel blue #557AA3. Balanced geometry, uniform strokes, generous clean negative space, readable at 24 pixels. Square canvas, single centered mark, modest padding. Genuinely transparent background with alpha. No text, no letters, no X, no curved swooshes, no orbit rings, no additional dots, no gradients, no shadows, no 3D, no texture, no watermark. Restrained and simple, suitable for scientific software.
 
 ## Institutional logos
 
