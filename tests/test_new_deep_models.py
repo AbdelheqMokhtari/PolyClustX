@@ -131,3 +131,30 @@ def test_mflvc_label_contrast_and_pseudo_alignment():
     loss.backward()
     assert torch.isfinite(q.grad).all()
     np.testing.assert_array_equal(aligned_pseudo_labels(np.array([0, 1, 2]), np.array([2, 0, 1]), 3), [2, 0, 1])
+
+
+@pytest.mark.parametrize("cls", [IDEC, COMPLETER, DCP, MFLVC])
+def test_neural_models_preserve_inputs_and_handle_nondefault_dtype(cls):
+    xs = arrays(2)
+    copies = [x.copy() for x in xs]
+    original = torch.get_default_dtype()
+    try:
+        torch.set_default_dtype(torch.float64)
+        model = cls(**configuration(cls)).fit(xs)
+        assert model.embedding_.dtype == np.float32
+        assert torch.get_default_dtype() == torch.float64
+        for x, reference in zip(xs, copies):
+            np.testing.assert_array_equal(x, reference)
+    finally:
+        torch.set_default_dtype(original)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA hardware unavailable")
+@pytest.mark.parametrize("cls", [IDEC, COMPLETER, DCP, MFLVC])
+def test_neural_cuda_training_returns_cpu_state(cls):
+    options = configuration(cls)
+    options["device"] = "cuda"
+    model = cls(**options).fit(arrays(2))
+    assert model.device_.startswith("cuda")
+    assert all(p.device.type == "cpu" for p in model.model_.parameters())
+    assert np.isfinite(model.embedding_).all()

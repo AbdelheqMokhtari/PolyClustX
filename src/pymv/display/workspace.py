@@ -216,6 +216,7 @@ class Workspace:
         profile = dataset_profile(prepared)
         self.preprocessing[dataset_id] = copy.deepcopy(recipe)
         self.datasets[dataset_id].hint.update(prepared_complete=prepared.is_complete,
+                                               prepared_n_complete=int(prepared.observed_mask.all(axis=1).sum()),
                                                prepared_profile=profile,
                                                prepared_observed=prepared.observed_mask.sum(axis=0).tolist())
         self.pending_datasets.discard(dataset_id)
@@ -233,15 +234,19 @@ class Workspace:
             if dataset_id in self.pending_datasets:
                 continue
             resource = self.datasets[dataset_id]
-            if "complete" not in resource.hint or "n_samples" not in resource.hint:
+            if "complete" not in resource.hint or "n_samples" not in resource.hint or "n_complete" not in resource.hint:
                 data = self.load_dataset(dataset_id)
-                resource.hint.update(complete=data.is_complete, n_samples=data.n_samples)
+                resource.hint.update(complete=data.is_complete, n_samples=data.n_samples,
+                                     n_complete=int(data.observed_mask.all(axis=1).sum()))
             recipe = self.preprocessing.get(dataset_id, PreprocessingSpec())
             complete = recipe.will_be_complete(resource.hint["complete"])
             for model_id in model_ids:
                 settings = self.models[model_id]
                 cls = get_model(settings["model"])
                 if not complete and not getattr(cls, "supports_missing_views", False):
+                    continue
+                paired = resource.hint.get("prepared_n_complete", resource.hint["n_complete"])
+                if not complete and paired < getattr(cls, "min_complete_samples", 0):
                     continue
                 clusters = (clusters_by_dataset or {}).get(dataset_id, settings["clusters"])
                 if all(1 <= k <= resource.hint["n_samples"] for k in clusters):
@@ -300,6 +305,7 @@ class Workspace:
                 "n_views": data.n_views,
                 "n_clusters": data.n_clusters,
                 "complete": data.is_complete,
+                "n_complete": int(data.observed_mask.all(axis=1).sum()),
                 "category": data.category,
             },
             _data=snapshot,
@@ -393,6 +399,8 @@ class Workspace:
         data = prepare_dataset(source, recipe)
         if not data.is_complete and not getattr(cls, "supports_missing_views", False):
             raise ValueError(f"{cls.__name__} does not support missing views. Choose explicit mean/zero imputation.")
+        if data.observed_mask.all(axis=1).sum() < getattr(cls, "min_complete_samples", 0):
+            raise ValueError(f"{cls.__name__} requires at least two fully observed training samples")
         count = math.prod(len(v) for v in spec.search_space.values()) if spec.search_strategy == "grid" else spec.trials
         total = (count if spec.search_space else 1) * len(spec.clusters) * spec.repeats
         if total > 2000:

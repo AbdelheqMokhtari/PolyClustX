@@ -158,7 +158,8 @@ class MFLVC(DeepModel):
                     else:
                         loss = reconstruction + feature + label
                     values.append(optimize(loss, optimizer))
-                    terms.append([float(reconstruction.detach()), float(feature.detach()), float(label.detach())])
+                    terms.append([float(reconstruction.detach()), float(feature.detach()), float(label.detach()),
+                                  float(loss.detach()) if stage == "finetune" else 0.])
                 history.append(np.mean(values))
                 stages.append(stage)
                 components.append(np.mean(terms, axis=0))
@@ -173,6 +174,8 @@ class MFLVC(DeepModel):
         return dict(model_=model.cpu().eval(), labels_=labels, embedding_=embedding, centroids_=centers,
                     probabilities_=probabilities, view_labels_=[q.argmax(1) for q in qs],
                     loss_history_=np.asarray(history), loss_stages_=stages, loss_components_=np.asarray(components),
+                    loss_component_names_=["reconstruction", "feature_contrast", "label_contrast",
+                                           "pseudo_label_cross_entropy"],
                     n_iter_=len(history), inertia_=float(np.square(embedding - centers[labels]).sum()))
 
     def transform(self, Xs, As=None):

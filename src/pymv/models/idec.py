@@ -131,7 +131,8 @@ class IDEC(DeepModel):
                                      self.alpha).argmax(1).numpy()
         return dict(model_=model.cpu().eval(), embedding_=embedding, centroids_=centers, labels_=labels,
                     pretrain_loss_history_=np.asarray(pretrain), loss_history_=np.asarray(history),
-                    loss_components_=np.asarray(components), n_iter_=len(history),
+                    loss_components_=np.asarray(components), loss_component_names_=["reconstruction", "kl"],
+                    n_iter_=len(history),
                     inertia_=float(np.square(embedding - centers[labels]).sum()))
 
     def transform(self, Xs, As=None):

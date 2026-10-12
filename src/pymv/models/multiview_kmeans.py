@@ -8,7 +8,7 @@ import torch
 from sklearn.cluster import KMeans, kmeans_plusplus
 from sklearn.exceptions import ConvergenceWarning, NotFittedError
 
-from ._common import TorchModel, integer, number, validate_views
+from ._common import TorchModel, integer, memory_check, number, validate_views
 from .registry import register_model
 
 
@@ -54,6 +54,7 @@ class MultiViewKMeans(TorchModel):
     def fit(self, Xs, As=None, *, observed_mask=None):
         xs, _ = validate_views(Xs, observed_mask, dtype=np.float64, max_memory_mb=self.max_memory_mb)
         self._check_common(len(xs[0]))
+        memory_check(len(xs[0]) * self.n_clusters * (2 * len(xs) + 4) * 8, self.max_memory_mb)
         integer("n_init", self.n_init)
         integer("patience", self.patience)
         number("tol", self.tol)

@@ -42,6 +42,7 @@ class PredictionNetwork(nn.Module):
 
 class _PredictionClustering(DeepModel):
     supports_missing_views = True
+    min_complete_samples = 2
     _dcp = False
 
     def __init__(self, n_clusters, *, embedding_dim=128, hidden_dims=(256, 256),
@@ -142,6 +143,7 @@ class _PredictionClustering(DeepModel):
         return dict(model_=model.cpu().eval(), embedding_=embedding, labels_=km.labels_.astype(np.int32),
                     centroids_=km.cluster_centers_, inertia_=km.inertia_, kmeans_=km,
                     loss_history_=np.asarray(history), loss_components_=np.asarray(components),
+                    loss_component_names_=["reconstruction", "consistency", "prediction"],
                     n_iter_=len(history), prediction_trained_=bool(self.prediction_start < self.max_iter
                                                                   and self.prediction_weight > 0))
 

@@ -685,6 +685,17 @@ def _draft(workspace, dataset_id, data):
 def _parameter_input(model, name, control, default, existing, *, disabled=False):
     key = f"parameter_{model}_{name}"
     value = existing.get(name, default)
+    if control.nullable:
+        automatic = st.checkbox(f"Automatic {control.label.lower()}", value=value is None,
+                                key=f"auto_{key}", disabled=disabled, help=control.help)
+        if automatic:
+            return None
+        if value is None:
+            value = 0 if control.kind == "int" else 1.0
+    if control.kind == "choice":
+        options = list(control.choices)
+        return st.selectbox(control.label, options, index=options.index(value) if value in options else 0,
+                            key=key, help=control.help, disabled=disabled)
     if control.kind == "bool":
         return st.checkbox(control.label, value=bool(value), key=key, help=control.help, disabled=disabled)
     if control.kind == "int":
@@ -721,17 +732,29 @@ def render_model(workspace, *, search=False):
     draft = _draft(workspace, dataset_id, data)
     available, unavailable = compatible_models(data, recipe) if search else (list_models(), [])
     if unavailable:
-        st.warning("Unavailable until missing views are imputed: " + ", ".join(name.upper() for name in unavailable))
+        st.warning("Unavailable for this observation pattern: " + ", ".join(name.upper() for name in unavailable)
+                   + ". Impute missing views or provide enough fully observed training samples.")
     if not available:
         st.error("No registered model can use this incomplete dataset. Select imputation on the Dataset page.")
         return
-    index = available.index(draft["model"]) if draft["model"] in available else 0
+    preferred = draft["model"] if draft["model"] in available else ("lmgec" if "lmgec" in available else available[0])
+    index = available.index(preferred)
     model = st.selectbox("Model", available, index=index, format_func=str.upper)
     if not search:
         config_name = st.text_input("Configuration name", workspace.suggested_name(model.upper()),
                                     key=f"model_name_{model}_{workspace.name_counters.get(model.upper(), 0)}")
     info = get_model_info(model)
     st.write(info.get("description", ""))
+    if model in {"completer", "dcp"}:
+        st.info("Training needs at least two samples observed in every view. Missing latent views are predicted "
+                "after training; set the prediction start below the number of training epochs.")
+    elif model == "idec":
+        st.caption("Multiple views are concatenated before IDEC. Training iterations count minibatch updates.")
+    elif model == "mflvc":
+        st.caption("Training has reconstruction, contrastive and pseudo-label phases. No true labels are used.")
+    elif model == "multiview_spectral":
+        st.caption("Dense spectral co-training: quadratic memory and cubic eigensolver time. "
+                   "Use a subset for large datasets; the memory budget rejects oversized jobs.")
     if info.get("paper"):
         st.caption(f"Original paper: {info['paper']}")
     defaults, controls = parameter_controls(model)
@@ -750,7 +773,7 @@ def render_model(workspace, *, search=False):
                 else:
                     try:
                         params[name] = _parameter_input(model, name, control, defaults[name], draft["params"])
-                        if control.kind in {"int", "float"}:
+                        if control.kind in {"int", "float"} and params[name] is not None:
                             params[name] = parse_candidates([params[name]], control)[0]
                     except ValueError as exc:
                         validation_errors.append(str(exc))

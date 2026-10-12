@@ -86,6 +86,7 @@ class MultiViewSpectralClustering(TorchModel):
         for array in xs:
             x = torch.as_tensor(array, device=device)
             distance = torch.cdist(x, x)
+            distance.fill_diagonal_(0.)
             median = float(torch.quantile(distance.flatten(), .5))
             gamma = self.gamma if self.gamma is not None else (1 / (2 * median**2) if median > 0 else 1.)
             gammas.append(gamma)
@@ -94,6 +95,7 @@ class MultiViewSpectralClustering(TorchModel):
             elif self.affinity == "poly":
                 kernel = (gamma * (x @ x.T) + self.coef0).pow(self.degree)
             else:
+                distance.fill_diagonal_(-1.)  # Include self even when duplicate rows tie at distance zero.
                 neighbors = distance.topk(self.n_neighbors, largest=False).indices
                 kernel = torch.zeros_like(distance).scatter_(1, neighbors, 1.)
                 kernel = (kernel + kernel.T) * .5

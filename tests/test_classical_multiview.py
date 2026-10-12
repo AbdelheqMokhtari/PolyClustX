@@ -77,3 +77,30 @@ def test_spectral_selected_view_and_memory_guard():
         MultiViewSpectralClustering(3, max_memory_mb=.001).fit(views())
     with pytest.raises(ValueError, match="info_view"):
         MultiViewSpectralClustering(3, info_view=2).fit(views())
+
+
+def test_shared_executor_only_falls_back_on_automatic_cuda_oom(monkeypatch):
+    from pymv.models import _common
+
+    monkeypatch.setattr(_common, "resolve_device", lambda value: torch.device("cuda"))
+    monkeypatch.setattr(torch.cuda, "empty_cache", lambda: None)
+    calls = []
+
+    def operation(device):
+        calls.append(device.type)
+        if device.type == "cuda":
+            raise torch.cuda.OutOfMemoryError("simulated")
+        return {"labels_": np.array([0, 1])}
+
+    model = MultiViewKMeans(2)
+    model._execute(operation)
+    assert model.device_ == "cpu" and calls == ["cuda", "cpu"]
+    with pytest.raises(torch.cuda.OutOfMemoryError):
+        MultiViewKMeans(2, device="cuda")._execute(operation)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA hardware unavailable")
+@pytest.mark.parametrize("cls", [MultiViewKMeans, MultiViewSpectralClustering])
+def test_classical_cuda_returns_cpu_arrays(cls):
+    model = cls(3, n_init=2, max_iter=2, random_state=12, device="cuda").fit(views())
+    assert model.device_.startswith("cuda") and np.isfinite(model.embedding_).all()

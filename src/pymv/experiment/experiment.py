@@ -336,7 +336,11 @@ class Experiment:
         # Model(s) — use the first model for the config
         if self.models:
             m = self.models[0]
-            model_section: dict = {"name": type(m).__name__.lower()}
+            from pymv.models import list_models_info
+
+            key = next((key for key, info in list_models_info().items() if info["class"] is type(m)),
+                       type(m).__name__.lower())
+            model_section: dict = {"name": key}
             params = {
                 k: _to_python(v)
                 for k, v in m.__dict__.items()
