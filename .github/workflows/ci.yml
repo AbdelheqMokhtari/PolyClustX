@@ -15,8 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Runners have no GPU; keep TensorFlow quiet and on CPU.
-  TF_CPP_MIN_LOG_LEVEL: "3"
+  # CPU wheels keep installs small; limit worker threads on shared runners.
+  OMP_NUM_THREADS: "2"
+  MKL_NUM_THREADS: "2"
   CUDA_VISIBLE_DEVICES: ""
 
 jobs:
@@ -52,7 +53,9 @@ jobs:
           cache: pip
 
       - name: Install
-        run: pip install -e ".[dev]"
+        run: |
+          pip install 'torch>=2.4,<3' --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[dev]"
 
       - name: Test
         # Dataset-download tests are deselected by default (see pyproject);
@@ -94,8 +97,12 @@ jobs:
           # Ensure "pymv-clustering" exactly matches the package name in pyproject.toml
           package = distribution("pymv-clustering")
           files = {str(path) for path in package.files}
-          for path in ("pymv_cli_entry.py", "pymv/configs/default.yaml", "pymv/display/assets/logo.png"):
+          for path in ("pymv/cli.py", "pymv/configs/default.yaml", "pymv/display/assets/logo.png"):
               assert path in files, path
+          requirements = package.requires or []
+          assert any(req.startswith("torch") for req in requirements)
+          assert not any("tensorflow" in req.lower() for req in requirements)
+          assert not any(path.startswith("SCM/") for path in files)
           scripts = {entry.name for entry in package.entry_points}
           assert {"pymv-cli", "pymv-display"} <= scripts
           assert {"ui", "display"} <= set(package.metadata.get_all("Provides-Extra"))

@@ -37,7 +37,7 @@ dependencies = [
     "scikit-learn>=1.0.0",
     "matplotlib>=3.5.0",
     "requests>=2.25.0",
-    "tensorflow>=2.10.0",
+    "torch>=2.4,<3",
     "tqdm>=4.60.0",
     "pyyaml>=6.0",
 ]
@@ -65,15 +65,11 @@ Documentation = "https://pymv.readthedocs.io/en/latest/"
 BugTracker = "https://github.com/AbdelheqMokhtari/pymv/issues"
 
 [project.scripts]
-pymv-cli = "pymv_cli_entry:main"
+pymv-cli = "pymv.cli:main"
 pymv-display = "pymv.display:launch"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-# Top-level module holding the console-script entry point.  It must be
-# listed explicitly — packages.find only discovers packages, not
-# single-file modules, so without this `pymv-cli` breaks on install.
-py-modules = ["pymv_cli_entry"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

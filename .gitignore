@@ -1,4 +1,5 @@
 # Python
+/SCM/
 __pycache__/
 *.egg-info/
 src/*.egg-info
@@ -26,3 +27,6 @@ src/pymv/configs/*.local.yaml
 START.md
 FINDING.md
 to_do_list.md
+
+
+notebooks/experiments/

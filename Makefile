@@ -1,11 +1,11 @@
 .PHONY: help guide cli run search list-datasets list-models \
-        install test lint format build docs clean version bump release
+        install test lint fix build docs clean version bump release
 
 # ── Help ──────────────────────────────────────────────────────────
 
 help:            ## Show this list of targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
-		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
+		| awk 'BEGIN {FS = ":.*?## "}; {printf "  %-16s %s\n", $$1, $$2}'
 
 # ── Development ───────────────────────────────────────────────────
 
@@ -13,13 +13,16 @@ install:         ## Editable install with dev + docs extras
 	pip install -e ".[dev,docs]"
 
 test:            ## Run the test suite
-	pytest -q
+	pytest -q $(ARGS)
 
 lint:            ## Lint with ruff
 	ruff check src/ tests/
 
-format:          ## Auto-fix lint issues
+fix:             ## Auto-fix lint issues
 	ruff check --fix src/ tests/
+
+format:          ## Format code (Black-compatible)
+	ruff format src/ tests/
 
 build:           ## Build wheel and sdist
 	python -m build
@@ -36,22 +39,22 @@ clean:           ## Remove build, cache and docs artifacts
 guide:           ## Show the pymv-cli quick-start guide
 	@pymv-cli
 
-cli:             ## Run pymv-cli with forwarded arguments   →  make cli ARGS="--dataset acm"
+cli:             ## Run pymv-cli with forwarded arguments   ->  make cli ARGS="--dataset acm"
 	@pymv-cli $(ARGS) || { \
 		echo ""; \
-		echo "╔══════════════════════════════════════════════════════════╗"; \
-		echo "║  \033[1;31mSomething went wrong with pymv-cli\033[0m                      ║"; \
-		echo "║                                                          ║"; \
-		echo "║  Try one of:                                             ║"; \
-		echo "║    make help                # quick-start guide          ║"; \
-		echo "║    make list-datasets       # available datasets         ║"; \
-		echo "║    make list-models         # available models           ║"; \
-		echo "║    pymv-cli --help          # full usage                 ║"; \
-		echo "╚══════════════════════════════════════════════════════════╝"; \
+		echo "------------------------------------------------------------"; \
+		echo "Error: Something went wrong with pymv-cli"; \
+		echo ""; \
+		echo "Try one of:"; \
+		echo "  make guide               # quick-start guide"; \
+		echo "  make list-datasets       # available datasets"; \
+		echo "  make list-models         # available models"; \
+		echo "  pymv-cli --help          # full usage"; \
+		echo "------------------------------------------------------------"; \
 		exit 1; \
 	}
 
-run:             ## Run an experiment   →  make run DATASET=acm BETA=2 RUNS=3
+run:             ## Run an experiment   ->  make run DATASET=acm BETA=2 RUNS=3
 	@pymv-cli --dataset $(DATASET) \
 		$(if $(BETA),--beta $(BETA)) \
 		$(if $(TEMPERATURE),--temperature $(TEMPERATURE)) \
@@ -61,13 +64,13 @@ run:             ## Run an experiment   →  make run DATASET=acm BETA=2 RUNS=3
 		$(if $(SAVE),--save) \
 	|| { \
 		echo ""; \
-		echo "\033[1;31mError:\033[0m Experiment failed."; \
+		echo "Error: Experiment failed."; \
 		echo "  Use  make list-datasets  to check the dataset name."; \
 		echo "  Use  pymv-cli --help     for the full list of options."; \
 		exit 1; \
 	}
 
-search:          ## Run a random search →  make search DATASET=acm TRIALS=20
+search:          ## Run a random search ->  make search DATASET=acm TRIALS=20
 	@pymv-cli --dataset $(DATASET) --random-search \
 		$(if $(TRIALS),--n-trials $(TRIALS)) \
 		$(if $(SEED),--seed $(SEED)) \
@@ -75,7 +78,7 @@ search:          ## Run a random search →  make search DATASET=acm TRIALS=20
 		$(if $(SAVE),--save) \
 	|| { \
 		echo ""; \
-		echo "\033[1;31mError:\033[0m Random search failed."; \
+		echo "Error: Random search failed."; \
 		echo "  Use  make list-datasets  to check the dataset name."; \
 		echo "  Use  pymv-cli --help     for the full list of options."; \
 		exit 1; \
@@ -93,46 +96,46 @@ version:         ## Show the current library version
 	@pymv-cli --version
 
 bump:            ## Bump version using commitizen (updates all version files + CHANGELOG.md)
-	@echo "📦 Bumping version with commitizen..."
+	@echo "Bumping version with commitizen..."
 	cz bump
 	@echo ""
-	@echo "✅ Version bumped. Files updated:"
-	@echo "   • pyproject.toml  (project.version + tool.commitizen.version)"
-	@echo "   • src/pymv/__init__.py  (__version__)"
-	@echo "   • CHANGELOG.md"
+	@echo "Version bumped. Files updated:"
+	@echo "  - pyproject.toml  (project.version + tool.commitizen.version)"
+	@echo "  - src/pymv/__init__.py  (__version__)"
+	@echo "  - CHANGELOG.md"
 	@echo ""
 	@echo "Run  make release  to merge into main and push tags."
 
-release:         ## Full release: bump → merge develop → main, push tags
-	@echo "🚀 Starting release process..."
+release:         ## Full release: bump -> merge develop -> main, push tags
+	@echo "Starting release process..."
 
 	@if [ "$$(git branch --show-current)" != "develop" ]; then \
-		echo "❌ You must run this from the develop branch"; \
+		echo "Error: You must run this from the develop branch"; \
 		exit 1; \
 	fi
 
 	@if [ -n "$$(git status --porcelain)" ]; then \
-		echo "❌ Working tree is dirty. Commit or stash changes first."; \
+		echo "Error: Working tree is dirty. Commit or stash changes first."; \
 		exit 1; \
 	fi
 
-	@echo "📦 Bumping version (commitizen → all version files + CHANGELOG.md)"
+	@echo "Bumping version (commitizen -> all version files + CHANGELOG.md)"
 	cz bump
 
-	@echo "🔀 Switching to main"
+	@echo "Switching to main"
 	git checkout main
 
-	@echo "⬇️ Pulling latest main"
+	@echo "Pulling latest main"
 	git pull origin main
 
-	@echo "🔗 Merging develop"
+	@echo "Merging develop"
 	git merge --no-ff develop -m "release: merge develop into main"
 
-	@echo "⬆️ Pushing changes"
+	@echo "Pushing changes"
 	git push origin main
 	git push origin develop
 	git push origin --tags
 
 	@echo ""
-	@echo "✅ Release completed successfully"
+	@echo "Release completed successfully"
 	@pymv-cli --version
