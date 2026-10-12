@@ -59,8 +59,6 @@ Start with :doc:`user_guide/quickstart`, explore
 
    contributing/models
    contributing/datasets
-   contributing/pull_requests
-   contributing/documentation
 
 .. toctree::
    :maxdepth: 1

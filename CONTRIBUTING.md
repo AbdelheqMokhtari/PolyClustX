@@ -33,10 +33,10 @@ source code/data link and license first. Use the issue templates on GitHub.
    against **develop**. Fill in the PR checklist. Do not bump versions, publish
    packages or merge into `main` as part of an ordinary contribution.
 
-Detailed recipes: [models](docs/contributing/models.md),
-[datasets and variants](docs/contributing/datasets.md),
-[documentation and screenshots](docs/contributing/documentation.md).
-Run `python examples/custom_datasets.py` for a complete offline data example.
+Tutorials: [add a model](docs/contributing/models.md) or
+[add a dataset](docs/contributing/datasets.md). Update the relevant user guide
+alongside your code. Preview documentation with `make docs-build` and
+`make docs-serve`.
 
 ## What CI checks
 

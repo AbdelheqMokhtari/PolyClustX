@@ -220,8 +220,8 @@ Co-EM restart objectives, consensus counts, and spectral subspace changes when
 available. MultiViewSpectralClustering has no scalar training loss and records
 subspace change instead; SGLA does record its spectral aggregation objective.
 
-See `examples/new_models.py` for a small, offline experiment across these
-methods and the [API reference](../api/models.rst) for constructor defaults.
+See the [worked examples](examples.rst) for an offline comparison and the
+[API reference](../api/models.rst) for constructor defaults.
 
 ## CONAN: nonlinear contrastive fusion
 

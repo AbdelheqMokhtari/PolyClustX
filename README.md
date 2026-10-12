@@ -17,8 +17,8 @@ through one Python API, command line or graphical interface. Work with one or
 many feature views, optional graphs and optional ground-truth labels.
 
 [Documentation](https://polyclustx.readthedocs.io/en/latest/) ·
-[Models](docs/background/algorithms.md) · [Examples](notebooks/) ·
-[Contributing](CONTRIBUTING.md)
+[Models](https://polyclustx.readthedocs.io/en/latest/background/algorithms.html) ·
+[Examples](https://polyclustx.readthedocs.io/en/latest/user_guide/examples.html)
 
 ## Install and launch
 
@@ -49,16 +49,28 @@ and migration from the former `pymv` package.
 ## Use Python
 
 ```python
-from polyclustx.data import load_data
-from polyclustx.models import MultiViewKMeans
+from sklearn.datasets import load_wine
+from sklearn.preprocessing import StandardScaler
+from polyclustx.data import MultiViewDataset
+from polyclustx.models import LMGEC
+from polyclustx.metrics import nmi_score
 
-data = load_data("acm")  # downloaded once, then cached
-model = data.fit(MultiViewKMeans(n_clusters=data.n_clusters, random_state=42))
-labels = model.labels_
-embedding = model.embedding_
+X, y = load_wine(return_X_y=True)  # available offline
+X = StandardScaler().fit_transform(X)
+data = MultiViewDataset([X[:, :6], X[:, 6:]], labels=y, name="Wine")
+
+model = LMGEC(n_clusters=3, embedding_dim=3, max_iter=20, random_state=42)
+data.fit(model)
+print(model.labels_[:10])          # one cluster ID per sample
+print(model.embedding_.shape)     # (178, 3)
+print("NMI:", nmi_score(y, model.labels_))
 ```
 
-Compare several models and repeat each fit:
+This splits Wine's feature columns into two aligned views. To use a catalog
+dataset instead, import `load_data` from `polyclustx.data` and call
+`data = load_data("acm")`.
+
+Compare two methods on the data above, repeating each fit three times:
 
 ```python
 from polyclustx.experiment import Experiment
@@ -66,10 +78,10 @@ from polyclustx.metrics import clustering_accuracy, nmi_score
 from polyclustx.models import LMGEC, MultiViewKMeans
 
 results = Experiment(
-    datasets=["acm"],
+    datasets=data,
     models=[
         MultiViewKMeans(n_clusters=3, random_state=42),
-        LMGEC(n_clusters=3, embedding_dim=8, random_state=42),
+        LMGEC(n_clusters=3, embedding_dim=3, max_iter=20, random_state=42),
     ],
     metrics=[clustering_accuracy, nmi_score],
     runs=3,
@@ -77,7 +89,15 @@ results = Experiment(
 ).run()
 
 print(results.results_tables())  # scores across repeated runs
-results.export("comparison.zip")  # JSON and CSV reports
+results.export("experiments/comparison.zip")  # JSON and CSV reports
+```
+
+Plot the learned representation:
+
+```python
+from polyclustx.visualization import plot_clusters
+
+plot_clusters(model.embedding_, model.labels_, method="pca")
 ```
 
 Use `MultiViewDataset([view_1, view_2], labels=None)` for your own feature
@@ -178,7 +198,6 @@ start with the [worked examples](docs/user_guide/examples.rst), or follow the
 
 Centre Borelli · Université Paris Cité.
 Institutional marks remain separate from PolyClustX and do not imply endorsement.
-See [asset provenance](BRANDING.md).
 
 ## License
 

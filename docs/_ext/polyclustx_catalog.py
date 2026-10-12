@@ -1,6 +1,4 @@
 """Render live catalogs without downloading datasets."""
-from pathlib import Path
-
 from docutils import nodes
 from sphinx.ext.autodoc.mock import mock
 from sphinx.util.docutils import SphinxDirective
@@ -72,27 +70,6 @@ class Catalog(SphinxDirective):
         return [table(["Dataset family", "Variants / setting", "Description", "Sources"], rows)]
 
 
-class Screenshot(SphinxDirective):
-    """Render optional screenshots without exposing authoring notes to readers."""
-
-    required_arguments = 1
-    has_content = True
-
-    def run(self):
-        filename = Path(self.arguments[0]).name
-        relative = f"_static/screenshots/{filename}"
-        path = Path(self.env.srcdir) / relative
-        self.env.note_dependency(str(path))
-        caption = " ".join(self.content)
-        if path.is_file():
-            figure = nodes.figure()
-            figure += nodes.image(uri="/" + relative, alt=caption)
-            figure += nodes.caption(text=caption)
-            return [figure]
-        return []
-
-
 def setup(app):
     app.add_directive("polyclustx-catalog", Catalog)
-    app.add_directive("polyclustx-screenshot", Screenshot)
     return {"version": "1", "parallel_read_safe": True}

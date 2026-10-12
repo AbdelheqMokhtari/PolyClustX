@@ -1,4 +1,6 @@
-import runpy
+import json
+import re
+import textwrap
 from pathlib import Path
 
 import numpy as np
@@ -8,9 +10,26 @@ from polyclustx.data import MultiViewDataset
 from polyclustx.models import LMGEC, SCM
 
 
-def test_offline_documented_workflows():
-    script = Path(__file__).resolve().parents[1] / "examples/offline_workflows.py"
-    runpy.run_path(str(script), run_name="__main__")
+def test_documented_examples(tmp_path, monkeypatch):
+    """Execute the actual copy/paste examples, without a second tutorial script."""
+    import matplotlib.pyplot as plt
+
+    monkeypatch.chdir(tmp_path)
+    source = Path(__file__).resolve().parents[1] / "docs/user_guide/examples.rst"
+    blocks = re.findall(r"(?ms)^\.\. code-block:: python\n\n(.*?)(?=^\S|\Z)", source.read_text())
+    assert len(blocks) == 10
+    namespace = {}
+    try:
+        for block in blocks:
+            exec(compile(textwrap.dedent(block), str(source), "exec"), namespace)
+        for path in (tmp_path / "experiments").rglob("*.json"):
+            report = json.loads(path.read_text())
+            assert all(run["status"] == "complete" for experiment in report["experiments"]
+                       for run in experiment["runs"])
+        assert (tmp_path / "experiments/predicted-clusters.png").is_file()
+        assert (tmp_path / "experiments/comparison.zip").is_file()
+    finally:
+        plt.close("all")
 
 
 @pytest.mark.parametrize("count", [1, 2, 4])

@@ -1,20 +1,18 @@
 import numpy as np
-from examples.custom_datasets import create_demo_files, load_demo_variant
+from scipy.io import savemat
 
 from polyclustx.data import get_dataset_info, list_variants, load_data, readers, registry
 
 
-def test_local_dataset_variants(tmp_path):
-    paths = create_demo_files(tmp_path)
-    original = load_demo_variant(paths)
-    compact = load_demo_variant(paths, "compact")
-    assert original.feature_dims == [6, 4] and compact.feature_dims == [3, 2]
-    assert original.n_samples == compact.n_samples == 24
-    np.testing.assert_array_equal(original.labels, compact.labels)
-
-
 def test_registered_variants_without_network(monkeypatch, tmp_path):
-    paths = create_demo_files(tmp_path)
+    rng = np.random.default_rng(42)
+    labels = np.repeat(np.arange(3), 8)
+    paths = {}
+    for variant, widths in {"default": (6, 4), "compact": (3, 2)}.items():
+        path = tmp_path / f"toy_{variant}.mat"
+        savemat(path, {"image": rng.normal(size=(24, widths[0])),
+                       "text": rng.normal(size=(24, widths[1])), "labels": labels})
+        paths[variant] = path
     monkeypatch.setattr(registry, "get_dataset_path", lambda _: tmp_path)
     calls = []
     monkeypatch.setattr(registry, "download_file", lambda url, path: calls.append((url, path)))
@@ -36,4 +34,5 @@ def test_registered_variants_without_network(monkeypatch, tmp_path):
     assert info["reference"] == "https://example.org/toy"
     result = load_data("contribution_toy", variant="compact")
     assert result.feature_dims == [3, 2] and result.metadata["variant"] == "compact"
+    np.testing.assert_array_equal(result.labels, labels)
     assert len(calls) == 1

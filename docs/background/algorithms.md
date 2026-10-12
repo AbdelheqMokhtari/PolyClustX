@@ -168,12 +168,5 @@ fine-tuning. The final prediction averages view cluster probabilities.
 Implementation conventions and the one-view reduction are documented in the
 [model tutorial](../user_guide/clustering_models.md).
 
-## Responsible comparisons
-
-Fix dataset variants, sample alignment, preprocessing, graph fusion, seeds and
-evaluation space when reporting comparisons. State whether you supplied K from
-ground truth. Imputed runs should report the imputation baseline. Framework
-tests check implementation behavior, not reproduction of every published table.
-
 Use the capability table above when choosing a method and the
 [API](../api/models.rst) for implemented parameters.

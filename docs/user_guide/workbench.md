@@ -40,10 +40,6 @@ Try a small comparison before loading your own data:
 To try unlabeled use, return to **Dataset**, disable benchmark mode and apply
 the change. Run a new experiment using silhouette instead of NMI.
 
-```{polyclustx-screenshot} interface-overview.png
-Sidebar navigation with Dataset selected and a small synthetic dataset loaded.
-```
-
 ## 1. Dataset: load, inspect and prepare
 
 ### Choose a source
@@ -79,10 +75,6 @@ The Dataset page shows sample and class counts, class balance, view dimensions,
 feature statistics, missing observations, estimated memory, and graph properties.
 Inspect either original or applied/prepared data. Benchmark mode starts enabled
 when labels exist; uncheck it to use internal evaluation only.
-
-```{polyclustx-screenshot} dataset-details.png
-Dataset collection, benchmark setting, class distribution and per-view statistics.
-```
 
 ### Generate synthetic graphs
 
@@ -120,10 +112,6 @@ datasets appear in experiments and searches. This validates and saves the
 recipe; the original source stays unchanged. Preparation is applied once for
 each fit, and model-internal preprocessing is disabled when necessary to
 avoid applying feature transformations twice.
-
-```{polyclustx-screenshot} dataset-preprocessing.png
-Preprocessing controls, missing-view simulation, imputation and Apply changes.
-```
 
 ## 2. Model: save named configurations
 
@@ -171,10 +159,6 @@ Click **Run search** to see the summary and tuning steps. Choose a **Best model
 name** (default: `MODEL_strategy_best_#1`) and click **Copy best to experiment**
 to save the winning settings. The winning K is preserved. This does not start
 a new fit. Download the search report from **Export → Individual results**.
-
-```{polyclustx-screenshot} hyperparameter-search.png
-Grid or random search controls, objective, result table and named best-model action.
-```
 
 ## 4. Experiment: compare combinations
 
@@ -228,10 +212,6 @@ suggestion. Toggle row normalization to show proportions or counts.
 Click **Save plot to Export** below any supported figure to capture its current
 settings and plotted values. Saving the same figure again replaces that snapshot.
 
-```{polyclustx-screenshot} results-visualizations.png
-Named runs, normalized loss comparison and a Hungarian-aligned confusion matrix.
-```
-
 ## 6. Export: download reports, plots and data
 
 | Export type | Contents |
@@ -254,10 +234,6 @@ one-based view/relation pairs; `observed_mask` marks available observations.
 Reload through Files → NPZ / MATLAB container and select those arrays explicitly.
 The interface limits source data to 256 MB for this download; Python users can use
 `polyclustx.display.exporting.dataset_mat(data)` directly and write the returned bytes.
-
-```{polyclustx-screenshot} export-center.png
-Export categories, named report and plot downloads, and prepared MATLAB dataset export.
-```
 
 ## Session storage and hosting
 
