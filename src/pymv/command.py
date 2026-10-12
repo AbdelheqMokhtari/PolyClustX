@@ -80,7 +80,10 @@ def main(argv=None):
             raise ValueError("runs must be positive and seed nonnegative")
         data = load_data(args.dataset, variant=args.variant) if args.variant else load_data(args.dataset)
         benchmark = data.labels is not None and not args.no_benchmark
-        clusters = args.clusters or params.pop("n_clusters", None) or (data.n_clusters if benchmark else None)
+        supplied_clusters = params.pop("n_clusters", None)
+        clusters = args.clusters if args.clusters is not None else supplied_clusters
+        if clusters is None and benchmark:
+            clusters = data.n_clusters
         if clusters is None or clusters < 1:
             raise ValueError("Provide --clusters for unlabeled data")
         params["n_clusters"] = clusters

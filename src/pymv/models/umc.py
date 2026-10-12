@@ -28,7 +28,7 @@ def supervised_contrastive(representations, labels, temperature):
     return -(log_probability.masked_fill(~positives, 0).sum(1) / positives.sum(1).clamp_min(1)).mean()
 
 
-def high_quality_indices(embedding, labels, fraction):
+def high_quality_indices(embedding, labels, fraction, max_memory_mb=1024):
     """Density ranking with per-cluster neighborhood selection; no true labels.
 
     Candidate quality follows the reference's maximum nearest-neighbor-distance
@@ -43,6 +43,7 @@ def high_quality_indices(embedding, labels, fraction):
             chosen.extend(indices)
             continue
         neighbors = sorted({min(len(x) - 1, max(1, int(len(x) * p))) for p in np.arange(.1, .32, .02)})
+        memory_check(len(x) * (max(neighbors) + 1) * 24, max_memory_mb)
         distances = NearestNeighbors(n_neighbors=max(neighbors) + 1).fit(x).kneighbors(x)[0][:, 1:]
         best_score, best_indices = -np.inf, None
         for k in neighbors:
@@ -169,7 +170,7 @@ class UMC(DeepModel):
                         n_init=self.n_init if centers is None else 1, random_state=self.random_state).fit(embedding)
             centers, labels = km.cluster_centers_, km.labels_
             fraction = self.initial_fraction + (1 - self.initial_fraction) * epoch / max(self.max_iter - 1, 1)
-            selected = high_quality_indices(embedding, labels, fraction)
+            selected = high_quality_indices(embedding, labels, fraction, self.max_memory_mb)
             remaining = np.setdiff1d(np.arange(len(labels)), selected)
             supervised = train_subset(selected, labels, model.supervised)
             unsupervised = train_subset(remaining, None, model.unsupervised)
@@ -178,13 +179,13 @@ class UMC(DeepModel):
             selections.append(len(selected))
         embedding = self._encode_batches(model, xs, device, lambda m, x: m(x))
         km = KMeans(self.n_clusters, init=centers, n_init=1, random_state=self.random_state).fit(embedding)
-        return dict(model_=model, embedding_=embedding, labels_=km.labels_, centroids_=km.cluster_centers_,
+        return dict(model_=model.cpu(), embedding_=embedding, labels_=km.labels_, centroids_=km.cluster_centers_,
                     kmeans_=km, inertia_=km.inertia_, loss_history_=np.asarray(history), loss_stages_=stages,
                     selected_counts_=np.asarray(selections))
 
     def transform(self, Xs):
         xs, _ = self._prediction_views(Xs)
-        return self._encode_batches(self.model_, xs, self.device_, lambda m, x: m(x))
+        return self._encode_batches(self.model_, xs, "cpu", lambda m, x: m(x))
 
     def predict(self, Xs):
         return self.kmeans_.predict(self.transform(Xs))

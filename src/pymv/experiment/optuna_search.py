@@ -6,16 +6,21 @@ import math
 from .random_search import RandomSearchExperiment
 
 
+def _valid_choice(value):
+    if isinstance(value, (list, tuple)):
+        return bool(value) and all(_valid_choice(item) for item in value)
+    return value is None or isinstance(value, (str, bool, int)) \
+        or (isinstance(value, float) and math.isfinite(value))
+
+
 def validate_space(space):
     """Accept explicit choices or bounded float/int ranges; fail before fitting."""
     from optuna.distributions import FloatDistribution, IntDistribution
 
     for name, values in space.items():
         if isinstance(values, (list, tuple)) and values:
-            if any(v is not None and not isinstance(v, (str, bool, int, float)) for v in values):
-                raise ValueError(f"{name}: choices must be scalar values")
-            if any(isinstance(v, float) and not math.isfinite(v) for v in values):
-                raise ValueError(f"{name}: choices must be finite")
+            if not all(_valid_choice(v) for v in values):
+                raise ValueError(f"{name}: choices must be finite scalars or nonempty sequences of scalars")
         elif isinstance(values, dict):
             options = dict(values)
             kind = options.pop("type", "float")
@@ -55,8 +60,14 @@ class OptunaSampler:
                 kind = options.pop("type", "float")
                 suggest = self.trial.suggest_int if kind == "int" else self.trial.suggest_float
                 result[name] = suggest(name, **options)
+            elif any(isinstance(value, (list, tuple)) for value in values):
+                # Optuna categorical distributions are scalar-only. Keep architecture
+                # choices indexed internally, while reports retain the actual widths.
+                index = self.trial.suggest_categorical(name, list(range(len(values))))
+                result[name] = values[index]
             else:
                 result[name] = self.trial.suggest_categorical(name, values)
+        self.trial.set_user_attr("resolved_parameters", result)
         return result
 
     def tell(self, score):

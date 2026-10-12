@@ -20,22 +20,20 @@ def launch(arguments=None):
         raise SystemExit("PYMV_CPU_THREADS must be a positive integer")
     for variable in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS"):
         environment.setdefault(variable, threads)
-    raise SystemExit(
-        subprocess.call(
-            [
-                sys.executable,
-                "-m",
-                "streamlit",
-                "run",
-            str(app),
-            "--server.address=127.0.0.1",
-            "--browser.gatherUsageStats=false",
-                "--theme.base=light",
-                "--theme.primaryColor=#8A1538",
-                "--theme.backgroundColor=#FFFFFF",
-                "--theme.secondaryBackgroundColor=#F8FAFC",
-                "--theme.textColor=#334155",
-                *(sys.argv[1:] if arguments is None else arguments),
-            ], env=environment,
-        )
-    )
+    command = [
+        sys.executable, "-m", "streamlit", "run", str(app),
+        "--server.address=127.0.0.1",
+        "--browser.gatherUsageStats=false",
+        "--theme.base=light",
+        "--theme.primaryColor=#8A1538",
+        "--theme.backgroundColor=#FFFFFF",
+        "--theme.secondaryBackgroundColor=#F8FAFC",
+        "--theme.textColor=#334155",
+        *(sys.argv[1:] if arguments is None else arguments),
+    ]
+    try:
+        code = subprocess.call(command, env=environment)
+    except KeyboardInterrupt:
+        # Ctrl+C is the documented stop action, not a launch failure.
+        code = 0
+    raise SystemExit(code)

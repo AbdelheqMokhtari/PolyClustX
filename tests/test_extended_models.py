@@ -116,3 +116,16 @@ def test_graph_inputs_and_memory_guards():
             get_model(name)(3, max_memory_mb=.001).fit(dataset.Xs)
     with pytest.raises(ValueError, match="gamma"):
         GCoMVKM(3, gamma=1).fit(dataset.Xs)
+
+
+@pytest.mark.parametrize("name", MODELS)
+def test_new_model_controls_render(name):
+    from tests.test_display_comparisons import app_test
+    at = app_test(Workspace(), 2)
+    next(s for s in at.selectbox if s.label == "Model").select(name).run()
+    assert not at.exception and not at.error
+
+
+def test_umc_density_memory_guard():
+    with pytest.raises(ValueError, match="allocation"):
+        high_quality_indices(np.zeros((100, 3)), np.zeros(100), .5, max_memory_mb=.001)

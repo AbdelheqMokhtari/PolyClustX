@@ -23,7 +23,7 @@ def read_graph_file(content, filename, sample_ids):
         try:
             import networkx as nx
         except ImportError as exc:
-            raise ImportError('Graph files need NetworkX: pip install "pymv-clustering[ui]"') from exc
+            raise ImportError('Repair the installation with: pip install --upgrade pymv-clustering') from exc
         reader = nx.read_graphml if suffix == ".graphml" else nx.read_gexf
         graph = reader(io.BytesIO(content))
         # XML graph formats store node identifiers as strings. Resolve only exact

@@ -126,12 +126,12 @@ class GCoMVKM(TorchModel):
                     inertia_=float(sum(w * d for w, d in zip(weights, distances)).min(1).values.sum()))
 
     def transform(self, Xs):
-        xs, _ = self._prediction_views(Xs)
+        xs, _ = self._prediction_views(Xs, dtype=np.float64)
         entries = zip(xs, self.selected_features_, self.view_weights_, self.feature_weights_, self.delta_)
         return np.concatenate([x[:, i] * np.sqrt(v * w * d) for x, i, v, w, d in entries], 1)
 
     def predict(self, Xs):
-        xs, _ = self._prediction_views(Xs)
+        xs, _ = self._prediction_views(Xs, dtype=np.float64)
         # The training sample count, not prediction batch size, defines collaboration strength.
         tensors = [torch.as_tensor(x[:, i], dtype=torch.float64) for x, i in zip(xs, self.selected_features_)]
         centers, features, delta = [[torch.as_tensor(x) for x in values]

@@ -193,15 +193,13 @@ class DGF(TorchModel):
                 if self.community_fraction else h.sum() * 0
             terms = [cross, structural, community]
             loss = sum(term / term.detach().abs().clamp_min(1e-8) for term in terms)
-            optimize(loss, optimizer)
+            history.append(optimize(loss, optimizer))
             components.append([float(term.detach()) for term in terms])
-            # Self-normalized loss is nearly constant; retain raw component sum for diagnostics.
-            history.append(sum(components[-1]))
         model.eval()
         with torch.no_grad():
             _, h = model(tensors, adjacency)
         embedding = h.cpu().numpy()
         km = KMeans(self.n_clusters, n_init=self.n_init, random_state=self.random_state).fit(embedding)
-        return dict(model_=model, labels_=km.labels_, embedding_=embedding, centroids_=km.cluster_centers_,
+        return dict(model_=model.cpu(), labels_=km.labels_, embedding_=embedding, centroids_=km.cluster_centers_,
                     loss_history_=np.asarray(history), loss_components_=np.asarray(components),
                     loss_component_names_=["cross_modal", "graph", "community"], inertia_=km.inertia_)

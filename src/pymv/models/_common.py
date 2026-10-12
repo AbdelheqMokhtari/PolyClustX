@@ -89,10 +89,10 @@ class TorchModel(BaseModel):
         self.device_ = str(device)
         return self
 
-    def _prediction_views(self, Xs, observed_mask=None):
+    def _prediction_views(self, Xs, observed_mask=None, *, dtype=np.float32):
         if not hasattr(self, "n_features_in_"):
             raise NotFittedError("Call fit before transform or predict")
-        xs, mask = validate_views(Xs, observed_mask, missing=self.supports_missing_views,
+        xs, mask = validate_views(Xs, observed_mask, missing=self.supports_missing_views, dtype=dtype,
                                   max_memory_mb=self.max_memory_mb)
         if [x.shape[1] for x in xs] != self.n_features_in_:
             raise ValueError("Prediction needs the same view order and feature dimensions as fitting")

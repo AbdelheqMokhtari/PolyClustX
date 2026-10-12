@@ -124,14 +124,14 @@ class CONAN(DeepModel):
             components.append(np.mean(terms, axis=0))
         embedding = self._encode_batches(model, xs, device, lambda m, x: m(x)[1])
         probabilities = self._encode_batches(model, xs, device, lambda m, x: m(x)[3])
-        return dict(model_=model, embedding_=embedding, labels_=probabilities.argmax(1),
+        return dict(model_=model.cpu(), embedding_=embedding, labels_=probabilities.argmax(1),
                     probabilities_=probabilities, loss_history_=np.asarray(history),
                     loss_components_=np.asarray(components), loss_component_names_=["ddc", "contrastive"])
 
     def transform(self, Xs):
         xs, _ = self._prediction_views(Xs)
-        return self._encode_batches(self.model_, xs, self.device_, lambda m, x: m(x)[1])
+        return self._encode_batches(self.model_, xs, "cpu", lambda m, x: m(x)[1])
 
     def predict(self, Xs):
         xs, _ = self._prediction_views(Xs)
-        return self._encode_batches(self.model_, xs, self.device_, lambda m, x: m(x)[3]).argmax(1)
+        return self._encode_batches(self.model_, xs, "cpu", lambda m, x: m(x)[3]).argmax(1)

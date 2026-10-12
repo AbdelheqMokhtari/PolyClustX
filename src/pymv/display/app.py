@@ -988,7 +988,7 @@ def render_experiment(workspace):
         progress = st.progress(0.0, text="Running fits")
         fit_status = _fit_status()
         try:
-            with st.spinner("Fitting models"):
+            with st.spinner("Fitting models", show_time=True):
                 workspace.run_batch(specs, name=name, output_dir=output_dir, progress=progress.progress,
                                     fit_progress=fit_status)
             _set_page("Results")
@@ -1059,7 +1059,8 @@ def _search_runner(workspace, dataset_id, data, model, params, clusters, search_
         progress = st.progress(0.0, text="Searching")
         fit_status = _fit_status()
         try:
-            workspace.run(spec, progress=progress.progress, fit_progress=fit_status, output_dir=output_dir)
+            with st.spinner("Searching", show_time=True):
+                workspace.run(spec, progress=progress.progress, fit_progress=fit_status, output_dir=output_dir)
             st.rerun()
         except Exception as exc:
             st.error(str(exc))
