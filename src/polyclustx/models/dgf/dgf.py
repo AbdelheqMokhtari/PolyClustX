@@ -12,11 +12,11 @@ from torch.nn import functional as F
 
 from polyclustx.progress import iterations
 
-from ._common import TorchModel, batches, integer, memory_check, number, optimize, validate_views
-from ._deep import linear, parameter_budget
-from ._graphs import cosine_graph, input_graphs, normalize_graph, torch_sparse
-from ._torch_utils import initialization_seed
-from .registry import register_model
+from .._common import TorchModel, batches, integer, memory_check, number, optimize, validate_views
+from .._deep import linear, parameter_budget
+from .._graphs import cosine_graph, input_graphs, normalize_graph, torch_sparse
+from .._torch_utils import initialization_seed
+from ..registry import register_model
 
 
 class DualFilter(nn.Module):

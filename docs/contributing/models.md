@@ -55,7 +55,10 @@ scientific claims: document differences from the reference implementation.
 
 ## Where to put your contribution
 
-1. Add `src/polyclustx/models/your_method/` with the implementation and `__init__.py`.
+1. Add `src/polyclustx/models/your_method/your_method.py` with the implementation
+   and an `__init__.py` that re-exports the public estimator. Every algorithm,
+   including LMGEC and SCM, uses this same layout. Keep shared numerical utilities
+   in the parent `models/` package; do not duplicate them in each algorithm folder.
 2. Import/export its registered class in `src/polyclustx/models/__init__.py`.
 3. Add deterministic, small offline tests in `tests/test_your_method.py`.
 4. Add a runnable example under `examples/` and link it from

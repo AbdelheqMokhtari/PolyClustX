@@ -8,8 +8,8 @@ from torch.nn.functional import normalize
 
 from polyclustx.progress import iterations
 
-from ._common import TorchModel, integer, memory_check, number, validate_views
-from .registry import register_model
+from .._common import TorchModel, integer, memory_check, number, validate_views
+from ..registry import register_model
 
 
 def spectral_components(similarity, k):

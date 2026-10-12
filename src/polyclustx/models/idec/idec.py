@@ -9,10 +9,10 @@ from torch.nn import functional as F
 
 from polyclustx.progress import iterations
 
-from ._common import apply_scalers, batches, fit_scalers, integer, number, optimize, validate_views
-from ._deep import Autoencoder, DeepModel, parameter_budget
-from ._torch_utils import initialization_seed
-from .registry import register_model
+from .._common import apply_scalers, batches, fit_scalers, integer, number, optimize, validate_views
+from .._deep import Autoencoder, DeepModel, parameter_budget
+from .._torch_utils import initialization_seed
+from ..registry import register_model
 
 
 def student_assignments(z, centers, alpha=1.):

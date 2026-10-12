@@ -4,8 +4,8 @@ import torch
 from sklearn.cluster import KMeans
 
 from polyclustx.models import MultiViewKMeans, MultiViewSpectralClustering
-from polyclustx.models.multiview_kmeans import em_step
-from polyclustx.models.multiview_spectral import refine_similarities, spectral_components
+from polyclustx.models.multiview_kmeans.multiview_kmeans import em_step
+from polyclustx.models.multiview_spectral.multiview_spectral import refine_similarities, spectral_components
 
 
 def views(count=2):

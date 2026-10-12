@@ -10,11 +10,11 @@ from torch import nn
 
 from polyclustx.progress import iterations
 
-from ._common import apply_scalers, batches, fit_scalers, memory_check, number, optimize, validate_views
-from ._deep import DeepModel, mlp, parameter_budget
-from ._torch_utils import initialization_seed
-from .registry import register_model
-from .scm import SCM
+from .._common import apply_scalers, batches, fit_scalers, memory_check, number, optimize, validate_views
+from .._deep import DeepModel, mlp, parameter_budget
+from .._torch_utils import initialization_seed
+from ..registry import register_model
+from ..scm import SCM
 
 
 def divergence_loss(q, hidden):
@@ -83,7 +83,7 @@ class CONAN(DeepModel):
         self.max_memory_mb = max_memory_mb
 
     def fit(self, Xs, As=None, *, observed_mask=None):
-        from ._common import integer
+        from .._common import integer
         xs, mask = validate_views(Xs, observed_mask, max_memory_mb=self.max_memory_mb)
         self._check_deep(len(xs[0]))
         integer("projection_dim", self.projection_dim)

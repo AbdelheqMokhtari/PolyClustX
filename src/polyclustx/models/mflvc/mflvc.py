@@ -10,11 +10,11 @@ from torch.nn import functional as F
 
 from polyclustx.progress import iterations
 
-from ._common import apply_scalers, batches, fit_scalers, integer, number, optimize, validate_views
-from ._deep import Autoencoder, DeepModel, linear, parameter_budget
-from ._torch_utils import initialization_seed
-from .registry import register_model
-from .scm.scm import SCM
+from .._common import apply_scalers, batches, fit_scalers, integer, number, optimize, validate_views
+from .._deep import Autoencoder, DeepModel, linear, parameter_budget
+from .._torch_utils import initialization_seed
+from ..registry import register_model
+from ..scm.scm import SCM
 
 
 def label_contrastive_loss(left, right, temperature):

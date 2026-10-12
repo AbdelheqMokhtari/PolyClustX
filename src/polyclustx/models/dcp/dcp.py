@@ -1,6 +1,6 @@
 """DCP's unsupervised clustering route (no label-based classification loss)."""
-from .completer import _PredictionClustering
-from .registry import register_model
+from ..completer.completer import _PredictionClustering
+from ..registry import register_model
 
 
 @register_model("dcp", description="Dual contrastive prediction, complete-graph clustering route for incomplete views.",

@@ -10,10 +10,10 @@ from torch.nn import functional as F
 
 from polyclustx.progress import iterations
 
-from ._common import apply_scalers, batches, fit_scalers, integer, memory_check, number, optimize, validate_views
-from ._deep import DeepModel, linear, mlp, parameter_budget
-from ._torch_utils import initialization_seed
-from .registry import register_model
+from .._common import apply_scalers, batches, fit_scalers, integer, memory_check, number, optimize, validate_views
+from .._deep import DeepModel, linear, mlp, parameter_budget
+from .._torch_utils import initialization_seed
+from ..registry import register_model
 
 
 def supervised_contrastive(representations, labels, temperature):

@@ -7,8 +7,8 @@ from torch.nn import functional as F
 
 from polyclustx.progress import iterations
 
-from ._common import TorchModel, apply_scalers, fit_scalers, memory_check, number, validate_views
-from .registry import register_model
+from .._common import TorchModel, apply_scalers, fit_scalers, memory_check, number, validate_views
+from ..registry import register_model
 
 
 def weighted_distances(x, centers, weights):
