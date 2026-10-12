@@ -9,7 +9,7 @@ description = "A comparative framework for multi-view and multimodal clustering 
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 
 authors = [
     { name = "Abdelheq Mokhtari", email = "mokhtari.abdelheq@gmail.com" }
