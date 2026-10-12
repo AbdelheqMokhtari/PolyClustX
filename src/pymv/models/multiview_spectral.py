@@ -6,6 +6,8 @@ import torch
 from sklearn.cluster import KMeans
 from torch.nn.functional import normalize
 
+from pymv.progress import iterations
+
 from ._common import TorchModel, integer, memory_check, number, validate_views
 from .registry import register_model
 
@@ -105,7 +107,7 @@ class MultiViewSpectralClustering(TorchModel):
         embeddings = [spectral_components(a, self.n_clusters) for a in affinities]
         changes = []
         if len(xs) > 1:
-            for _ in range(self.max_iter):
+            for _ in iterations(self.max_iter, "Spectral co-training"):
                 updated = [spectral_components(a, self.n_clusters)
                            for a in refine_similarities(affinities, embeddings)]
                 changes.append(sum(float((2 * self.n_clusters - 2 * (a.T @ b).square().sum()).clamp_min(0))

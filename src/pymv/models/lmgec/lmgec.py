@@ -17,6 +17,7 @@ from pymv.core import BaseModel
 from pymv.models._torch_utils import resolve_device
 from pymv.models.registry import register_model
 from pymv.preprocessing import get_propagated_features
+from pymv.progress import iterations
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ def _init_G_F(XW, k, random_state=None):
 def _train_loop(Xs, F, G, alphas, k, max_iter):
     """Original alternating updates and pre-update reconstruction loss, in float64."""
     losses = []
-    for _ in range(max_iter):
+    for _ in iterations(max_iter, "Alternating optimization"):
         consensus = Xs[0].new_zeros((Xs[0].shape[0], F.shape[1]))
         loss = Xs[0].new_zeros(())
         for view, weight in zip(Xs, alphas):

@@ -8,6 +8,8 @@ from sklearn.cluster import KMeans
 from torch import nn
 from torch.nn import functional as F
 
+from pymv.progress import iterations
+
 from ._common import apply_scalers, batches, fit_scalers, integer, number, optimize, validate_views
 from ._deep import Autoencoder, DeepModel, linear, parameter_budget
 from ._torch_utils import initialization_seed
@@ -133,7 +135,7 @@ class MFLVC(DeepModel):
                     scaled = (h - h.min(0)) / np.where(span > 0, span, 1)
                     pseudo.append(KMeans(self.n_clusters, n_init=self.n_init,
                                          random_state=self.random_state).fit_predict(scaled))
-            for _ in range(epochs):
+            for _ in iterations(epochs, stage.title() + " epochs"):
                 if stage == "finetune":
                     _, qs = self._infer(model, xs, device)
                     targets = [aligned_pseudo_labels(p, q.argmax(1), self.n_clusters) for p, q in zip(pseudo, qs)]

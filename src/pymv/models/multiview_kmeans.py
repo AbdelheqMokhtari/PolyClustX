@@ -8,6 +8,8 @@ import torch
 from sklearn.cluster import KMeans, kmeans_plusplus
 from sklearn.exceptions import ConvergenceWarning, NotFittedError
 
+from pymv.progress import iterations
+
 from ._common import TorchModel, integer, memory_check, number, validate_views
 from .registry import register_model
 
@@ -83,7 +85,7 @@ class MultiViewKMeans(TorchModel):
         rng = np.random.default_rng(self.random_state)
         best = None
         objectives = []
-        for _ in range(self.n_init):
+        for _ in iterations(self.n_init, "Co-EM initializations"):
             seed = int(rng.integers(2**31))
             indices = (kmeans_plusplus(xs[-1], self.n_clusters, random_state=seed)[1]
                        if self.init == "k-means++" else rng.choice(len(xs[0]), self.n_clusters, replace=False))

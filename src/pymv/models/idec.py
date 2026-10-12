@@ -7,6 +7,8 @@ from sklearn.cluster import KMeans
 from torch import nn
 from torch.nn import functional as F
 
+from pymv.progress import iterations
+
 from ._common import apply_scalers, batches, fit_scalers, integer, number, optimize, validate_views
 from ._deep import Autoencoder, DeepModel, parameter_budget
 from ._torch_utils import initialization_seed
@@ -86,7 +88,7 @@ class IDEC(DeepModel):
         model.to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=self.learning_rate)
         pretrain = []
-        for _ in range(self.pretrain_epochs):
+        for _ in iterations(self.pretrain_epochs, "Autoencoder pretraining"):
             model.train()
             values = []
             for idx in batches(len(fused), self.batch_size, rng):
@@ -103,7 +105,7 @@ class IDEC(DeepModel):
         previous = km.labels_
         history, components = [], []
         batch_indices = list(batches(len(fused), self.batch_size))
-        for step in range(self.max_iter):
+        for step in iterations(self.max_iter, "Clustering minibatches"):
             if step % self.update_interval == 0:
                 embedding = self._encode_batches(model, [fused], device, encode)
                 with torch.no_grad():

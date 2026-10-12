@@ -11,6 +11,8 @@ from sklearn.cluster import KMeans
 from torch import nn
 from torch.nn import functional as F
 
+from pymv.progress import iterations
+
 from ._common import apply_scalers, batches, fit_scalers, integer, number, optimize, validate_views
 from ._deep import Autoencoder, DeepModel, mlp, parameter_budget
 from ._torch_utils import initialization_seed
@@ -110,7 +112,7 @@ class _PredictionClustering(DeepModel):
         history, components = [], []
         n_views = len(xs)
         pairs = [(i, j) for i in range(n_views) for j in range(i + 1, n_views)]
-        for epoch in range(self.max_iter):
+        for epoch in iterations(self.max_iter, "Prediction learning epochs"):
             model.train()
             values, terms = [], []
             for batch in batches(len(complete), self.batch_size, rng):

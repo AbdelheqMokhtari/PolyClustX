@@ -21,6 +21,7 @@ from torch.nn import functional as F
 from pymv.core import BaseModel
 from pymv.models._torch_utils import initialization_seed, resolve_device
 from pymv.models.registry import register_model
+from pymv.progress import iterations
 
 logger = logging.getLogger(__name__)
 
@@ -265,7 +266,7 @@ class SCM(BaseModel):
         losses = []
         batch_size = min(self.batch_size, len(fused))
         indices = np.arange(len(fused))
-        for _ in range(self.max_iter):
+        for _ in iterations(self.max_iter, "Contrastive epochs"):
             rng.shuffle(indices)
             epoch_losses = []
             for start in range(0, len(fused), batch_size):

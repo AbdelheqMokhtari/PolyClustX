@@ -1,7 +1,7 @@
-"""Optional interactive interface, installed with pymv-clustering[ui]."""
+"""Interactive interface included in the standard installation."""
 
 
-def launch():
+def launch(arguments=None):
     """Launch Streamlit; additional CLI arguments are forwarded to Streamlit."""
     import importlib.util
     import subprocess
@@ -9,7 +9,7 @@ def launch():
     from pathlib import Path
 
     if importlib.util.find_spec("streamlit") is None:
-        raise SystemExit('Install the interface with: pip install "pymv-clustering[ui]"')
+        raise SystemExit('Repair the installation with: python -m pip install --upgrade pymv-clustering')
     app = Path(__file__).with_name("app.py")
     raise SystemExit(
         subprocess.call(
@@ -26,7 +26,7 @@ def launch():
                 "--theme.backgroundColor=#FFFFFF",
                 "--theme.secondaryBackgroundColor=#F8FAFC",
                 "--theme.textColor=#334155",
-                *sys.argv[1:],
+                *(sys.argv[1:] if arguments is None else arguments),
             ]
         )
     )
