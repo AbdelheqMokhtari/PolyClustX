@@ -40,6 +40,7 @@ Start with :doc:`user_guide/quickstart`, explore
    user_guide/data
    user_guide/missing_views
    user_guide/graphs
+   user_guide/clustering_models
    user_guide/experiments
    user_guide/workbench
 

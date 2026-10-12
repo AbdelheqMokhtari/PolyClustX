@@ -45,7 +45,8 @@ class Catalog(SphinxDirective):
             for name in list_models():
                 info = get_model_info(name)
                 rows.append([name.upper(), info["description"], "Yes" if info["uses_graphs"] else "No",
-                             "Yes" if info["supports_missing_views"] else "No",
+                             ("Yes; ≥2 complete training samples" if getattr(info["class"], "min_complete_samples", 0)
+                              else "Yes") if info["supports_missing_views"] else "No",
                              ("Paper", info["paper"]) if info["paper"] else "Not supplied",
                              ("Code", info["implementation"]) if info.get("implementation") else "Not supplied"])
             return [table(["Model", "Description", "Graphs", "Missing views", "Paper", "Original code"], rows)]

@@ -6,6 +6,18 @@ and this project adheres to Semantic Versioning.
 
 ## Unreleased
 
+### Added
+
+- PyTorch Co-EM K-means and spectral co-training, with single-view reductions
+  and explicit multi-view extension conventions.
+- PyTorch IDEC, COMPLETER, DCP clustering and MFLVC, including masked latent
+  completion for COMPLETER/DCP and MFLVC's three training stages.
+- Typed display controls, categorical affinity search, nullable automatic
+  spectral parameters, registered CLI options and missing-overlap checks.
+- Phase/component loss diagnostics, restart/consensus diagnostics, reference
+  equation tests, offline examples and a model-selection tutorial.
+- MIT notices for mvlearn and COMPLETER, included in built distributions.
+
 ### Changed
 
 - Migrate LMGEC and SCM from TensorFlow to PyTorch; TensorFlow is no longer a

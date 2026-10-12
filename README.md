@@ -40,7 +40,7 @@ or Windows environment, install PyTorch before pymv with
 `python -m pip install "torch>=2.4,<3" --index-url https://download.pytorch.org/whl/cpu`.
 For GPU/platform-specific packages, use the
 [PyTorch installation selector](https://pytorch.org/get-started/locally/).
-Both models accept `device="cpu"`, `"cuda"`, or `"auto"` (default).
+Models accept `device="cpu"`, `"cuda"`, or `"auto"` (default).
 
 For a cloned or downloaded repository, open the folder containing `pyproject.toml`,
 create and activate an environment as above, then:
@@ -107,8 +107,18 @@ the common model API. New methods can be added through the model registry.
 |---|---|---|
 | LMGEC | Feature views with optional graphs | Fettal, Labiod & Nadif. [Simultaneous Linear Multi-view Attributed Graph Representation Learning and Clustering](https://doi.org/10.1145/3539597.3570367), WSDM 2023. |
 | SCM | Feature views; graphs are not used | Luo et al. [Simple Contrastive Multi-View Clustering with Data-Level Fusion](https://www.ijcai.org/proceedings/2024/519), IJCAI 2024. |
+| MultiViewKMeans | One-view K-means; two-view Co-EM; cyclic extension for more views | Bickel & Scheffer. [Multi-View Clustering](https://doi.org/10.1109/ICDM.2004.10095), ICDM 2004. |
+| MultiViewSpectralClustering | One or more complete feature views; spectral co-training | Kumar & Daumé. [A Co-training Approach for Multi-view Spectral Clustering](https://icml.cc/2011/papers/272_icmlpaper.pdf), ICML 2011. |
+| IDEC | Single view or concatenated complete views | Guo et al. [Improved Deep Embedded Clustering with Local Structure Preservation](https://www.ijcai.org/proceedings/2017/243), IJCAI 2017. |
+| COMPLETER | Complete/incomplete views; needs paired training samples | Lin et al. [COMPLETER](https://github.com/XLearning-SCU/2021-CVPR-Completer), CVPR 2021. |
+| DCP | Complete/incomplete views; unsupervised complete-graph route | Lin et al. [Dual Contrastive Prediction](https://doi.org/10.1109/TPAMI.2022.3197238), TPAMI. |
+| MFLVC | One or more complete feature views | Xu et al. [Multi-Level Feature Learning for Contrastive Multi-View Clustering](https://github.com/SubmissionsIn/MFLVC), CVPR 2022. |
 
-Both current implementations require complete or explicitly imputed views.
+COMPLETER and DCP learn missing-view completion from at least two fully observed
+training samples; other methods require complete or explicitly imputed views.
+Single-view reductions and extensions beyond a paper's original view count are
+documented in the [model tutorial](https://pymv.readthedocs.io/en/latest/user_guide/clustering_models.html).
+All models are available in the interface, Python API and model registry.
 See [algorithm details and scope](https://pymv.readthedocs.io/en/latest/background/algorithms.html)
 and the [model catalog](https://pymv.readthedocs.io/en/latest/catalog/models.html).
 

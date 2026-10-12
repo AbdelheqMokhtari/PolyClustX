@@ -123,6 +123,15 @@ its typed parameter controls, then choose a **Configuration name**. Defaults
 are names such as `LMGEC#1`. Save as many configurations as needed.
 See [available models and original implementations](../background/algorithms.md).
 
+K-means, spectral co-training, IDEC, COMPLETER, DCP and MFLVC use the same
+configuration workflow. See the [model tutorial](clustering_models.md) for
+single-view reductions, original formulations and training-stage meanings.
+Device, affinity and initialization use dropdowns. Spectral gamma and the
+informative view have **Automatic** switches; disabling them reveals typed
+numeric controls. COMPLETER/DCP require at least two fully observed training
+samples and trained predictors for missing-view completion. These requirements
+are checked before incompatible experiments run.
+
 Saved K values are used for real-world experiments and manual K comparisons.
 For benchmark experiments, dataset class counts are the default on Experiment;
 you can edit them there or switch to the saved model K values.
@@ -131,6 +140,7 @@ LMGEC may need a smaller embedding on a low-dimensional dataset. Its limit is
 `min(samples, smallest view feature count) − 1`. Results show a short adjustment
 notice, the effective value used, and the requested value. Your saved configuration
 is unchanged. This limit is model-specific and is not applied to SCM.
+It is also not applied to neural hidden dimensions or spectral cluster counts.
 
 ## 3. Search: tune parameters independently
 
