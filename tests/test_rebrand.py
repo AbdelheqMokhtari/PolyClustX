@@ -88,8 +88,11 @@ def test_transparent_logo_and_institutional_assets():
     conf = (ROOT / "docs/conf.py").read_text()
     assert 'src/polyclustx/brand.py' in conf
     assert 'src/polyclustx/display/assets' in conf
-    footer = (ROOT / "docs/_templates/footer.html").read_text()
-    assert "borelli.png" in footer and "paris_cite.png" in footer
+    sidebar = (ROOT / "docs/_templates/affiliations.html").read_text()
+    assert "borelli.png" in sidebar and "paris_cite.png" in sidebar
+    layout = (ROOT / "docs/_templates/layout.html").read_text()
+    assert '{% block navigation %}\n{% include "affiliations.html" %}' in layout
+    assert not (ROOT / "docs/_templates/footer.html").exists()
 
 
 def test_notebooks_are_valid_unexecuted_new_api_tutorials():

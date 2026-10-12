@@ -12,7 +12,7 @@ with their respective institutions. Reuse must follow institutional requirements
 - https://centreborelli.ens-paris-saclay.fr/fr
 - https://u-paris.fr/charte-graphique-et-outils/
 
-See `docs/contributing/branding.md` for provenance and the generated project mark.
+See `BRANDING.md` for provenance and the generated project mark.
 
 ## Algorithm adaptations
 

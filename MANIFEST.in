@@ -1,4 +1,4 @@
-include README.md LICENSE THIRD_PARTY_NOTICES.md .readthedocs.yaml
+include README.md BRANDING.md LICENSE THIRD_PARTY_NOTICES.md .readthedocs.yaml
 include Makefile
 recursive-include scripts *.py
 recursive-include notebooks *.ipynb

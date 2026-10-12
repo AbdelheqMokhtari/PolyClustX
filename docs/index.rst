@@ -9,12 +9,6 @@ one Python API, command line or interactive interface.
 Use a single view, several feature views, multimodal data, or attributed graphs
 without changing the structure of your workflow.
 
-PolyClustX separates **data representation**, **model fitting**, and **evaluation**.
-Ground-truth labels are optional. Graphs are optional, and a feature view can
-have several graph relations. Incomplete views can be represented, aligned by
-sample ID, and explicitly imputed; native missing-view learning depends on the
-selected model's capabilities.
-
 .. code-block:: bash
 
    pip install polyclustx
@@ -67,7 +61,6 @@ Start with :doc:`user_guide/quickstart`, explore
    contributing/datasets
    contributing/pull_requests
    contributing/documentation
-   contributing/branding
 
 .. toctree::
    :maxdepth: 1
@@ -95,10 +88,3 @@ Scientific scope
 Support for a data representation does not imply that every model uses all of
 its information. See :doc:`background/algorithms` for the capability table,
 original papers, source implementations and algorithm explanations.
-
-The documentation organization takes inspiration from the
-`UMAP documentation <https://umap-learn.readthedocs.io/en/latest/>`_.
-The transparent scientific symbol and light indigo palette are shared with the
-interface. Centre Borelli and Université Paris Cité marks identify research
-affiliations; they remain separate from the PolyClustX identity and do not imply
-institutional endorsement. See :doc:`contributing/branding` for asset provenance.

@@ -20,13 +20,13 @@ static output; do not maintain separate copies.
 ## Project logo
 
 `logo.png` is an original, AI-generated transparent raster mark produced using
-the built-in image-generation tool on 12 October 2026. It contains only three circular
-nodes joined by straight edges, replacing the earlier decorative X-shaped mark. Display it with
+the built-in image-generation tool on 12 October 2026. It depicts interwoven
+indigo and steel-blue bands suggesting connected data views. Display it with
 its original aspect ratio and alpha channel on a light surface.
 
 The generation prompt was:
 
-> Use case: logo-brand. Create a replacement project logo for PolyClustX, an academic clustering and representation-learning library. Extremely simple flat scientific mark: exactly three solid circular nodes at the vertices of a compact equilateral triangle, joined by three thin straight lines. No surrounding shape. Two nodes and lines in muted indigo #7478AE, one node in cool steel blue #557AA3. Balanced geometry, uniform strokes, generous clean negative space, readable at 24 pixels. Square canvas, single centered mark, modest padding. Genuinely transparent background with alpha. No text, no letters, no X, no curved swooshes, no orbit rings, no additional dots, no gradients, no shadows, no 3D, no texture, no watermark. Restrained and simple, suitable for scientific software.
+> Use case: logo-brand. Create an original scientific software symbol for PolyClustX, multi-view representation learning and clustering. Completely new design: a compact elegant abstract woven lattice made of two intersecting pairs of gently curved bands, suggesting distinct data views coming together into one representation. Balanced mathematical geometry and clear negative space, like a refined scientific journal symbol. Flat vector-like rendering in muted indigo #7478AE, primary indigo #4E4E92 and cool steel blue #557AA3, with no gradients. Simple, distinctive silhouette; few shapes, medium-weight strokes, readable at 32 pixels. No text, letters, wordmark, triangle, circular graph nodes, orbital rings, decorative dots, enclosing badge, shadows, 3D or textures. Single centered symbol on a square canvas, moderate padding. Genuinely transparent alpha background, no white square. Professional and restrained, not a clip-art molecule or generic network icon.
 
 ## Institutional logos
 

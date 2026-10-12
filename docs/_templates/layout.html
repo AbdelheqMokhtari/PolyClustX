@@ -4,3 +4,7 @@
 <meta name="description" content="A Unified Framework for Multi-View and Multimodal Representation Learning and Clustering from Feature Views to Attributed Graphs">
 <style>{{ polyclustx_css | safe }}</style>
 {% endblock %}
+{% block navigation %}
+{% include "affiliations.html" %}
+{{ super() }}
+{% endblock %}
