@@ -26,6 +26,22 @@ class ParameterControl:
 
 
 COMMON = {
+    "theta": ParameterControl("Feature entropy weight", "float", minimum=0., strictly_positive=True,
+                               search_values=(.1, 1., 4.)),
+    "contrastive_weight": ParameterControl("Contrastive loss weight", "float", minimum=0.,
+                                            search_values=(.1, 1., 5.)),
+    "num_layers": ParameterControl("Filter depth", "int", minimum=1, search_values=(2, 5, 10)),
+    "walks_per_node": ParameterControl("Walks per node", "int", minimum=1, search_values=(1, 2, 5)),
+    "walk_length": ParameterControl("Walk length", "int", minimum=1, search_values=(3, 5, 10)),
+    "context_size": ParameterControl("Walk context size", "int", minimum=2, search_values=(2, 3, 4)),
+    "community_fraction": ParameterControl("Community positive fraction", "float", minimum=0., maximum=1.,
+                                            search_values=(.1, .3, .5)),
+    "filter_std": ParameterControl("Edge filter threshold (standard deviations)", "float", minimum=0.),
+    "initial_fraction": ParameterControl("Initial curriculum fraction", "float", minimum=0., maximum=1.,
+                                          strictly_positive=True, search_values=(.1, .25, .5)),
+    "core_view": ParameterControl("Core view (zero-based)", "int", minimum=0),
+    "augmentation_rate": ParameterControl("Single-view feature dropout", "float", minimum=0., maximum=.99,
+                                           search_values=(.05, .1, .2)),
     "embedding_dim": ParameterControl("Embedding dimension", "int", minimum=1, step=1,
                                       search_values=(8, 16, 32, 64, 128, 256)),
     "projection_dim": ParameterControl("Projection dimension", "int", minimum=1, step=1,
@@ -129,7 +145,13 @@ def parameter_controls(model_name):
     for name, default in info["defaults"].items():
         if name == "random_state":
             continue
-        if name == "gamma" and default is None:
+        if name == "gamma" and model_name == "g_comvkm":
+            controls[name] = ParameterControl("Collaboration exponent (greater than 1)", "float",
+                                              minimum=1.000001, search_values=(2., 5., 10.))
+        elif name == "gamma" and model_name == "sgla":
+            controls[name] = ParameterControl("Laplacian weight regularization", "float", minimum=0.,
+                                              search_values=(0., .1, .5, 1.))
+        elif name == "gamma" and default is None:
             controls[name] = ParameterControl("Kernel scale (gamma)", "float", minimum=0.,
                                               strictly_positive=True, nullable=True,
                                               search_values=(.01, .1, 1.),

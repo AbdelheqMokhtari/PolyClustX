@@ -89,6 +89,11 @@ def diagnostics(model):
         "coem_objective": getattr(model, "coem_objective_", None),
         "restart_objectives": getattr(model, "restart_objectives_", None),
         "consensus_counts": getattr(model, "consensus_counts_", None),
+        "feature_weights": getattr(model, "feature_weights_", None),
+        "selected_features": getattr(model, "selected_features_", None),
+        "selected_counts": getattr(model, "selected_counts_", None),
+        "graph_source": getattr(model, "graph_source_", None),
+        "graph_sources": getattr(model, "graph_sources_", None),
     })
 
 
