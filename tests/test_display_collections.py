@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 
-from pymv.data import MultiViewDataset
-from pymv.display.preprocessing import PreprocessingSpec
-from pymv.display.workspace import Workspace
+from polyclustx.data import MultiViewDataset
+from polyclustx.display.preprocessing import PreprocessingSpec
+from polyclustx.display.workspace import Workspace
 from tests.test_display_comparisons import app_test
 
 

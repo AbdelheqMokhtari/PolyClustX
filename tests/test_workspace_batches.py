@@ -3,14 +3,14 @@ import json
 import numpy as np
 import pytest
 
-from pymv.display.results import aggregate_results, compact_confusion, detailed_rows
-from pymv.display.workspace import ExperimentSpec, Workspace
+from polyclustx.display.results import aggregate_results, compact_confusion, detailed_rows
+from polyclustx.display.workspace import ExperimentSpec, Workspace
 from tests.test_experiment_reports import ReportModel, dataset
 
 
 @pytest.fixture
 def workspace(monkeypatch):
-    monkeypatch.setattr("pymv.display.workspace.get_model", lambda _: ReportModel)
+    monkeypatch.setattr("polyclustx.display.workspace.get_model", lambda _: ReportModel)
     ws = Workspace()
     ws.add_dataset(dataset())
     ws.add_dataset(dataset())

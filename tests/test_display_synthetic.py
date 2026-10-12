@@ -1,4 +1,4 @@
-from pymv.display.workspace import Workspace
+from polyclustx.display.workspace import Workspace
 from tests.test_display_comparisons import app_test
 
 

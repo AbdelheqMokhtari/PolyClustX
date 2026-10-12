@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import requests
 
-from pymv.data import load_dataset
+from polyclustx.data import load_dataset
 
 
 def load_or_skip(name: str):

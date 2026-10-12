@@ -1,35 +1,35 @@
 Interactive interface API
 =========================
 
-.. autofunction:: pymv.display.launch
+.. autofunction:: polyclustx.display.launch
 
 The workspace service is independent of Streamlit and can also be used from
 Python. Its records are session-local; exports do not persist original data.
 
-.. autoclass:: pymv.display.workspace.ExperimentSpec
+.. autoclass:: polyclustx.display.workspace.ExperimentSpec
    :members:
 
-.. autoclass:: pymv.display.workspace.Workspace
+.. autoclass:: polyclustx.display.workspace.Workspace
    :members:
 
-.. autoclass:: pymv.display.preprocessing.PreprocessingSpec
+.. autoclass:: polyclustx.display.preprocessing.PreprocessingSpec
    :members:
 
-.. autoclass:: pymv.display.preprocessing.ViewPreprocessing
+.. autoclass:: polyclustx.display.preprocessing.ViewPreprocessing
    :members:
 
-.. autofunction:: pymv.display.profiles.dataset_profile
+.. autofunction:: polyclustx.display.profiles.dataset_profile
 
-.. autoclass:: pymv.display.synthetic.SyntheticSpec
+.. autoclass:: polyclustx.display.synthetic.SyntheticSpec
    :members:
 
-.. autoclass:: pymv.display.synthetic.SyntheticGraphSpec
+.. autoclass:: polyclustx.display.synthetic.SyntheticGraphSpec
    :members:
 
-.. autofunction:: pymv.display.synthetic.generate_synthetic
+.. autofunction:: polyclustx.display.synthetic.generate_synthetic
 
-.. autofunction:: pymv.display.workspace.export_record
+.. autofunction:: polyclustx.display.workspace.export_record
 
-.. autofunction:: pymv.display.workspace.fingerprint
+.. autofunction:: polyclustx.display.workspace.fingerprint
 
-.. autofunction:: pymv.display.exporting.dataset_mat
+.. autofunction:: polyclustx.display.exporting.dataset_mat

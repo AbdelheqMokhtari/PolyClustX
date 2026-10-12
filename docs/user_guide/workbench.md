@@ -9,8 +9,8 @@ discarding your work.
 Use Python 3.10 or newer; Python 3.11 is recommended.
 
 ```bash
-python -m pip install pymv-clustering
-pymv display
+python -m pip install polyclustx
+polyclustx-display
 ```
 
 Open the local address printed in the terminal, normally http://localhost:8501.
@@ -18,21 +18,27 @@ For environment creation, Windows activation, repository downloads and restartin
 follow the [installation tutorial](installation.rst). To choose another port:
 
 ```bash
-pymv-display --server.port=8502
+polyclustx-display --server.port=8502
 ```
 
 ## Your first experiment
 
-1. Open **Dataset**, choose **Synthetic**, and keep the small default example.
-2. Click **Create synthetic dataset**. Inspect the view and class summaries.
-3. Choose any preprocessing you need, then click **Apply changes**.
-4. Open **Model**, select a method, enter its parameters, and save a named configuration.
-5. Open **Experiment**, select your dataset and model, and click **Run experiment**.
-6. Read **Results**, explore **Visualizations**, then download from **Export**.
+Try a small comparison before loading your own data:
 
-```{pymv-screenshot} interface-overview.png
-Sidebar navigation with Dataset selected and a small synthetic dataset loaded.
-```
+1. In **Dataset → Synthetic**, name the dataset `Three groups`. Use 90 samples,
+   3 classes and 2 Gaussian views with 8 features each. Leave graphs disabled.
+2. Click **Create synthetic dataset**, keep benchmark mode enabled, then click
+   **Apply changes**. The dataset is now available for experiments.
+3. In **Model**, save `MultiViewKMeans` as `K-means baseline`. Save a second
+   configuration using `LMGEC`, embedding dimension 3 and `max_iter=10`.
+4. In **Experiment**, select `Three groups` and both models. Keep K=3 and choose
+   3 independent runs. Click **Run experiment**: this performs six fits.
+5. In **Results**, compare the mean NMI and its standard deviation. In
+   **Visualizations**, select Run 1 and compare reference and predicted labels.
+6. In **Export**, choose the experiment and download its ZIP report.
+
+To try unlabeled use, return to **Dataset**, disable benchmark mode and apply
+the change. Run a new experiment using silhouette instead of NMI.
 
 ## 1. Dataset: load, inspect and prepare
 
@@ -70,10 +76,6 @@ feature statistics, missing observations, estimated memory, and graph properties
 Inspect either original or applied/prepared data. Benchmark mode starts enabled
 when labels exist; uncheck it to use internal evaluation only.
 
-```{pymv-screenshot} dataset-details.png
-Dataset collection, benchmark setting, class distribution and per-view statistics.
-```
-
 ### Generate synthetic graphs
 
 Under **Synthetic graphs**, choose **No graphs**, **Per-view graphs**, or
@@ -110,10 +112,6 @@ datasets appear in experiments and searches. This validates and saves the
 recipe; the original source stays unchanged. Preparation is applied once for
 each fit, and model-internal preprocessing is disabled when necessary to
 avoid applying feature transformations twice.
-
-```{pymv-screenshot} dataset-preprocessing.png
-Preprocessing controls, missing-view simulation, imputation and Apply changes.
-```
 
 ## 2. Model: save named configurations
 
@@ -161,10 +159,6 @@ Click **Run search** to see the summary and tuning steps. Choose a **Best model
 name** (default: `MODEL_strategy_best_#1`) and click **Copy best to experiment**
 to save the winning settings. The winning K is preserved. This does not start
 a new fit. Download the search report from **Export → Individual results**.
-
-```{pymv-screenshot} hyperparameter-search.png
-Grid or random search controls, objective, result table and named best-model action.
-```
 
 ## 4. Experiment: compare combinations
 
@@ -218,10 +212,6 @@ suggestion. Toggle row normalization to show proportions or counts.
 Click **Save plot to Export** below any supported figure to capture its current
 settings and plotted values. Saving the same figure again replaces that snapshot.
 
-```{pymv-screenshot} results-visualizations.png
-Named runs, normalized loss comparison and a Hungarian-aligned confusion matrix.
-```
-
 ## 6. Export: download reports, plots and data
 
 | Export type | Contents |
@@ -243,11 +233,7 @@ Arrays are named `view_1`, `view_2`, `graph_1_1`, etc. `graph_mapping` contains
 one-based view/relation pairs; `observed_mask` marks available observations.
 Reload through Files → NPZ / MATLAB container and select those arrays explicitly.
 The interface limits source data to 256 MB for this download; Python users can use
-`pymv.display.exporting.dataset_mat(data)` directly and write the returned bytes.
-
-```{pymv-screenshot} export-center.png
-Export categories, named report and plot downloads, and prepared MATLAB dataset export.
-```
+`polyclustx.display.exporting.dataset_mat(data)` directly and write the returned bytes.
 
 ## Session storage and hosting
 

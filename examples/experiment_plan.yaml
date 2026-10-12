@@ -1,0 +1,27 @@
+# Run: polyclustx experiment --config examples/experiment_plan.yaml
+# These short schedules illustrate the workflow, not publication benchmarks.
+name: feature-and-graph-comparison
+datasets:
+  - acm
+  - dblp
+models:
+  - name: multiview_kmeans
+    label: Co-EM baseline
+    params:
+      n_init: 3
+      max_iter: 30
+  - name: lmgec
+    label: LMGEC small
+    params:
+      embedding_dim: 8
+      max_iter: 20
+  - name: scm
+    label: SCM small
+    params:
+      embedding_dim: 8
+      max_iter: 20
+runs: 3
+seed: 42
+metrics: [acc, nmi, ari]
+benchmark: true
+output: experiments/feature-and-graph-comparison

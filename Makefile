@@ -1,9 +1,9 @@
 .PHONY: help guide cli run search list-datasets list-models \
-        install test lint fix build docs docs-build docs-serve docs-deploy clean version bump release
+        install test lint fix format build docs docs-build docs-serve docs-deploy clean version bump release
 
 PYTHON ?= python
 PORT ?= 8000
-RTD_PROJECT ?= pymv
+RTD_PROJECT ?= polyclustx
 RTD_VERSION ?= latest
 
 # ── Help ──────────────────────────────────────────────────────────
@@ -18,19 +18,19 @@ install:         ## Install the complete package, including the interface
 	$(PYTHON) -m pip install .
 
 test:            ## Run the test suite
-	pytest -q $(ARGS)
+	$(PYTHON) -m pytest $(ARGS)
 
 lint:            ## Lint with ruff
-	ruff check src/ tests/
+	$(PYTHON) -m ruff check src/ tests/
 
 fix:             ## Auto-fix lint issues
-	ruff check --fix src/ tests/
+	$(PYTHON) -m ruff check --fix src/ tests/
 
 format:          ## Format code (Black-compatible)
-	ruff format src/ tests/
+	$(PYTHON) -m ruff format src/ tests/
 
 build:           ## Build wheel and sdist
-	python -m build
+	$(PYTHON) -m build
 
 docs: docs-build  ## Alias for docs-build
 
@@ -46,42 +46,41 @@ docs-deploy:     ## Trigger Read the Docs; requires READTHEDOCS_TOKEN in the env
 	$(PYTHON) scripts/deploy_docs.py --project $(RTD_PROJECT) --version $(RTD_VERSION)
 
 clean:           ## Remove build, cache and docs artifacts
-	rm -rf build dist *.egg-info src/*.egg-info docs/_build .pytest_cache .ruff_cache .coverage
-	find . -name __pycache__ -type d -prune -exec rm -rf {} +
+	rm -rf build dist src/polyclustx.egg-info docs/_build .pytest_cache .ruff_cache .coverage htmlcov test-results.xml
+	find src tests docs scripts -name __pycache__ -type d -prune -exec rm -rf {} +
 
 # ── CLI helpers ───────────────────────────────────────────────────
 
 guide:           ## Show short command-line help
-	@$(PYTHON) -m pymv.command
+	@$(PYTHON) -m polyclustx.command
 
 cli:             ## Forward arguments, e.g. make cli ARGS="models idec"
-	@$(PYTHON) -m pymv.command $(ARGS)
+	@$(PYTHON) -m polyclustx.command $(ARGS)
 
 run:             ## Run a model: make run DATASET=acm MODEL=lmgec ARGS="--runs 3"
-	@$(PYTHON) -m pymv.command run $(DATASET) --model $(or $(MODEL),multiview_kmeans) $(ARGS)
+	@$(PYTHON) -m polyclustx.command run $(DATASET) --model $(or $(MODEL),multiview_kmeans) $(ARGS)
 
 search:          ## Tune a model: pass --strategy and --vary through ARGS
-	@$(PYTHON) -m pymv.command search $(DATASET) --model $(or $(MODEL),multiview_kmeans) $(ARGS)
+	@$(PYTHON) -m polyclustx.command search $(DATASET) --model $(or $(MODEL),multiview_kmeans) $(ARGS)
 
 list-datasets:   ## List dataset families
-	@$(PYTHON) -m pymv.command datasets
+	@$(PYTHON) -m polyclustx.command datasets
 
 list-models:     ## List registered models
-	@$(PYTHON) -m pymv.command models
+	@$(PYTHON) -m polyclustx.command models
 
 # ── Release ───────────────────────────────────────────────────────
 
 version:         ## Show the current library version
-	@pymv-cli --version
+	@$(PYTHON) -m polyclustx --version
 
-bump:            ## Bump version using commitizen (updates all version files + CHANGELOG.md)
+bump:            ## Bump version using commitizen (updates version files)
 	@echo "Bumping version with commitizen..."
 	cz bump
 	@echo ""
 	@echo "Version bumped. Files updated:"
 	@echo "  - pyproject.toml  (project.version + tool.commitizen.version)"
-	@echo "  - src/pymv/__init__.py  (__version__)"
-	@echo "  - CHANGELOG.md"
+	@echo "  - src/polyclustx/__init__.py  (__version__)"
 	@echo ""
 	@echo "Run  make release  to merge into main and push tags."
 
@@ -98,7 +97,7 @@ release:         ## Full release: bump -> merge develop -> main, push tags
 		exit 1; \
 	fi
 
-	@echo "Bumping version (commitizen -> all version files + CHANGELOG.md)"
+	@echo "Bumping version (commitizen -> version files)"
 	cz bump
 
 	@echo "Switching to main"
@@ -117,4 +116,4 @@ release:         ## Full release: bump -> merge develop -> main, push tags
 
 	@echo ""
 	@echo "Release completed successfully"
-	@pymv-cli --version
+	@$(PYTHON) -m polyclustx --version

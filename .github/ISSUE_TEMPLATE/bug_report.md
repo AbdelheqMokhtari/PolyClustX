@@ -5,7 +5,7 @@ about: Report a reproducible problem
 
 ### Environment
 
-pymv version, Python version, operating system; interface or Python API?
+polyclustx version, Python version, operating system; interface or Python API?
 
 ### Reproduce
 

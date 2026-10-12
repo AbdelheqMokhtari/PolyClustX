@@ -3,13 +3,13 @@ requires = ["setuptools>=77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pymv-clustering"
+name = "polyclustx"
 version = "1.3.1"
-description = "A comparative framework for multi-view and multimodal clustering and representation learning."
+description = "A Unified Framework for Multi-View and Multimodal Representation Learning and Clustering from Feature Views to Attributed Graphs"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+license-files = ["LICENSE"]
 
 authors = [
     { name = "Abdelheq Mokhtari", email = "mokhtari.abdelheq@gmail.com" }
@@ -64,14 +64,26 @@ ui = ["streamlit>=1.51,<2", "pandas>=1.5", "plotly>=5.10", "networkx>=2.8"]
 display = ["streamlit>=1.51,<2", "pandas>=1.5", "plotly>=5.10", "networkx>=2.8"]
 
 [project.urls]
-Homepage = "https://github.com/AbdelheqMokhtari/pymv"
-Documentation = "https://pymv.readthedocs.io/en/latest/"
-BugTracker = "https://github.com/AbdelheqMokhtari/pymv/issues"
+Homepage = "https://github.com/AbdelheqMokhtari/PolyClustX"
+Documentation = "https://polyclustx.readthedocs.io/en/latest/"
+BugTracker = "https://github.com/AbdelheqMokhtari/PolyClustX/issues"
 
 [project.scripts]
-pymv = "pymv.command:main"
-pymv-cli = "pymv.cli:main"
-pymv-display = "pymv.display:launch"
+polyclustx = "polyclustx.command:main"
+polyclustx-display = "polyclustx.display:launch"
+lmgec = "polyclustx.models.lmgec:main"
+scm = "polyclustx.models.scm:main"
+idec = "polyclustx.models.idec:main"
+completer = "polyclustx.models.completer:main"
+dcp = "polyclustx.models.dcp:main"
+mflvc = "polyclustx.models.mflvc:main"
+conan = "polyclustx.models.conan:main"
+dgf = "polyclustx.models.dgf:main"
+g-comvkm = "polyclustx.models.g_comvkm:main"
+sgla = "polyclustx.models.sgla:main"
+umc = "polyclustx.models.umc:main"
+multiview-kmeans = "polyclustx.models.multiview_kmeans:main"
+multiview-spectral = "polyclustx.models.multiview_spectral:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -80,8 +92,8 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-pymv = ["configs/*.yaml"]
-"pymv.display" = ["assets/*.png"]
+polyclustx = ["configs/*.yaml"]
+"polyclustx.display" = ["assets/*.png"]
 
 
 [tool.commitizen]
@@ -90,11 +102,10 @@ version = "1.3.1"
 tag_format = "v$version"
 version_files = [
     "pyproject.toml:version",
-    "src/pymv/__init__.py:__version__",
+    "src/polyclustx/__init__.py:__version__",
 ]
 
-update_changelog_on_bump = true
-changelog_file = "CHANGELOG.md"
+update_changelog_on_bump = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -114,4 +125,4 @@ src = ["src", "tests"]
 select = ["E", "F", "I"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["pymv"]
+known-first-party = ["polyclustx"]

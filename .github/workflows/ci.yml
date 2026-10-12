@@ -94,19 +94,28 @@ jobs:
           python -m pip install --no-deps dist/*.whl
           python - <<'PY'
           from importlib.metadata import distribution
-          # Ensure "pymv-clustering" exactly matches the package name in pyproject.toml
-          package = distribution("pymv-clustering")
+          # Ensure "polyclustx" exactly matches the package name in pyproject.toml
+          package = distribution("polyclustx")
           files = {str(path) for path in package.files}
-          for path in ("pymv/cli.py", "pymv/configs/default.yaml", "pymv/display/assets/logo.png"):
+          for path in ("polyclustx/cli.py", "polyclustx/__main__.py", "polyclustx/brand.py",
+                       "polyclustx/configs/default.yaml", "polyclustx/display/assets/logo.png",
+                       "polyclustx/display/assets/borelli.png", "polyclustx/display/assets/paris_cite.png"):
               assert path in files, path
+          assert not any(path.startswith("pymv/") for path in files)
           requirements = package.requires or []
           assert any(req.startswith("torch") for req in requirements)
           assert not any("tensorflow" in req.lower() for req in requirements)
-          assert any(path.endswith("/licenses/THIRD_PARTY_NOTICES.md") for path in files)
+          license_path = next(path for path in package.files if str(path).endswith("/licenses/LICENSE"))
+          notices = package.locate_file(license_path).read_text()
+          assert "The mvlearn developers" in notices and "XLearning Group" in notices
           assert not any(path.startswith(("SCM/", "IDEC/", "Completer/", "DCP/", "MFLVC/",
                                           "conan/", "DGF/", "G-CoMVKM/", "SGLA/", "UMC/", "GMVC/")) for path in files)
           scripts = {entry.name for entry in package.entry_points}
-          assert {"pymv", "pymv-cli", "pymv-display"} <= scripts
+          assert {"polyclustx", "polyclustx-display", "lmgec", "scm", "idec", "completer",
+                  "dcp", "mflvc", "conan", "dgf", "g-comvkm", "sgla", "umc",
+                  "multiview-kmeans", "multiview-spectral"} <= scripts
+          assert "polyclustx-cli" not in scripts
+          assert not any(name.startswith("pymv") for name in scripts)
           for dependency in ("streamlit", "pandas", "plotly", "networkx", "optuna"):
               assert any(req.startswith(dependency) and "extra ==" not in req for req in requirements)
           assert {"ui", "display"} <= set(package.metadata.get_all("Provides-Extra"))

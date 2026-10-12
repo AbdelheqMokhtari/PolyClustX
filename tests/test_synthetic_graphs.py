@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from scipy import sparse
 
-from pymv.display.synthetic import SyntheticGraphSpec, SyntheticSpec, generate_synthetic
+from polyclustx.display.synthetic import SyntheticGraphSpec, SyntheticSpec, generate_synthetic
 
 
 @pytest.mark.parametrize("kind", ["knn", "mutual_knn", "rbf_knn"])

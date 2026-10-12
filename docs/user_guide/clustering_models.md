@@ -29,8 +29,8 @@ see [all models, papers and original implementations](../background/algorithms.m
 
 ```python
 import numpy as np
-from pymv.data import MultiViewDataset
-from pymv.models import MultiViewKMeans
+from polyclustx.data import MultiViewDataset
+from polyclustx.models import MultiViewKMeans
 
 rng = np.random.default_rng(42)
 data = MultiViewDataset([rng.normal(size=(100, 8)), rng.normal(size=(100, 12))])
@@ -61,7 +61,7 @@ finite objectives. Historical implementation bugs are not reproduced.
 ## Spectral co-training
 
 ```python
-from pymv.models import MultiViewSpectralClustering
+from polyclustx.models import MultiViewSpectralClustering
 
 model = data.fit(MultiViewSpectralClustering(
     n_clusters=3, affinity="rbf", gamma=None, max_iter=5, random_state=42,
@@ -97,7 +97,7 @@ make a large spectral job fast.
 ## IDEC
 
 ```python
-from pymv.models import IDEC
+from polyclustx.models import IDEC
 
 model = data.fit(IDEC(
     n_clusters=3, embedding_dim=10, hidden_dims=(128, 64),
@@ -123,8 +123,8 @@ is separate from the refinement `loss_history_`.
 ## COMPLETER and DCP: native missing views
 
 ```python
-from pymv.data import simulate_missing_views
-from pymv.models import COMPLETER, DCP
+from polyclustx.data import simulate_missing_views
+from polyclustx.models import COMPLETER, DCP
 
 incomplete = simulate_missing_views(data, missing_rate=0.2, random_state=42)
 model = incomplete.fit(COMPLETER(
@@ -169,7 +169,7 @@ appropriate dataset-specific widths, latent dimension, epochs and learning rate.
 ## MFLVC
 
 ```python
-from pymv.models import MFLVC
+from polyclustx.models import MFLVC
 
 model = data.fit(MFLVC(
     n_clusters=3, hidden_dims=(128, 64), embedding_dim=64, projection_dim=32,
@@ -220,8 +220,8 @@ Co-EM restart objectives, consensus counts, and spectral subspace changes when
 available. MultiViewSpectralClustering has no scalar training loss and records
 subspace change instead; SGLA does record its spectral aggregation objective.
 
-See `examples/new_models.py` for a small, offline experiment across these
-methods and the [API reference](../api/models.rst) for constructor defaults.
+See the [worked examples](examples.rst) for an offline comparison and the
+[API reference](../api/models.rst) for constructor defaults.
 
 ## CONAN: nonlinear contrastive fusion
 
@@ -231,7 +231,7 @@ aligns the fused representation with each view using an instance contrastive
 loss. A divergence-based clustering head learns assignments jointly.
 
 ```python
-from pymv.models import CONAN
+from polyclustx.models import CONAN
 model = CONAN(n_clusters=3, embedding_dim=32, hidden_dims=(128, 64),
               projection_dim=32, max_iter=50, random_state=42)
 data.fit(model)
@@ -256,7 +256,7 @@ filter and a feature-correlation filter. Cross-modal, random-walk and
 pseudo-community contrast train the projections without true labels.
 
 ```python
-from pymv.models import DGF
+from polyclustx.models import DGF
 model = DGF(n_clusters=3, embedding_dim=32, num_layers=5,
             max_iter=50, batch_size=128, random_state=42)
 data.fit(model)  # supplied graphs are used; otherwise feature kNN graphs are built
@@ -289,7 +289,7 @@ regularized feature weights and reduce low-weight features. View weights then
 balance the resulting distortions; their membership vote yields the partition.
 
 ```python
-from pymv.models import GCoMVKM
+from polyclustx.models import GCoMVKM
 model = GCoMVKM(n_clusters=3, gamma=5., theta=4., random_state=42)
 data.fit(model)
 print(model.view_weights_, model.selected_features_)
@@ -318,7 +318,7 @@ the relative eigengap minus algebraic connectivity plus squared-weight
 regularization. PyTorch computes eigensystems; SciPy's COBYLA searches weights.
 
 ```python
-from pymv.models import SGLA
+from polyclustx.models import SGLA
 model = SGLA(n_clusters=3, n_neighbors=10, gamma=.5, max_iter=50, random_state=42)
 data.fit(model)
 print(list(zip(model.graph_sources_, model.view_weights_)))
@@ -344,7 +344,7 @@ pseudo-labels. The framework accepts **your extracted feature matrices**; it
 does not download BERT, WavLM, Swin or the authors' datasets.
 
 ```python
-from pymv.models import UMC
+from polyclustx.models import UMC
 model = UMC(n_clusters=3, embedding_dim=32, hidden_dims=(64,),
             core_view=0, initial_fraction=.25, pretrain_epochs=10,
             max_iter=20, random_state=42)

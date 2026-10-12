@@ -1,0 +1,10 @@
+{% extends "!layout.html" %}
+{% block extrahead %}
+{{ super() }}
+<meta name="description" content="{{ polyclustx_definition }}">
+<style>{{ polyclustx_css | safe }}</style>
+{% endblock %}
+{% block navigation %}
+{{ super() }}
+{% include "affiliations.html" %}
+{% endblock %}

@@ -9,9 +9,9 @@ import pytest
 import torch
 from scipy import sparse
 
-from pymv.models import LMGEC, SCM
-from pymv.models._torch_utils import resolve_device
-from pymv.models.lmgec.lmgec import _train_loop, _update_rule_F, _update_rule_G, _update_rule_W
+from polyclustx.models import LMGEC, SCM
+from polyclustx.models._torch_utils import resolve_device
+from polyclustx.models.lmgec.lmgec import _train_loop, _update_rule_F, _update_rule_G, _update_rule_W
 
 
 def numpy_loop(views, centers, labels, weights, k, iterations):
@@ -209,7 +209,7 @@ def test_cuda_fit_returns_numpy_results_and_cpu_network(cls, kwargs):
 
 
 def test_pytorch_backend_and_actual_device_in_portable_reports():
-    from pymv.experiment.exports import diagnostics, model_details
+    from polyclustx.experiment.exports import diagnostics, model_details
 
     for cls, kwargs in [(LMGEC, {"embedding_dim": 2}), (SCM, {"hidden_dims": (4,)})]:
         model = cls(2, max_iter=1, device="cpu", random_state=2, **kwargs).fit(
@@ -228,11 +228,11 @@ def guarded_import(name, *args, **kwargs):
     return original_import(name, *args, **kwargs)
 # PyTorch may probe optional module specs; only actual imports are prohibited.
 builtins.__import__ = guarded_import
-import pymv
+import polyclustx
 import numpy as np
-from pymv.models import LMGEC, SCM
-from pymv.tracking import _get_environment_info
-from pymv.experiment.markdown_export import _get_environment_info as markdown_environment
+from polyclustx.models import LMGEC, SCM
+from polyclustx.tracking import _get_environment_info
+from polyclustx.experiment.markdown_export import _get_environment_info as markdown_environment
 views = [np.random.default_rng(2).normal(size=(8, 4))]
 LMGEC(2, 2, max_iter=1, device="cpu").fit(views)
 SCM(2, hidden_dims=(4,), max_iter=1, device="cpu").fit(views)

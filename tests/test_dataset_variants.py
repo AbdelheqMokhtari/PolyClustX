@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from pymv.data import MultiViewDataset, get_dataset_info, list_datasets, list_variants, load_data, registry
+from polyclustx.data import MultiViewDataset, get_dataset_info, list_datasets, list_variants, load_data, registry
 
 
 def test_variants_are_grouped():

@@ -3,9 +3,9 @@ import pytest
 import torch
 from sklearn.cluster import KMeans
 
-from pymv.models import MultiViewKMeans, MultiViewSpectralClustering
-from pymv.models.multiview_kmeans import em_step
-from pymv.models.multiview_spectral import refine_similarities, spectral_components
+from polyclustx.models import MultiViewKMeans, MultiViewSpectralClustering
+from polyclustx.models.multiview_kmeans.multiview_kmeans import em_step
+from polyclustx.models.multiview_spectral.multiview_spectral import refine_similarities, spectral_components
 
 
 def views(count=2):
@@ -80,7 +80,7 @@ def test_spectral_selected_view_and_memory_guard():
 
 
 def test_shared_executor_only_falls_back_on_automatic_cuda_oom(monkeypatch):
-    from pymv.models import _common
+    from polyclustx.models import _common
 
     monkeypatch.setattr(_common, "resolve_device", lambda value: torch.device("cuda"))
     monkeypatch.setattr(torch.cuda, "empty_cache", lambda: None)

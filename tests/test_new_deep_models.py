@@ -4,11 +4,11 @@ import torch
 from scipy import sparse
 from sklearn.exceptions import NotFittedError
 
-from pymv.data import MultiViewDataset
-from pymv.models import COMPLETER, DCP, IDEC, MFLVC
-from pymv.models.completer import consistency_loss
-from pymv.models.idec import student_assignments, target_distribution
-from pymv.models.mflvc import aligned_pseudo_labels, label_contrastive_loss
+from polyclustx.data import MultiViewDataset
+from polyclustx.models import COMPLETER, DCP, IDEC, MFLVC
+from polyclustx.models.completer.completer import consistency_loss
+from polyclustx.models.idec.idec import student_assignments, target_distribution
+from polyclustx.models.mflvc.mflvc import aligned_pseudo_labels, label_contrastive_loss
 
 
 def configuration(cls):

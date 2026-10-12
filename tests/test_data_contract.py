@@ -5,7 +5,7 @@ import pytest
 from scipy import sparse
 from scipy.io import savemat
 
-from pymv.data import (
+from polyclustx.data import (
     MultiViewDataset,
     align_views,
     dataset_from_arrays,
@@ -13,7 +13,7 @@ from pymv.data import (
     read_arrays,
     simulate_missing_views,
 )
-from pymv.preprocessing import fuse_graphs
+from polyclustx.preprocessing import fuse_graphs
 
 
 @pytest.mark.parametrize("views", [1, 2, 4])

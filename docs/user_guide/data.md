@@ -23,7 +23,7 @@ matrices in the declared sample order. SciPy sparse matrices are supported.
 ## Built-in datasets and variants
 
 ```python
-from pymv.data import load_data, list_datasets, list_variants
+from polyclustx.data import load_data, list_datasets, list_variants
 
 data = load_data("pascal", variant="clip")
 graph_data = load_data("acm")
@@ -39,7 +39,7 @@ See the [dataset catalog](../catalog/datasets.rst).
 
 ```python
 import numpy as np
-from pymv.data import MultiViewDataset
+from polyclustx.data import MultiViewDataset
 
 rng = np.random.default_rng(4)
 data = MultiViewDataset(
@@ -56,7 +56,7 @@ One, two, or more views use the same container and fitting interface.
 ## NumPy, CSV and MATLAB: inspect first, map explicitly
 
 ```python
-from pymv.data import read_arrays, dataset_from_arrays
+from polyclustx.data import read_arrays, dataset_from_arrays
 
 arrays = read_arrays("measurements.npz")
 print({key: value.shape for key, value in arrays.items()})
@@ -81,7 +81,7 @@ stored features × samples, use `transpose_views=["visual"]`.
 For several aligned CSV views:
 
 ```python
-from pymv.data import load_files
+from polyclustx.data import load_files
 
 data = load_files(
     ["shape.csv", "texture.csv"],

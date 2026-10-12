@@ -6,19 +6,19 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pymv.data import MultiViewDataset
-from pymv.display.preprocessing import PreprocessingSpec, ViewPreprocessing, prepare_dataset
-from pymv.display.profiles import dataset_profile
-from pymv.display.results import aggregate_results, compact_confusion
-from pymv.display.synthetic import SyntheticSpec, generate_synthetic
-from pymv.display.workspace import INTERNAL_NAMES, ExperimentSpec, Workspace, export_record
+from polyclustx.data import MultiViewDataset
+from polyclustx.display.preprocessing import PreprocessingSpec, ViewPreprocessing, prepare_dataset
+from polyclustx.display.profiles import dataset_profile
+from polyclustx.display.results import aggregate_results, compact_confusion
+from polyclustx.display.synthetic import SyntheticSpec, generate_synthetic
+from polyclustx.display.workspace import INTERNAL_NAMES, ExperimentSpec, Workspace, export_record
 from tests.test_unsupervised_experiments import DummyModel
 
 st = pytest.importorskip("streamlit")
 
 @pytest.fixture
 def workspace(monkeypatch):
-    import pymv.display.workspace as module
+    import polyclustx.display.workspace as module
 
     monkeypatch.setattr(module, "get_model", lambda name: DummyModel)
     result = Workspace()
@@ -55,7 +55,7 @@ def test_no_label_leakage(workspace):
 
 
 def test_single_double_many_and_missing_imputation(monkeypatch):
-    import pymv.display.workspace as module
+    import polyclustx.display.workspace as module
 
     monkeypatch.setattr(module, "get_model", lambda name: DummyModel)
     for views in [1, 2, 5]:
@@ -138,7 +138,7 @@ def test_streamlit_create_run_duplicate_delete():
     pytest.importorskip("streamlit")
     from streamlit.testing.v1 import AppTest
 
-    app = Path(__file__).resolve().parents[1] / "src/pymv/display/app.py"
+    app = Path(__file__).resolve().parents[1] / "src/polyclustx/display/app.py"
     at = AppTest.from_file(str(app), default_timeout=60).run()
     assert not at.exception
     next(r for r in at.radio if r.label == "Data source").set_value("Synthetic").run()
@@ -168,7 +168,7 @@ def test_streamlit_create_run_duplicate_delete():
 
 
 def test_projection_sampling():
-    from pymv.display.projection import project_embedding
+    from polyclustx.display.projection import project_embedding
 
     x = np.random.default_rng(1).normal(size=(20, 4))
     projected, rows = project_embedding(x, max_samples=10)
@@ -181,7 +181,7 @@ def test_projection_sampling():
 def test_streamlit_benchmark_toggle_removes_external_metrics():
     pytest.importorskip("streamlit")
     from streamlit.testing.v1 import AppTest
-    app = Path(__file__).resolve().parents[1] / "src/pymv/display/app.py"
+    app = Path(__file__).resolve().parents[1] / "src/polyclustx/display/app.py"
     at = AppTest.from_file(str(app), default_timeout=60).run()
     next(r for r in at.radio if r.label == "Data source").set_value("Synthetic").run()
     next(b for b in at.button if b.label == "Create synthetic dataset").click().run()

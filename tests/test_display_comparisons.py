@@ -3,8 +3,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pymv.display.artifacts import StoredArtifact
-from pymv.display.workspace import ExperimentSpec, Workspace
+from polyclustx.display.artifacts import StoredArtifact
+from polyclustx.display.workspace import ExperimentSpec, Workspace
 from tests.test_experiment_reports import ReportModel, dataset
 
 st = pytest.importorskip("streamlit")
@@ -13,7 +13,7 @@ def app_test(workspace, page):
     pytest.importorskip("streamlit")
     from streamlit.testing.v1 import AppTest
 
-    at = AppTest.from_file(Path(__file__).resolve().parents[1] / "src/pymv/display/app.py", default_timeout=60)
+    at = AppTest.from_file(Path(__file__).resolve().parents[1] / "src/polyclustx/display/app.py", default_timeout=60)
     at.session_state["workspace"] = workspace
     at.session_state["workflow_step"] = page
     return at.run()
@@ -73,7 +73,7 @@ def test_batch_ui_rejects_mixed_modes():
 
 
 def test_artifacts_are_lazy_and_removed_with_record(monkeypatch, tmp_path):
-    monkeypatch.setattr("pymv.display.workspace.get_model", lambda _: ReportModel)
+    monkeypatch.setattr("polyclustx.display.workspace.get_model", lambda _: ReportModel)
     ws = Workspace()
     key = ws.add_dataset(dataset())
     record = ws.run(ExperimentSpec(key, clusters=[2], repeats=2), output_dir=tmp_path)

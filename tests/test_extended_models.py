@@ -3,14 +3,14 @@ import pytest
 import torch
 from scipy import sparse
 
-from pymv.data import MultiViewDataset
-from pymv.display.model_controls import parameter_controls
-from pymv.display.workspace import ExperimentSpec, Workspace
-from pymv.models import CONAN, DGF, SGLA, UMC, GCoMVKM, get_model
-from pymv.models.conan import divergence_loss
-from pymv.models.dgf import walk_contexts
-from pymv.models.sgla import spectral_objective
-from pymv.models.umc import high_quality_indices, supervised_contrastive
+from polyclustx.data import MultiViewDataset
+from polyclustx.display.model_controls import parameter_controls
+from polyclustx.display.workspace import ExperimentSpec, Workspace
+from polyclustx.models import CONAN, DGF, SGLA, UMC, GCoMVKM, get_model
+from polyclustx.models.conan.conan import divergence_loss
+from polyclustx.models.dgf.dgf import walk_contexts
+from polyclustx.models.sgla.sgla import spectral_objective
+from polyclustx.models.umc.umc import high_quality_indices, supervised_contrastive
 
 MODELS = ["conan", "dgf", "g_comvkm", "sgla", "umc"]
 

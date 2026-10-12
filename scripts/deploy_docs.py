@@ -21,7 +21,7 @@ def deploy(project, version, token):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--project", default="pymv")
+    parser.add_argument("--project", default="polyclustx")
     parser.add_argument("--version", default="latest")
     args = parser.parse_args()
     try:
