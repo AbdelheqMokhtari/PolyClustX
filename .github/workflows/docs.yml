@@ -44,7 +44,8 @@ jobs:
           - python: '3.11'
             streamlit: latest
     env:
-      TF_CPP_MIN_LOG_LEVEL: '3'
+      OMP_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
       CUDA_VISIBLE_DEVICES: ''
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +53,9 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-      - run: pip install -e '.[dev,ui]'
+      - run: |
+          pip install 'torch>=2.4,<3' --index-url https://download.pytorch.org/whl/cpu
+          pip install -e '.[dev,ui]'
       - if: matrix.streamlit == 'minimum'
         run: pip install 'streamlit==1.51.0'
       - name: Full offline suite with interface dependencies

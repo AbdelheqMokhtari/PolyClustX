@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pymv.data import dataset_from_arrays, load_files
-from pymv.display.model_controls import COMMON, parse_candidates
+from polyclustx.data import dataset_from_arrays, load_files
+from polyclustx.display.model_controls import COMMON, parse_candidates
 
 st = pytest.importorskip("streamlit")
 
@@ -79,12 +79,12 @@ def test_custom_search_persists_across_navigation_and_rejects_bad_values():
     pytest.importorskip("streamlit")
     from streamlit.testing.v1 import AppTest
 
-    from pymv.display.workspace import Workspace
+    from polyclustx.display.workspace import Workspace
 
     workspace = Workspace()
     features = np.random.default_rng(7).normal(size=(12, 4))
     workspace.add_dataset(dataset_from_arrays({"X": features}, view_keys=["X"]))
-    at = AppTest.from_file(Path(__file__).resolve().parents[1] / "src/pymv/display/app.py", default_timeout=60)
+    at = AppTest.from_file(Path(__file__).resolve().parents[1] / "src/polyclustx/display/app.py", default_timeout=60)
     at.session_state["workspace"] = workspace
     at.session_state["workflow_step"] = 7
     at.run()
@@ -123,8 +123,8 @@ import io
 from unittest.mock import patch
 import numpy as np
 import streamlit as st
-from pymv.display.app import _simple_upload
-from pymv.display.workspace import Workspace
+from polyclustx.display.app import _simple_upload
+from polyclustx.display.workspace import Workspace
 
 class Upload(io.BytesIO):
     def __init__(self, name, data):

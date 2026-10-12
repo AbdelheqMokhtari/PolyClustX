@@ -1,138 +1,119 @@
 .PHONY: help guide cli run search list-datasets list-models \
-        install test lint format build docs clean version bump release
+        install test lint fix format build docs docs-build docs-serve docs-deploy clean version bump release
+
+PYTHON ?= python
+PORT ?= 8000
+RTD_PROJECT ?= polyclustx
+RTD_VERSION ?= latest
 
 # ── Help ──────────────────────────────────────────────────────────
 
 help:            ## Show this list of targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
-		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
+		| awk 'BEGIN {FS = ":.*?## "}; {printf "  %-16s %s\n", $$1, $$2}'
 
 # ── Development ───────────────────────────────────────────────────
 
-install:         ## Editable install with dev + docs extras
-	pip install -e ".[dev,docs]"
+install:         ## Install the complete package, including the interface
+	$(PYTHON) -m pip install .
 
 test:            ## Run the test suite
-	pytest -q
+	$(PYTHON) -m pytest $(ARGS)
 
 lint:            ## Lint with ruff
-	ruff check src/ tests/
+	$(PYTHON) -m ruff check src/ tests/
 
-format:          ## Auto-fix lint issues
-	ruff check --fix src/ tests/
+fix:             ## Auto-fix lint issues
+	$(PYTHON) -m ruff check --fix src/ tests/
+
+format:          ## Format code (Black-compatible)
+	$(PYTHON) -m ruff format src/ tests/
 
 build:           ## Build wheel and sdist
-	python -m build
+	$(PYTHON) -m build
 
-docs:            ## Build the HTML documentation
-	python -m sphinx -b html docs docs/_build/html
+docs: docs-build  ## Alias for docs-build
+
+docs-build:      ## Install documentation tools and build HTML
+	$(PYTHON) -m pip install -r docs/requirements.txt
+	$(PYTHON) -m sphinx -W --keep-going -b html docs docs/_build/html
+
+docs-serve:      ## Serve existing HTML without rebuilding at http://127.0.0.1:8000
+	@test -f docs/_build/html/index.html || { echo "Run make docs-build first."; exit 1; }
+	$(PYTHON) -m http.server $(PORT) --directory docs/_build/html --bind 127.0.0.1
+
+docs-deploy:     ## Trigger Read the Docs; requires READTHEDOCS_TOKEN in the environment
+	$(PYTHON) scripts/deploy_docs.py --project $(RTD_PROJECT) --version $(RTD_VERSION)
 
 clean:           ## Remove build, cache and docs artifacts
-	rm -rf build dist *.egg-info src/*.egg-info docs/_build .pytest_cache .ruff_cache .coverage
-	find . -name __pycache__ -type d -prune -exec rm -rf {} +
+	rm -rf build dist src/polyclustx.egg-info docs/_build .pytest_cache .ruff_cache .coverage htmlcov test-results.xml
+	find src tests docs scripts -name __pycache__ -type d -prune -exec rm -rf {} +
 
 # ── CLI helpers ───────────────────────────────────────────────────
 
-guide:           ## Show the pymv-cli quick-start guide
-	@pymv-cli
+guide:           ## Show short command-line help
+	@$(PYTHON) -m polyclustx.command
 
-cli:             ## Run pymv-cli with forwarded arguments   →  make cli ARGS="--dataset acm"
-	@pymv-cli $(ARGS) || { \
-		echo ""; \
-		echo "╔══════════════════════════════════════════════════════════╗"; \
-		echo "║  \033[1;31mSomething went wrong with pymv-cli\033[0m                      ║"; \
-		echo "║                                                          ║"; \
-		echo "║  Try one of:                                             ║"; \
-		echo "║    make help                # quick-start guide          ║"; \
-		echo "║    make list-datasets       # available datasets         ║"; \
-		echo "║    make list-models         # available models           ║"; \
-		echo "║    pymv-cli --help          # full usage                 ║"; \
-		echo "╚══════════════════════════════════════════════════════════╝"; \
-		exit 1; \
-	}
+cli:             ## Forward arguments, e.g. make cli ARGS="models idec"
+	@$(PYTHON) -m polyclustx.command $(ARGS)
 
-run:             ## Run an experiment   →  make run DATASET=acm BETA=2 RUNS=3
-	@pymv-cli --dataset $(DATASET) \
-		$(if $(BETA),--beta $(BETA)) \
-		$(if $(TEMPERATURE),--temperature $(TEMPERATURE)) \
-		$(if $(TFIDF),--tf-idf $(TFIDF)) \
-		$(if $(RUNS),--runs $(RUNS)) \
-		$(if $(METRICS),--metrics $(METRICS)) \
-		$(if $(SAVE),--save) \
-	|| { \
-		echo ""; \
-		echo "\033[1;31mError:\033[0m Experiment failed."; \
-		echo "  Use  make list-datasets  to check the dataset name."; \
-		echo "  Use  pymv-cli --help     for the full list of options."; \
-		exit 1; \
-	}
+run:             ## Run a model: make run DATASET=acm MODEL=lmgec ARGS="--runs 3"
+	@$(PYTHON) -m polyclustx.command run $(DATASET) --model $(or $(MODEL),multiview_kmeans) $(ARGS)
 
-search:          ## Run a random search →  make search DATASET=acm TRIALS=20
-	@pymv-cli --dataset $(DATASET) --random-search \
-		$(if $(TRIALS),--n-trials $(TRIALS)) \
-		$(if $(SEED),--seed $(SEED)) \
-		$(if $(METRICS),--metrics $(METRICS)) \
-		$(if $(SAVE),--save) \
-	|| { \
-		echo ""; \
-		echo "\033[1;31mError:\033[0m Random search failed."; \
-		echo "  Use  make list-datasets  to check the dataset name."; \
-		echo "  Use  pymv-cli --help     for the full list of options."; \
-		exit 1; \
-	}
+search:          ## Tune a model: pass --strategy and --vary through ARGS
+	@$(PYTHON) -m polyclustx.command search $(DATASET) --model $(or $(MODEL),multiview_kmeans) $(ARGS)
 
-list-datasets:   ## List all available datasets
-	@pymv-cli --list-datasets
+list-datasets:   ## List dataset families
+	@$(PYTHON) -m polyclustx.command datasets
 
-list-models:     ## List all available models
-	@pymv-cli --list-models
+list-models:     ## List registered models
+	@$(PYTHON) -m polyclustx.command models
 
 # ── Release ───────────────────────────────────────────────────────
 
 version:         ## Show the current library version
-	@pymv-cli --version
+	@$(PYTHON) -m polyclustx --version
 
-bump:            ## Bump version using commitizen (updates all version files + CHANGELOG.md)
-	@echo "📦 Bumping version with commitizen..."
+bump:            ## Bump version using commitizen (updates version files)
+	@echo "Bumping version with commitizen..."
 	cz bump
 	@echo ""
-	@echo "✅ Version bumped. Files updated:"
-	@echo "   • pyproject.toml  (project.version + tool.commitizen.version)"
-	@echo "   • src/pymv/__init__.py  (__version__)"
-	@echo "   • CHANGELOG.md"
+	@echo "Version bumped. Files updated:"
+	@echo "  - pyproject.toml  (project.version + tool.commitizen.version)"
+	@echo "  - src/polyclustx/__init__.py  (__version__)"
 	@echo ""
 	@echo "Run  make release  to merge into main and push tags."
 
-release:         ## Full release: bump → merge develop → main, push tags
-	@echo "🚀 Starting release process..."
+release:         ## Full release: bump -> merge develop -> main, push tags
+	@echo "Starting release process..."
 
 	@if [ "$$(git branch --show-current)" != "develop" ]; then \
-		echo "❌ You must run this from the develop branch"; \
+		echo "Error: You must run this from the develop branch"; \
 		exit 1; \
 	fi
 
 	@if [ -n "$$(git status --porcelain)" ]; then \
-		echo "❌ Working tree is dirty. Commit or stash changes first."; \
+		echo "Error: Working tree is dirty. Commit or stash changes first."; \
 		exit 1; \
 	fi
 
-	@echo "📦 Bumping version (commitizen → all version files + CHANGELOG.md)"
+	@echo "Bumping version (commitizen -> version files)"
 	cz bump
 
-	@echo "🔀 Switching to main"
+	@echo "Switching to main"
 	git checkout main
 
-	@echo "⬇️ Pulling latest main"
+	@echo "Pulling latest main"
 	git pull origin main
 
-	@echo "🔗 Merging develop"
+	@echo "Merging develop"
 	git merge --no-ff develop -m "release: merge develop into main"
 
-	@echo "⬆️ Pushing changes"
+	@echo "Pushing changes"
 	git push origin main
 	git push origin develop
 	git push origin --tags
 
 	@echo ""
-	@echo "✅ Release completed successfully"
-	@pymv-cli --version
+	@echo "Release completed successfully"
+	@$(PYTHON) -m polyclustx --version

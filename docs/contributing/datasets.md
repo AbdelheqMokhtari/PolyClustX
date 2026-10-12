@@ -1,98 +1,93 @@
-# Add datasets and variants
+# Add a dataset
 
-Use `MultiViewDataset` for local/private data; registration is not required.
-For reusable public data, add a `DatasetSpec` to `pymv.data.registry` with its
-source record, artifact filename, reader, description and view count.
-Readers return `(Xs, As, labels)`; validation and metadata happen centrally.
+You can use your own data immediately. Catalog registration is only needed
+when you want other users to load it by name with `load_data`.
 
-For a variant, add an artifact mapping under its family's `VARIANTS` entry.
-Users then call `load_data("family", variant="representation")`, without a new
-public loader for every representation. Update modality annotations when the
-artifact contains distinct modalities. Preserve old published names as aliases
-when migrating an existing artifact.
-
-Add tests for the reader using small synthetic file fixtures. Optional real
-download tests must use the `network` marker so ordinary CI stays offline.
-Document source terms, original dataset references and any unavailable/corrupt
-artifacts. The catalog, CLI and interface populate from registry metadata;
-rebuild docs to check descriptions and variants.
-
-## 1. Start with a local example
-
-Run `python examples/custom_datasets.py` from a repository checkout. It creates
-two tiny MATLAB variants in a temporary directory, loads both, prints their
-dimensions and cleans up. No downloads or registry changes are needed.
+## 1. Create a dataset from arrays
 
 ```python
-from pymv.data import dataset_from_arrays, read_arrays
+from sklearn.datasets import load_iris
+from polyclustx.data import MultiViewDataset
+from polyclustx.models import LMGEC
 
-data = dataset_from_arrays(
-    read_arrays("my_dataset.mat"), view_keys=["image", "text"], label_key="labels",
-    modalities=["image", "text"],
+X, y = load_iris(return_X_y=True)
+data = MultiViewDataset(
+    [X[:, :2], X[:, 2:]], labels=y, name="Iris measurements",
+    view_names=["sepal", "petal"],
 )
+model = data.fit(LMGEC(n_clusters=3, embedding_dim=1, random_state=42))
+print(model.labels_.shape)  # (150,)
 ```
 
-Rows must refer to the same samples in the same order. For different sample
-sets, supply per-view ID arrays as described in [loading data](../user_guide/data.md).
-Use small fixtures to test optional labels, sparse matrices and graph mappings.
+Use `labels=None` without reference labels. Every view must use the same sample
+order. For unaligned samples, follow the [ID-alignment example](../user_guide/missing_views.md).
 
-## 2. Add a public artifact to the catalog
+## 2. Save and reload your own file
 
-In `src/pymv/data/registry.py`, add entries to `_SPECS`. The following is a
-template: replace the record ID, file names and reference with your real data.
-Do not commit the dataset files to the source repository.
+Continue the example above:
+
+```python
+import numpy as np
+from polyclustx.data import read_arrays, dataset_from_arrays
+
+np.savez("iris_views.npz", sepal=X[:, :2], petal=X[:, 2:], labels=y)
+data = dataset_from_arrays(
+    read_arrays("iris_views.npz"),
+    view_keys=["sepal", "petal"], label_key="labels", name="Iris measurements",
+)
+print(data.feature_dims)  # [2, 2]
+```
+
+Choose each array's role explicitly. For graph data, add graph arrays to the
+file and pass `graph_keys={"sepal": ["sepal_graph"]}`. Multiple relations can
+map to the same view. See [loading data](../user_guide/data.md).
+
+## 3. Add a public dataset to the catalog
+
+Place a `DatasetSpec` entry in `_SPECS` in `src/polyclustx/data/registry.py`.
+For a MATLAB file containing `image`, `text` and `labels` arrays:
 
 ```python
 DatasetSpec(
-    name="my_dataset", record="YOUR_ZENODO_RECORD", filename="my_dataset.mat",
+    name="my_dataset",
+    record="YOUR_ZENODO_RECORD_ID",
+    filename="my_dataset.mat",
     reader=readers.read_feature_views,
     kwargs={"keys": ("image", "text"), "label_key": "labels"},
     n_views=2, modalities=("image", "text"),
-    description="Short description of the samples and two modalities.",
-    reference="https://example.org/original-dataset", reference_verified=True,
+    description="Describe the samples, classes and feature representations.",
+    reference="https://example.org/original-dataset",
+    reference_verified=True,
 )
 ```
 
-Readers live in `src/pymv/data/readers.py`. Reuse a reader for standard layouts;
-add a new one only when the file format needs it. Return `(Xs, As, labels)`;
-use `None` for absent graphs or labels. Register actual download artifacts,
-not a link to a repository's HTML page. Include redistribution terms and the
-original dataset citation in the pull request.
+Replace the placeholder record, filename and reference with the real source.
+The current downloader uses Zenodo records. Reuse a reader from
+`src/polyclustx/data/readers.py`; create a new reader only for a different layout.
+Readers return `(Xs, As, labels)`, using `None` when graphs or labels are absent.
 
-## 3. Group variants under one family
+Users can now call `load_data("my_dataset")`. The dataset also appears in the
+interface and documentation catalog. Do not commit dataset files; include their
+source, citation and redistribution terms in your contribution.
 
-Add a second `_SPECS` entry named `my_dataset_compact` for its actual artifact.
-Then, after the existing variant-grouping loops and **before** `ALIASES` is
-constructed, add:
+## 4. Add a variant
+
+Add a second `_SPECS` entry named `my_dataset_compact` with its own file.
+After the existing `VARIANTS` grouping code, before `ALIASES` is constructed, add:
 
 ```python
 VARIANTS["my_dataset"]["compact"] = "my_dataset_compact"
 VARIANTS.pop("my_dataset_compact")
 ```
 
-The existing default mapping is retained. Users can then call:
+Users select the representation without needing another loader:
 
 ```python
-from pymv.data import list_variants, load_data
+from polyclustx.data import load_data
 
-print(list_variants("my_dataset"))  # compact, default
 data = load_data("my_dataset", variant="compact")
 ```
 
-Legacy artifact names become aliases automatically. No new public loader is
-needed for the compact variant. The interface and documentation catalog use
-these same family mappings.
-
-## 4. Test and document the contribution
-
-Add `tests/test_my_dataset.py` with a small `scipy.io.savemat` fixture, exercise
-the reader and assert view shapes, label length, graph alignment and variant
-resolution. Use `monkeypatch` to replace the downloader when testing `load_data`;
-ordinary tests must not contact external servers. See
-`tests/test_contribution_examples.py` for a complete offline registration test.
-
-Update `description`, `modalities`, `reference`, and optional `reference_details`
-in the registry; the dataset table is generated automatically. Add unusual
-loading instructions to `docs/user_guide/data.md`, and an example under
-`examples/` if necessary. Run tests and the strict documentation build before
-opening a pull request against `develop`.
+Test the reader with a tiny local file and check view shapes, sample order and
+label length. Then open a pull request targeting `develop`. A complete offline
+registry test is in `tests/test_contribution_examples.py`.

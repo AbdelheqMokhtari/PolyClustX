@@ -1,0 +1,29 @@
+# ─────────────────────────────────────────────────────────────
+#  polyclustx — Default experiment config
+# ─────────────────────────────────────────────────────────────
+#  Usage:
+#    python -m polyclustx.cli --config configs/default.yaml
+#    python -m polyclustx.cli --config default                    # shorthand
+#    python -m polyclustx.cli --config default --dataset dblp     # override dataset
+
+dataset: acm
+
+model:
+  name: lmgec
+  params:
+    embedding_dim: 16
+    temperature: 1.0
+    beta: 1.0
+    tf_idf: false
+    center: false
+    scale: false
+    preprocess: true
+    max_iter: 30
+
+experiment:
+  runs: 1
+  metrics: [acc, nmi, ari]
+  verbose: 1
+
+output:
+  save: false

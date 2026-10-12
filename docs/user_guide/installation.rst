@@ -1,93 +1,89 @@
 Installation
 ============
 
-Use Python 3.11 for the steps below. The core library supports Python 3.9+;
-the interactive interface requires Python 3.10+ for its Streamlit version.
-Check your installation with ``python --version`` (``py --version`` on Windows).
+Use Python **3.10+** (3.11 recommended). Both installation methods include
+the Python API, command line, interface and Optuna. No separate interface
+installation is needed.
 
-Install from PyPI
------------------
+From PyPI
+---------
 
-1. Open a terminal in the folder where you want to keep your experiments.
-2. Create an isolated environment:
-
-.. code-block:: bash
-
-   python -m venv .venv
-
-3. Activate it on macOS or Linux:
+When the release is published on PyPI:
 
 .. code-block:: bash
 
-   source .venv/bin/activate
+   python -m pip install polyclustx
 
-   # Windows PowerShell instead:
-   .venv\Scripts\Activate.ps1
-   # Windows Command Prompt instead:
-   .venv\Scripts\activate.bat
-
-4. Install the library and interface:
-
-.. code-block:: bash
-
-   python -m pip install --upgrade pip
-   python -m pip install "pymv-clustering[ui]"
-
-For Python-only use, install ``pymv-clustering`` without ``[ui]``.
-The package name on PyPI is **pymv-clustering**; imports use **pymv**.
-``[ui]`` selects the interface dependencies. The older ``[display]`` option
-remains an equivalent alias; no separate package is needed.
-
-Interactive interface
----------------------
-
-.. code-block:: bash
-
-   pymv-display
-   # Equivalent:
-   python -m pymv.display
-
-Open the address printed in the terminal, normally http://localhost:8501.
-Keep the terminal open while using the interface. Press Ctrl+C to stop it.
-To restart later, open the same folder, activate ``.venv`` again, and run
-``pymv-display``. You do not need to reinstall each time. If the command is
-not found, use ``python -m pymv.display`` in the activated environment.
-Download your results before restarting: interface session history is temporary.
-Continue with :doc:`workbench` for a first experiment.
-
-Install a downloaded repository
+From GitHub or a downloaded ZIP
 -------------------------------
 
-Choose **Code → Download ZIP** on GitHub and extract it, or clone with Git:
+.. code-block:: bash
+
+   git clone https://github.com/AbdelheqMokhtari/PolyClustX.git
+   cd PolyClustX
+   python -m pip install .
+
+For a ZIP download, extract it and open a terminal in the folder containing
+``pyproject.toml``, then run ``python -m pip install .``.
+
+Launch
+------
 
 .. code-block:: bash
 
-   git clone https://github.com/AbdelheqMokhtari/pymv.git
-   cd pymv
+   polyclustx-display
 
-For a ZIP download, open a terminal in the extracted folder containing
-``pyproject.toml`` instead. Then:
+Open http://localhost:8501, or the address printed in the terminal.
+Keep the terminal open; Ctrl+C stops the server. Launch again with the same
+command. Download session results before stopping. See :doc:`workbench`.
+
+Optional: an isolated environment
+---------------------------------
+
+Before installing, create an environment to keep dependencies separate:
 
 .. code-block:: bash
 
    python -m venv .venv
    source .venv/bin/activate
-   # On Windows use the activation command shown above.
-   python -m pip install --upgrade pip
-   python -m pip install -e ".[ui]"
-   pymv-display
 
-``-e`` uses the code in this folder, so edits take effect without reinstalling.
-Keep the folder in place. On your next session, return here, activate the same
-environment and launch again. Contributors can additionally install
-``python -m pip install -e ".[dev,docs,ui]"``; see
-:doc:`/contributing/pull_requests` for tests and pull requests.
+On Windows PowerShell, activate with ``.venv\Scripts\Activate.ps1`` instead.
+Activate the same environment before launching again; no reinstall is needed.
+If the launch command is not found, try ``python -m polyclustx.display``.
 
-Optional projections and cached data
------------------------------------------
+Compute devices
+---------------
 
-Dataset downloads are cached in ``~/.pymv_datasets``. Set ``PYMV_DATA_DIR``
-to choose a different location. Listing the catalog does not download data.
+PyTorch is installed automatically. Models accept ``device="auto"``, ``"cpu"``
+or ``"cuda"``. GPU use needs a compatible NVIDIA driver and PyTorch build;
+see the `official PyTorch installer <https://pytorch.org/get-started/locally/>`_
+for platform-specific options. TensorFlow is not required.
 
-UMAP projections are optional: ``python -m pip install "pymv-clustering[ui,umap]"``
-(or ``python -m pip install -e ".[ui,umap]"`` for a checkout).
+The interface launcher defaults CPU worker pools to two threads to reduce
+overhead on small minibatches. Set ``POLYCLUSTX_CPU_THREADS`` before launching to
+choose another default. Explicit ``OMP_NUM_THREADS``, ``MKL_NUM_THREADS`` and
+``OPENBLAS_NUM_THREADS`` settings take precedence. Python API use leaves your
+process-wide thread settings unchanged.
+
+Optional UMAP plots use ``python -m pip install umap-learn``.
+Dataset downloads are cached in ``~/.polyclustx_datasets``; set ``POLYCLUSTX_DATA_DIR``
+to choose another directory.
+
+Migrating from pymv
+-------------------
+
+PolyClustX is the new project name. Install ``polyclustx`` (or the renamed
+repository), replace ``from pymv...`` with ``from polyclustx...`` in your code,
+and launch with ``polyclustx-display``. The old ``pymv`` namespace is not shipped
+as an alias; numerical model behavior is unchanged by the rename.
+
+Rename environment variables to ``POLYCLUSTX_DATA_DIR`` and
+``POLYCLUSTX_CPU_THREADS``. To reuse an existing dataset cache without moving or
+downloading data, point ``POLYCLUSTX_DATA_DIR`` at your old ``.pymv_datasets``
+directory. New JSON reports use ``polyclustx_version`` instead of
+``pymv_version``; consumers reading that metadata key should accept either
+name for older reports. Existing report files are not rewritten.
+
+Stop any running interface after exporting its results, then start a fresh
+session with the new command. Do not reuse pickled estimators or workspace
+objects across the package rename; retain the source data and exported reports.

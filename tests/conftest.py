@@ -1,5 +1,5 @@
 """
-Shared fixtures for the pymv test suite.
+Shared fixtures for the polyclustx test suite.
 
 All fixtures are lightweight and avoid heavy computation.
 The ``mock_dataset`` fixture provides a tiny 2-view dataset that
@@ -15,10 +15,9 @@ import numpy as np
 import pytest
 
 # ---------------------------------------------------------------------------
-# Environment: suppress TF/CUDA noise during tests
+# Environment: default to CPU during tests (override to exercise CUDA)
 # ---------------------------------------------------------------------------
 
-os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
 
 
@@ -55,7 +54,7 @@ def mock_arrays():
 @pytest.fixture()
 def mock_dataset(mock_arrays):
     """Return a ``MultiViewDataset`` wrapping the mock arrays."""
-    from pymv.data.dataset import MultiViewDataset
+    from polyclustx.data.dataset import MultiViewDataset
 
     Xs, As, labels = mock_arrays
     return MultiViewDataset(Xs, As, labels, name="mock")
@@ -64,7 +63,7 @@ def mock_dataset(mock_arrays):
 @pytest.fixture()
 def mock_model(mock_dataset):
     """Return a fitted LMGEC model (very fast — tiny data, few iters)."""
-    from pymv.models.lmgec import LMGEC
+    from polyclustx.models.lmgec import LMGEC
 
     model = LMGEC(
         n_clusters=mock_dataset.n_clusters,
@@ -132,7 +131,7 @@ def sample_config_with_output_path(tmp_path):
 @pytest.fixture()
 def metrics_fns():
     """Return a small dict of metric functions."""
-    from pymv.metrics import clustering_accuracy, nmi_score
+    from polyclustx.metrics import clustering_accuracy, nmi_score
 
     return OrderedDict([
         ("clustering_accuracy", clustering_accuracy),

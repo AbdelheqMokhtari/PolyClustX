@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from pymv.display.results import download_stem, record_download_stem, record_label, run_label
-from pymv.display.workspace import ExperimentSpec, Workspace
+from polyclustx.display.results import download_stem, record_download_stem, record_label, run_label
+from polyclustx.display.workspace import ExperimentSpec, Workspace
 from tests.test_display_comparisons import app_test
 from tests.test_experiment_reports import ReportModel, dataset
 
@@ -12,7 +12,7 @@ def test_result_labels_and_download_names(monkeypatch, tmp_path):
     pytest.importorskip("streamlit")
     from streamlit.delta_generator import DeltaGenerator
 
-    monkeypatch.setattr("pymv.display.workspace.get_model", lambda _: ReportModel)
+    monkeypatch.setattr("polyclustx.display.workspace.get_model", lambda _: ReportModel)
     ws = Workspace()
     data = dataset()
     data.name = "Demo dataset"

@@ -4,11 +4,11 @@ import zipfile
 import numpy as np
 import pytest
 
-from pymv.core import BaseModel
-from pymv.data import MultiViewDataset
-from pymv.experiment import Experiment, GridSearchExperiment, RandomSearchExperiment
-from pymv.experiment.exports import normalized_loss
-from pymv.metrics import davies_bouldin_score, nmi_score
+from polyclustx.core import BaseModel
+from polyclustx.data import MultiViewDataset
+from polyclustx.experiment import Experiment, GridSearchExperiment, RandomSearchExperiment
+from polyclustx.experiment.exports import normalized_loss
+from polyclustx.metrics import davies_bouldin_score, nmi_score
 
 
 class ReportModel(BaseModel):

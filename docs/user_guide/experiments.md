@@ -21,11 +21,16 @@ geometry, not semantic correctness. Comparisons across different embedding
 spaces need care. Silhouette can be expensive for large datasets.
 
 ```python
-from pymv.experiment import Experiment, RandomSearchExperiment, GridSearchExperiment
-from pymv.models import LMGEC
-from pymv.metrics import silhouette_score, davies_bouldin_score
+from polyclustx.experiment import Experiment, RandomSearchExperiment, GridSearchExperiment
+from polyclustx.models import LMGEC
+from polyclustx.metrics import silhouette_score, davies_bouldin_score
+from polyclustx.data import MultiViewDataset
+from sklearn.datasets import load_wine
+from sklearn.preprocessing import StandardScaler
 
-# data is a MultiViewDataset created or loaded earlier.
+X, y = load_wine(return_X_y=True)
+X = StandardScaler().fit_transform(X)
+data = MultiViewDataset([X[:, :6], X[:, 6:]], labels=y, name="Wine")
 comparison = Experiment(
     data,
     [LMGEC(n_clusters=k, embedding_dim=4, random_state=42) for k in [2, 3, 7]],
@@ -37,7 +42,7 @@ comparison = Experiment(
 
 search = RandomSearchExperiment(
     model_class=LMGEC,
-    param_distributions={"n_clusters": [2, 3, 7], "embedding_dim": [4, 8]},
+    param_distributions={"n_clusters": [2, 3, 7], "embedding_dim": [2, 4]},
     dataset=data, metrics={"DB": davies_bouldin_score}, best_metric="DB",
     n_iter=6, seed=42, benchmark=False,
 )
@@ -45,7 +50,7 @@ result = search.run()
 
 grid = GridSearchExperiment(
     model_class=LMGEC,
-    param_grid={"n_clusters": [2, 3, 7], "embedding_dim": [4, 8]},
+    param_grid={"n_clusters": [2, 3, 7], "embedding_dim": [2, 4]},
     dataset=data, metrics={"DB": davies_bouldin_score}, best_metric="DB",
     runs=3, seed=42, benchmark=False, save_path="experiments/search",
 ).run()
@@ -70,6 +75,43 @@ Custom functions default to external, higher-is-better scores. Set
 `fn.requires_features = True` for an internal function and
 `fn.higher_is_better = False` for minimization.
 
+## Optuna: adaptive discrete or continuous search
+
+```python
+from polyclustx.experiment import OptunaSearchExperiment
+from polyclustx.models import LMGEC
+from polyclustx.metrics import nmi_score
+
+search = OptunaSearchExperiment(
+    LMGEC,
+    {"n_clusters": [data.n_clusters], "embedding_dim": [2, 4],
+     "temperature": {"low": .1, "high": 5., "log": True}},
+    data, metrics={"NMI": nmi_score}, best_metric="NMI",
+    n_iter=10, runs=3, seed=42, save_path="experiments/optuna",
+)
+result = search.run()
+print(result.best_params)
+print(search.study_.trials)  # full Optuna trial objects
+```
+
+Lists restrict choices to your selected values. A range uses `low`, `high`,
+optional `log`, and optional `step`; add `"type": "int"` for integer ranges.
+Float ranges are continuous when `step` is omitted. Logarithmic bounds must
+be positive; a float range cannot combine logarithmic sampling and a step.
+Use grid search when every candidate combination must be evaluated. Optuna's
+TPE sampler uses prior trial scores to suggest subsequent configurations.
+
+The selected metric is optimized using the mean of repeated fits, with the
+same seeds per configuration. Failed/nonfinite trials cannot win. All fits
+finish normally; pruning is not enabled. The standard JSON report records
+strategy, search space, each trial's parameters, scores, diagnostics and
+best-so-far steps. Optuna is included in the normal installation.
+Layer-width choices can be nested lists, for example `hidden_dims=[[64,32],[128,64]]`.
+Optuna stores such choices as indices internally; `result.best_params` and
+exported reports contain the actual widths. A trial's `resolved_parameters`
+user attribute also preserves them.
+[Optuna trial API](https://optuna.readthedocs.io/en/stable/reference/generated/optuna.trial.Trial.html).
+
 ## Prepare a comparison batch
 
 Datasets and model configurations can be prepared separately. `Experiment`
@@ -77,7 +119,7 @@ evaluates their Cartesian product, one fit at a time. Use dataset callables to
 load one dataset at a time instead of retaining a collection of matrices.
 
 ```python
-from pymv.data import load_data
+from polyclustx.data import load_data
 
 datasets = {
     "acm": lambda: load_data("acm"),
@@ -144,7 +186,7 @@ prediction, embedding and visualization-label arrays.
 ## Compare losses across experiments
 
 ```python
-from pymv.visualization import plot_loss_comparison
+from polyclustx.visualization import plot_loss_comparison
 
 ax = plot_loss_comparison([comparison, grid], run=1, show=False)
 ax.figure.savefig("loss-comparison.svg", bbox_inches="tight")
@@ -158,16 +200,17 @@ accepted too. For a single fitted model, use
 ## Command-line use
 
 ```bash
-pymv-cli --dataset pascal --variant clip --n-clusters 5
-pymv-cli --dataset acm --no-benchmark --n-clusters 3 --metrics silhouette db ch
-pymv-cli --dataset acm --missing-rate 0.2 --impute mean --seed 42 --n-clusters 3
-pymv-cli --dataset acm --no-benchmark --n-clusters 3 \
-  --random-search --metrics db --best-metric db --seed 42
+lmgec pascal --variant clip --clusters 5
+lmgec acm --no-benchmark --clusters 3 --metrics silhouette db ch
+lmgec acm --missing-rate 0.2 --impute mean --seed 42 --clusters 3
+lmgec acm --no-benchmark --clusters 3 --search random \
+  --vary 'temperature=[0.5,1,2]' --metrics db --objective db --seed 42
+polyclustx experiment --datasets acm dblp --models lmgec scm --runs 3
+polyclustx experiment --config examples/experiment_plan.yaml
 ```
 
-For compatibility, CLI benchmark mode can infer K from labels when omitted.
-`--no-benchmark` requires a manual `--n-clusters`. The workbench always uses
-an editable dataset class-count default for benchmarks, or explicitly selected
-model K values. Real-world runs use manual K. YAML top-level keys `variant`, `missing_rate`,
-`impute`, and `no_benchmark` correspond to these switches. Use `--data-seed`
-or YAML `data_seed` when missingness and model initialization need separate seeds.
+Benchmark runs infer K from labels unless you set `--clusters`. Multi-dataset
+plans infer it separately for each dataset. Real-world runs require a manual K.
+For a single method, `--data-seed` separates missing-view simulation from model
+initialization. See the [CLI reference](../api/cli.rst) for the experiment-plan
+schema, typed parameters, search ranges and output handling.

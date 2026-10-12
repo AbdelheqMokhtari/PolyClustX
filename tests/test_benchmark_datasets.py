@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import pytest
 
-from pymv.data import list_datasets
-from pymv.data.dataset import MultiViewDataset
+from polyclustx.data import list_datasets
+from polyclustx.data.dataset import MultiViewDataset
 
 from .helpers import load_or_skip
 

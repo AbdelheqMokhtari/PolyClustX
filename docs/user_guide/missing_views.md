@@ -9,7 +9,7 @@ before fitting a model that requires complete data.
 
 ```python
 import numpy as np
-from pymv.data import align_views
+from polyclustx.data import align_views
 
 data = align_views(
     [np.array([[1., 2.], [3., 4.]]), np.array([[50.], [30.]])],
@@ -35,7 +35,7 @@ row-mask detection are separate import modes.
 ## Simulate missing observations
 
 ```python
-from pymv.data import load_data, simulate_missing_views
+from polyclustx.data import load_data, simulate_missing_views
 
 data = load_data("acm", 0.2, random_state=42)
 # Equivalent:
@@ -54,9 +54,17 @@ rejected. The availability mask records exactly what is missing.
 
 ## Choose a deliberate baseline
 
+For native latent completion, choose `COMPLETER` or `DCP`. They train on
+fully observed rows, so at least two such samples must remain after missing-view
+simulation. Set `prediction_start < max_iter` and `prediction_weight > 0`.
+The [model tutorial](clustering_models.md) includes a complete example and
+explains how the learned predictors use observed views at inference time.
+
+## Explicit imputation baseline
+
 ```python
-from pymv.data import impute_missing
-from pymv.models import LMGEC
+from polyclustx.data import impute_missing
+from polyclustx.models import LMGEC
 
 prepared = impute_missing(data, strategy="mean")  # or explicit "zero"
 model = prepared.fit(LMGEC(n_clusters=3, embedding_dim=8, random_state=42))

@@ -1,5 +1,5 @@
 """
-Tests for pymv Experiment and RandomSearchExperiment.
+Tests for polyclustx Experiment and RandomSearchExperiment.
 """
 
 from __future__ import annotations
@@ -13,9 +13,9 @@ class TestExperiment:
     """Test Experiment with mock data (no real dataset loading)."""
 
     def test_run_returns_experiment_result(self, mock_dataset, metrics_fns):
-        from pymv.experiment import Experiment
-        from pymv.experiment.result import ExperimentResult
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.experiment import Experiment
+        from polyclustx.experiment.result import ExperimentResult
+        from polyclustx.models.lmgec import LMGEC
 
         model = LMGEC(
             n_clusters=mock_dataset.n_clusters,
@@ -34,8 +34,8 @@ class TestExperiment:
         assert isinstance(result, ExperimentResult)
 
     def test_result_has_correct_dataset(self, mock_dataset, metrics_fns):
-        from pymv.experiment import Experiment
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.experiment import Experiment
+        from polyclustx.models.lmgec import LMGEC
 
         model = LMGEC(
             n_clusters=mock_dataset.n_clusters,
@@ -54,8 +54,8 @@ class TestExperiment:
         assert "mock" in result.all_results
 
     def test_result_has_metrics(self, mock_dataset, metrics_fns):
-        from pymv.experiment import Experiment
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.experiment import Experiment
+        from polyclustx.models.lmgec import LMGEC
 
         model = LMGEC(
             n_clusters=mock_dataset.n_clusters,
@@ -76,8 +76,8 @@ class TestExperiment:
             assert "nmi_score" in r.metric_avg
 
     def test_multiple_runs_produce_std(self, mock_dataset, metrics_fns):
-        from pymv.experiment import Experiment
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.experiment import Experiment
+        from polyclustx.models.lmgec import LMGEC
 
         model = LMGEC(
             n_clusters=mock_dataset.n_clusters,
@@ -97,8 +97,8 @@ class TestExperiment:
             assert r.metric_std is not None
 
     def test_str_output(self, mock_dataset, metrics_fns):
-        from pymv.experiment import Experiment
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.experiment import Experiment
+        from polyclustx.models.lmgec import LMGEC
 
         model = LMGEC(
             n_clusters=mock_dataset.n_clusters,
@@ -119,8 +119,8 @@ class TestExperiment:
         assert "mock" in text
 
     def test_save_creates_files(self, mock_dataset, metrics_fns, tmp_dir):
-        from pymv.experiment import Experiment
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.experiment import Experiment
+        from polyclustx.models.lmgec import LMGEC
 
         model = LMGEC(
             n_clusters=mock_dataset.n_clusters,
@@ -152,8 +152,8 @@ class TestExperiment:
 
 class TestExperimentInputFormats:
     def test_dataset_as_tuple(self, mock_dataset, metrics_fns):
-        from pymv.experiment import Experiment
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.experiment import Experiment
+        from polyclustx.models.lmgec import LMGEC
 
         Xs, As, labels = mock_dataset
         model = LMGEC(
@@ -169,8 +169,8 @@ class TestExperimentInputFormats:
         assert result.all_results
 
     def test_dataset_as_multiview_object(self, mock_dataset, metrics_fns):
-        from pymv.experiment import Experiment
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.experiment import Experiment
+        from polyclustx.models.lmgec import LMGEC
 
         model = LMGEC(
             n_clusters=3, embedding_dim=4, max_iter=3, preprocess=False,
@@ -185,8 +185,8 @@ class TestExperimentInputFormats:
         assert result.all_results
 
     def test_single_model(self, mock_dataset, metrics_fns):
-        from pymv.experiment import Experiment
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.experiment import Experiment
+        from polyclustx.models.lmgec import LMGEC
 
         model = LMGEC(
             n_clusters=3, embedding_dim=4, max_iter=3, preprocess=False,
@@ -202,9 +202,9 @@ class TestExperimentInputFormats:
         assert result.all_results
 
     def test_metrics_as_list(self, mock_dataset):
-        from pymv.experiment import Experiment
-        from pymv.metrics import clustering_accuracy, nmi_score
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.experiment import Experiment
+        from polyclustx.metrics import clustering_accuracy, nmi_score
+        from polyclustx.models.lmgec import LMGEC
 
         model = LMGEC(
             n_clusters=3, embedding_dim=4, max_iter=3, preprocess=False,
@@ -224,7 +224,7 @@ class TestExperimentInputFormats:
 
 class TestResult:
     def test_result_creation(self):
-        from pymv.experiment.result import Result
+        from polyclustx.experiment.result import Result
 
         r = Result(
             dataset_name="acm",
@@ -238,7 +238,7 @@ class TestResult:
         assert r.train_time == 1.5
 
     def test_result_format_cell(self):
-        from pymv.experiment.result import Result
+        from polyclustx.experiment.result import Result
 
         r = Result(
             dataset_name="acm",
@@ -249,7 +249,7 @@ class TestResult:
         assert "0.9123" in cell
 
     def test_result_repr(self):
-        from pymv.experiment.result import Result
+        from polyclustx.experiment.result import Result
 
         r = Result(
             dataset_name="acm",
@@ -262,7 +262,7 @@ class TestResult:
 
 class TestRandomSearchResult:
     def test_add_trial(self):
-        from pymv.experiment.result import RandomSearchResult
+        from polyclustx.experiment.result import RandomSearchResult
 
         rs = RandomSearchResult("acm", "LMGEC", "acc")
         rs.add_trial({"beta": 1.0}, {"acc": 0.8, "nmi": 0.7}, 1.0)
@@ -273,7 +273,7 @@ class TestRandomSearchResult:
         assert rs.best_params == {"beta": 2.0}
 
     def test_best_idx(self):
-        from pymv.experiment.result import RandomSearchResult
+        from polyclustx.experiment.result import RandomSearchResult
 
         rs = RandomSearchResult("acm", "LMGEC", "nmi")
         rs.add_trial({"beta": 1.0}, {"acc": 0.5, "nmi": 0.9}, 1.0)
@@ -283,7 +283,7 @@ class TestRandomSearchResult:
         assert rs.best_score == 0.9
 
     def test_str_output(self):
-        from pymv.experiment.result import RandomSearchResult
+        from polyclustx.experiment.result import RandomSearchResult
 
         rs = RandomSearchResult("acm", "LMGEC", "acc")
         rs.add_trial({"beta": 1.0}, {"acc": 0.8}, 1.0)
@@ -293,13 +293,13 @@ class TestRandomSearchResult:
         assert "best" in text.lower() or "★" in text
 
     def test_empty_result(self):
-        from pymv.experiment.result import RandomSearchResult
+        from polyclustx.experiment.result import RandomSearchResult
 
         rs = RandomSearchResult("acm", "LMGEC", "acc")
         assert str(rs) == "(no trials)"
 
     def test_best_trial(self):
-        from pymv.experiment.result import RandomSearchResult
+        from polyclustx.experiment.result import RandomSearchResult
 
         rs = RandomSearchResult("acm", "LMGEC", "acc")
         assert rs.best_trial is None  # no trials yet
@@ -314,8 +314,8 @@ class TestRandomSearchResult:
 
 class TestRandomSearchExperiment:
     def test_run_and_best_trial(self, mock_dataset, metrics_fns):
-        from pymv.experiment import RandomSearchExperiment
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.experiment import RandomSearchExperiment
+        from polyclustx.models.lmgec import LMGEC
 
         rs = RandomSearchExperiment(
             model_class=LMGEC,
@@ -339,8 +339,8 @@ class TestRandomSearchExperiment:
     def test_save_creates_files(self, mock_dataset, metrics_fns, tmp_dir):
         # Regression: the save path referenced a non-existent ``best_trial``
         # attribute and the wrong metrics key, crashing save_markdown runs.
-        from pymv.experiment import RandomSearchExperiment
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.experiment import RandomSearchExperiment
+        from polyclustx.models.lmgec import LMGEC
 
         rs = RandomSearchExperiment(
             model_class=LMGEC,

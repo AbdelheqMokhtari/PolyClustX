@@ -1,27 +1,23 @@
-pymv: comparative clustering and representation learning
-========================================================================
+PolyClustX
+==========
 
-pymv is a comparative framework for multi-view and multimodal clustering and
-representation learning. It provides one data contract, multiple methods, and
-a reproducible experimental workspace.
+**A Unified Framework for Multi-View and Multimodal Representation Learning
+and Clustering from Feature Views to Attributed Graphs**
+
+Prepare data, compare methods, tune hyperparameters and visualize results through
+one Python API, command line or interactive interface.
 Use a single view, several feature views, multimodal data, or attributed graphs
 without changing the structure of your workflow.
 
-pymv separates **data representation**, **model fitting**, and **evaluation**.
-Ground-truth labels are optional. Graphs are optional, and a feature view can
-have several graph relations. Incomplete views can be represented, aligned by
-sample ID, and explicitly imputed; native missing-view learning depends on the
-selected model's capabilities.
-
 .. code-block:: bash
 
-   pip install "pymv-clustering[ui]"
-   pymv-display
+   pip install polyclustx
+   polyclustx-display
 
 .. code-block:: python
 
-   from pymv.data import load_data
-   from pymv.models import LMGEC
+   from polyclustx.data import load_data
+   from polyclustx.models import LMGEC
 
    data = load_data("acm")
    model = data.fit(LMGEC(n_clusters=3, embedding_dim=8, random_state=42))
@@ -40,6 +36,7 @@ Start with :doc:`user_guide/quickstart`, explore
    user_guide/data
    user_guide/missing_views
    user_guide/graphs
+   user_guide/clustering_models
    user_guide/experiments
    user_guide/workbench
 
@@ -58,12 +55,10 @@ Start with :doc:`user_guide/quickstart`, explore
 
 .. toctree::
    :maxdepth: 2
-   :caption: Extending pymv
+   :caption: Extending PolyClustX
 
    contributing/models
    contributing/datasets
-   contributing/pull_requests
-   contributing/documentation
 
 .. toctree::
    :maxdepth: 1
@@ -79,21 +74,9 @@ Start with :doc:`user_guide/quickstart`, explore
    api/visualization
    api/cli
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Project
-
-   user_guide/changelog
-
 Scientific scope
 ----------------
 
 Support for a data representation does not imply that every model uses all of
 its information. See :doc:`background/algorithms` for the capability table,
 original papers, source implementations and algorithm explanations.
-
-The documentation organization takes inspiration from the
-`UMAP documentation <https://umap-learn.readthedocs.io/en/latest/>`_.
-The provisional symbol and restrained burgundy/slate palette are shared with the
-interface. The mark is independent of, and does not imply endorsement by,
-Université Paris Cité.

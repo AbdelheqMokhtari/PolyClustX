@@ -11,9 +11,9 @@ edge weights are summed, and absent weights default to one. All weights must
 be finite and nonnegative.
 
 ```python
-import networkx as nx  # included with the display extra; otherwise install networkx
+import networkx as nx
 import numpy as np
-from pymv.data import MultiViewDataset
+from polyclustx.data import MultiViewDataset
 
 graph = nx.Graph()
 graph.add_nodes_from(["sample-b", "sample-a", "sample-c"])
@@ -29,8 +29,8 @@ adjacency files under **Dataset → Add graphs to a view**.
 
 ```python
 import numpy as np
-from pymv.data import MultiViewDataset
-from pymv.models import LMGEC
+from polyclustx.data import MultiViewDataset
+from polyclustx.models import LMGEC
 
 rng = np.random.default_rng(9)
 image, text = rng.normal(size=(30, 6)), rng.normal(size=(30, 8))
@@ -52,7 +52,7 @@ An edge must appear in every relation to survive. Hadamard fusion rejects weight
 Relations must have identical shapes and sample order.
 
 ```python
-from pymv.preprocessing import fuse_graphs, get_propagated_features
+from polyclustx.preprocessing import fuse_graphs, get_propagated_features
 
 a = fuse_graphs([spatial, similarity], weights=[0.3, 0.7])
 h = get_propagated_features(image, adj=a, beta=1.0)
@@ -66,7 +66,9 @@ dense features.
 Direct LMGEC calls sum nested relation lists by default. Use `data.fit` for
 custom weighting. Shared graphs must be repeated explicitly, such as `As=[A, A]`;
 the last graph is no longer silently assigned to unmentioned views.
-SCM ignores graphs, and LMGEC uses them only with preprocessing enabled.
+SCM and the feature-only estimators ignore supplied graphs. Spectral co-training
+constructs its own feature affinities. LMGEC uses supplied graphs only with
+preprocessing enabled. Check the [model catalog](../background/algorithms.md).
 
 ## Generate synthetic graphs in Python
 
@@ -75,8 +77,8 @@ creates aligned features and sparse graph relations suitable for the same
 preprocessing, fusion and model APIs as loaded datasets:
 
 ```python
-from pymv.display.synthetic import SyntheticGraphSpec, SyntheticSpec, generate_synthetic
-from pymv.models import LMGEC
+from polyclustx.display.synthetic import SyntheticGraphSpec, SyntheticSpec, generate_synthetic
+from polyclustx.models import LMGEC
 
 data = generate_synthetic(SyntheticSpec(
     n_samples=120,

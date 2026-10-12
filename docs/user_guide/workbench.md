@@ -9,31 +9,36 @@ discarding your work.
 Use Python 3.10 or newer; Python 3.11 is recommended.
 
 ```bash
-python -m pip install "pymv-clustering[ui]"
-pymv-display
+python -m pip install polyclustx
+polyclustx-display
 ```
 
 Open the local address printed in the terminal, normally http://localhost:8501.
 For environment creation, Windows activation, repository downloads and restarting,
-follow the [installation tutorial](installation.rst). `[display]` remains an
-equivalent installation extra. To choose another port:
+follow the [installation tutorial](installation.rst). To choose another port:
 
 ```bash
-pymv-display --server.port=8502
+polyclustx-display --server.port=8502
 ```
 
 ## Your first experiment
 
-1. Open **Dataset**, choose **Synthetic**, and keep the small default example.
-2. Click **Create synthetic dataset**. Inspect the view and class summaries.
-3. Choose any preprocessing you need, then click **Apply changes**.
-4. Open **Model**, select a method, enter its parameters, and save a named configuration.
-5. Open **Experiment**, select your dataset and model, and click **Run experiment**.
-6. Read **Results**, explore **Visualizations**, then download from **Export**.
+Try a small comparison before loading your own data:
 
-```{pymv-screenshot} interface-overview.png
-Sidebar navigation with Dataset selected and a small synthetic dataset loaded.
-```
+1. In **Dataset → Synthetic**, name the dataset `Three groups`. Use 90 samples,
+   3 classes and 2 Gaussian views with 8 features each. Leave graphs disabled.
+2. Click **Create synthetic dataset**, keep benchmark mode enabled, then click
+   **Apply changes**. The dataset is now available for experiments.
+3. In **Model**, save `MultiViewKMeans` as `K-means baseline`. Save a second
+   configuration using `LMGEC`, embedding dimension 3 and `max_iter=10`.
+4. In **Experiment**, select `Three groups` and both models. Keep K=3 and choose
+   3 independent runs. Click **Run experiment**: this performs six fits.
+5. In **Results**, compare the mean NMI and its standard deviation. In
+   **Visualizations**, select Run 1 and compare reference and predicted labels.
+6. In **Export**, choose the experiment and download its ZIP report.
+
+To try unlabeled use, return to **Dataset**, disable benchmark mode and apply
+the change. Run a new experiment using silhouette instead of NMI.
 
 ## 1. Dataset: load, inspect and prepare
 
@@ -70,10 +75,6 @@ The Dataset page shows sample and class counts, class balance, view dimensions,
 feature statistics, missing observations, estimated memory, and graph properties.
 Inspect either original or applied/prepared data. Benchmark mode starts enabled
 when labels exist; uncheck it to use internal evaluation only.
-
-```{pymv-screenshot} dataset-details.png
-Dataset collection, benchmark setting, class distribution and per-view statistics.
-```
 
 ### Generate synthetic graphs
 
@@ -112,16 +113,21 @@ recipe; the original source stays unchanged. Preparation is applied once for
 each fit, and model-internal preprocessing is disabled when necessary to
 avoid applying feature transformations twice.
 
-```{pymv-screenshot} dataset-preprocessing.png
-Preprocessing controls, missing-view simulation, imputation and Apply changes.
-```
-
 ## 2. Model: save named configurations
 
 Models can be prepared before any dataset is loaded. Select a method and edit
 its typed parameter controls, then choose a **Configuration name**. Defaults
 are names such as `LMGEC#1`. Save as many configurations as needed.
 See [available models and original implementations](../background/algorithms.md).
+
+K-means, spectral co-training, IDEC, COMPLETER, DCP and MFLVC use the same
+configuration workflow. See the [model tutorial](clustering_models.md) for
+single-view reductions, original formulations and training-stage meanings.
+Device, affinity and initialization use dropdowns. Spectral gamma and the
+informative view have **Automatic** switches; disabling them reveals typed
+numeric controls. COMPLETER/DCP require at least two fully observed training
+samples and trained predictors for missing-view completion. These requirements
+are checked before incompatible experiments run.
 
 Saved K values are used for real-world experiments and manual K comparisons.
 For benchmark experiments, dataset class counts are the default on Experiment;
@@ -131,12 +137,18 @@ LMGEC may need a smaller embedding on a low-dimensional dataset. Its limit is
 `min(samples, smallest view feature count) − 1`. Results show a short adjustment
 notice, the effective value used, and the requested value. Your saved configuration
 is unchanged. This limit is model-specific and is not applied to SCM.
+It is also not applied to neural hidden dimensions or spectral cluster counts.
 
 ## 3. Search: tune parameters independently
 
-Select a prepared dataset, a compatible model, and **Random search** or
-**Grid search**. Enable parameters to search and type candidate values into
+Select a prepared dataset, a compatible model, and **Random search**,
+**Grid search**, or **Optuna (TPE)**. Enable parameters to search and type candidate values into
 their controls; press Enter to add each value. Invalid values are rejected.
+For Optuna, enable **Use a range** on a numeric parameter to set minimum,
+maximum and optional logarithmic scale. Otherwise Optuna chooses among your
+explicit candidate values. Grid evaluates every combination; random and Optuna
+use the specified trial budget. Each K has its own Optuna study so scores from
+different cluster counts do not distort one another's parameter suggestions.
 
 Choose metrics and an **Optimize metric**, then the number of independent runs
 (1–20). Internal metrics work without labels; external metrics such as NMI
@@ -147,10 +159,6 @@ Click **Run search** to see the summary and tuning steps. Choose a **Best model
 name** (default: `MODEL_strategy_best_#1`) and click **Copy best to experiment**
 to save the winning settings. The winning K is preserved. This does not start
 a new fit. Download the search report from **Export → Individual results**.
-
-```{pymv-screenshot} hyperparameter-search.png
-Grid or random search controls, objective, result table and named best-model action.
-```
 
 ## 4. Experiment: compare combinations
 
@@ -171,6 +179,12 @@ automatically, normally under `./experiments/` in the server's working directory
 
 Jobs run one fit at a time, with at most 2,000 fits per job. Start with a small
 trial: an individual model may still exceed available RAM or GPU memory.
+The status panel shows the current fit, training stage and completed iterations.
+After a stage makes progress, its elapsed time estimates the remaining stage
+time. This is an estimate, not a deadline; it excludes later stages and can
+change with early stopping, dataset size and device. No iterations are removed
+to make a run appear faster. Initial graph construction, spectral decomposition
+and final K-means can take time before the next update.
 
 ## 5. Results and visualizations
 
@@ -198,10 +212,6 @@ suggestion. Toggle row normalization to show proportions or counts.
 Click **Save plot to Export** below any supported figure to capture its current
 settings and plotted values. Saving the same figure again replaces that snapshot.
 
-```{pymv-screenshot} results-visualizations.png
-Named runs, normalized loss comparison and a Hungarian-aligned confusion matrix.
-```
-
 ## 6. Export: download reports, plots and data
 
 | Export type | Contents |
@@ -223,11 +233,7 @@ Arrays are named `view_1`, `view_2`, `graph_1_1`, etc. `graph_mapping` contains
 one-based view/relation pairs; `observed_mask` marks available observations.
 Reload through Files → NPZ / MATLAB container and select those arrays explicitly.
 The interface limits source data to 256 MB for this download; Python users can use
-`pymv.display.exporting.dataset_mat(data)` directly and write the returned bytes.
-
-```{pymv-screenshot} export-center.png
-Export categories, named report and plot downloads, and prepared MATLAB dataset export.
-```
+`polyclustx.display.exporting.dataset_mat(data)` directly and write the returned bytes.
 
 ## Session storage and hosting
 

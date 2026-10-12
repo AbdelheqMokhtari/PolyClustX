@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
 
-from pymv.core import BaseModel
-from pymv.data import MultiViewDataset, simulate_missing_views
-from pymv.experiment import Experiment, RandomSearchExperiment
-from pymv.experiment.result import RandomSearchResult
-from pymv.metrics import davies_bouldin_score, nmi_score, silhouette_score
+from polyclustx.core import BaseModel
+from polyclustx.data import MultiViewDataset, simulate_missing_views
+from polyclustx.experiment import Experiment, RandomSearchExperiment
+from polyclustx.experiment.result import RandomSearchResult
+from polyclustx.metrics import davies_bouldin_score, nmi_score, silhouette_score
 
 
 class DummyModel(BaseModel):

@@ -8,10 +8,10 @@ from scipy import sparse
 from scipy.io import loadmat
 from scipy.optimize import linear_sum_assignment
 
-from pymv.data import MultiViewDataset
-from pymv.display.exporting import dataset_mat
-from pymv.display.results import aggregate_results, compact_confusion
-from pymv.display.workspace import ExperimentSpec, Workspace
+from polyclustx.data import MultiViewDataset
+from polyclustx.display.exporting import dataset_mat
+from polyclustx.display.results import aggregate_results, compact_confusion
+from polyclustx.display.workspace import ExperimentSpec, Workspace
 
 
 def test_effective_dimensions_in_results_and_search(tmp_path):
@@ -65,7 +65,7 @@ def test_mat_export_preserves_sparse_relations_masks_and_ids():
 def test_plot_snapshot_export_and_cleanup():
     pd = pytest.importorskip("pandas")
     go = pytest.importorskip("plotly.graph_objects")
-    from pymv.display.exporting import PlotSnapshot
+    from polyclustx.display.exporting import PlotSnapshot
 
     plot = PlotSnapshot("My plot", go.Figure(go.Scatter(y=[1, 2])), pd.DataFrame({"loss": [1, 2]}))
     assert "data" in json.loads(plot.export("json"))
@@ -78,7 +78,7 @@ def test_plot_snapshot_export_and_cleanup():
 
 
 def test_export_center_prepares_applied_data_and_optional_labels():
-    from pymv.display.preprocessing import PreprocessingSpec, ViewPreprocessing
+    from polyclustx.display.preprocessing import PreprocessingSpec, ViewPreprocessing
     from tests.test_display_comparisons import app_test
 
     ws = Workspace()
