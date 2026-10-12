@@ -5,6 +5,7 @@ from .completer import COMPLETER, Completer
 from .dcp import DCP
 from .idec import IDEC
 from .lmgec import LMGEC
+from .mflvc import MFLVC
 from .multiview_kmeans import MultiViewKMeans, MultiviewKMeans
 from .multiview_spectral import MultiViewSpectralClustering, MultiviewSpectralClustering
 from .registry import get_model, get_model_info, list_models, list_models_info, register_model
@@ -22,6 +23,7 @@ __all__ = [
     "COMPLETER",
     "Completer",
     "DCP",
+    "MFLVC",
     "MultiViewKMeans",
     "MultiviewKMeans",
     "MultiViewSpectralClustering",
