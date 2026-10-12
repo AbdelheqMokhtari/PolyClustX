@@ -33,16 +33,17 @@ class _SCMNetwork(nn.Module):
         def mlp(widths):
             layers = []
             for index, (left, right) in enumerate(zip(widths, widths[1:])):
-                layers.append(nn.Linear(left, right))
+                layers.append(nn.Linear(left, right, device="cpu", dtype=torch.float32))
                 if index < len(widths) - 2:
                     layers.append(nn.ReLU())
             return nn.Sequential(*layers)
 
         self.encoder = mlp([input_dim, *hidden_dims, feature_dim])
         self.decoder = mlp([feature_dim, *reversed(hidden_dims), input_dim])
-        self.projector = nn.Linear(feature_dim, projection_dim)
+        self.projector = nn.Linear(feature_dim, projection_dim, device="cpu", dtype=torch.float32)
         # The reference's 64-way head is unused by the feature-clustering route.
-        self.cluster_head = nn.Sequential(nn.Linear(projection_dim, 64), nn.Softmax(dim=1))
+        self.cluster_head = nn.Sequential(
+            nn.Linear(projection_dim, 64, device="cpu", dtype=torch.float32), nn.Softmax(dim=1))
 
     def encode(self, x):
         h = self.encoder(x)

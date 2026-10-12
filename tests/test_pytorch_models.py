@@ -55,6 +55,21 @@ def test_empty_centroid_and_assignment_ties():
     torch.testing.assert_close(projection.T @ projection, torch.eye(2, dtype=torch.float64))
 
 
+def test_lmgec_rank_deficient_svd_reaches_procrustes_optimum():
+    # m > k makes X.T @ F[G] rank deficient. Different SVD backends may
+    # select different null-space bases; compare the objective, not the basis.
+    rng = np.random.default_rng(72)
+    x = torch.from_numpy(rng.normal(size=(25, 7)))
+    centers = torch.from_numpy(rng.normal(size=(3, 5)))
+    labels = torch.from_numpy(np.arange(25) % 3)
+    target = centers[labels]
+    projection = _update_rule_W(x, centers, labels)
+    torch.testing.assert_close(projection.T @ projection, torch.eye(5, dtype=torch.float64))
+    optimum = x.square().sum() + target.square().sum() - 2 * torch.linalg.svdvals(x.T @ target).sum()
+    actual = (x - target @ projection.T).square().sum()
+    torch.testing.assert_close(actual, optimum, rtol=1e-12, atol=1e-12)
+
+
 def test_scm_loss_and_gradients_match_explicit_positive_negative_equation():
     generator = torch.Generator().manual_seed(4)
     left = torch.randn((5, 3), generator=generator, dtype=torch.float64, requires_grad=True)
@@ -103,6 +118,19 @@ def test_scm_masks_never_erase_all_views_and_noise_is_independent():
     assert (kept > 0).all() and (kept < 3).all()
     assert np.any((noisy[:, 0] == 1) & (noisy[:, 2] != 1))
     np.testing.assert_array_equal(x, np.ones_like(x))
+
+
+def test_scm_float32_is_independent_of_caller_default_dtype():
+    original = torch.get_default_dtype()
+    try:
+        torch.set_default_dtype(torch.float64)
+        model = SCM(2, hidden_dims=(4,), max_iter=1, device="cpu", random_state=2).fit(
+            [np.random.default_rng(2).normal(size=(8, 4))])
+        assert model.embedding_.dtype == np.float32
+        assert all(p.dtype == torch.float32 for p in model.model_.parameters())
+        assert torch.get_default_dtype() == torch.float64
+    finally:
+        torch.set_default_dtype(original)
 
 
 @pytest.mark.parametrize("cls,kwargs", [(LMGEC, {"embedding_dim": 2}), (SCM, {"hidden_dims": (4,)})])
@@ -192,15 +220,22 @@ def test_pytorch_backend_and_actual_device_in_portable_reports():
 
 def test_package_and_environment_reports_do_not_import_tensorflow():
     script = '''
-import importlib.abc, sys
-class BlockTensorFlow(importlib.abc.MetaPathFinder):
-    def find_spec(self, fullname, path=None, target=None):
-        if fullname == "tensorflow" or fullname.startswith("tensorflow."):
-            raise AssertionError("TensorFlow must not be imported")
-sys.meta_path.insert(0, BlockTensorFlow())
+import builtins, sys
+original_import = builtins.__import__
+def guarded_import(name, *args, **kwargs):
+    if name == "tensorflow" or name.startswith("tensorflow."):
+        raise AssertionError("TensorFlow must not be imported")
+    return original_import(name, *args, **kwargs)
+# PyTorch may probe optional module specs; only actual imports are prohibited.
+builtins.__import__ = guarded_import
 import pymv
+import numpy as np
+from pymv.models import LMGEC, SCM
 from pymv.tracking import _get_environment_info
 from pymv.experiment.markdown_export import _get_environment_info as markdown_environment
+views = [np.random.default_rng(2).normal(size=(8, 4))]
+LMGEC(2, 2, max_iter=1, device="cpu").fit(views)
+SCM(2, hidden_dims=(4,), max_iter=1, device="cpu").fit(views)
 assert "torch_version" in _get_environment_info()
 assert "torch_version" in markdown_environment()
 assert "tensorflow" not in sys.modules

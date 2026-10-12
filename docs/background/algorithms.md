@@ -37,6 +37,15 @@ weights, alternating SVD/assignment/centroid updates, and pre-update loss
 definition. An empty cluster receives a zero centroid. Public results remain
 NumPy arrays; no automatic differentiation is needed by this model.
 
+When the embedding dimension exceeds the number of clusters (or the update
+matrix is otherwise rank-deficient), the SVD projection is not unique.
+TensorFlow and PyTorch can choose different valid null-space bases. Both solve
+the same orthogonal projection objective, but embeddings and subsequent
+optimization trajectories can differ; cross-backend bitwise equivalence is
+not a reproducibility guarantee. Regression tests check orthogonality and the
+optimal projection objective for this case, rather than requiring a specific
+null-space basis.
+
 Early relation fusion is framework preprocessing, not a claim that the original
 paper learns relation weights. Incomplete views require explicit imputation;
 the implemented loss does not use an observation mask.
@@ -101,6 +110,8 @@ and SCM's contrastive loss and gradients against the explicit objective. During
 migration, six seeded CPU LMGEC fits (one/two/three views, preprocessing on/off)
 also matched the saved TensorFlow implementation's labels exactly, with
 embeddings, centroids and losses agreeing within `rtol=1e-9, atol=1e-10`.
+Additional three-view checks cover weighted graphs, centering/scaling and
+per-view TF-IDF with the same tolerance.
 SCM's default network parameters and outputs matched the supplied reference
 exactly; contrastive loss and gradients agreed within `1e-12`. These checks do
 not establish identical results for every dataset or hardware configuration.
