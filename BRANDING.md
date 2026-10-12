@@ -20,13 +20,13 @@ static output; do not maintain separate copies.
 ## Project logo
 
 `logo.png` is an original, AI-generated transparent raster mark produced using
-the built-in image-generation tool on 12 October 2026. It depicts interwoven
-indigo and steel-blue bands suggesting connected data views. Display it with
+the built-in image-generation tool on 12 October 2026. It suggests a handwritten
+mathematical X with connected nodes and grouped observations. Display it with
 its original aspect ratio and alpha channel on a light surface.
 
 The generation prompt was:
 
-> Use case: logo-brand. Create an original scientific software symbol for PolyClustX, multi-view representation learning and clustering. Completely new design: a compact elegant abstract woven lattice made of two intersecting pairs of gently curved bands, suggesting distinct data views coming together into one representation. Balanced mathematical geometry and clear negative space, like a refined scientific journal symbol. Flat vector-like rendering in muted indigo #7478AE, primary indigo #4E4E92 and cool steel blue #557AA3, with no gradients. Simple, distinctive silhouette; few shapes, medium-weight strokes, readable at 32 pixels. No text, letters, wordmark, triangle, circular graph nodes, orbital rings, decorative dots, enclosing badge, shadows, 3D or textures. Single centered symbol on a square canvas, moderate padding. Genuinely transparent alpha background, no white square. Professional and restrained, not a clip-art molecule or generic network icon.
+> Use case: logo-brand. Asset type: transparent square logo mark for PolyClustX, an academic Python framework for multi-view and multimodal representation learning and clustering, from feature views to attributed graphs. Create one original minimal scientific symbol: a graceful mathematical handwritten-style X formed by two clean curved strokes, with a small purposeful arrangement of connected circular nodes and grouped dots integrated into the strokes, suggesting multiple feature views converging into graph clusters. Elegant geometry, balanced negative space, precise flat vector-like edges, legible at small sidebar/favicon scale. No literal words, no letters other than the abstract X-like form, no equations, no extra ornaments. Palette exclusively Borelli indigo #4E4E92 and lighter #7478AE, muted violet #634E87, cool steel blue #557AA3; prefer the lighter indigo and steel blue, with sparse primary indigo accents. Airy, light, scientific, not dark or heavy. Centered single mark taking most of the canvas with modest transparent padding. Genuinely transparent background with alpha, no white rectangle, no checkerboard drawn into the artwork. No gradients, no shadows, no glow, no 3D, no mockup, no watermark. Do not incorporate institutional logos.
 
 ## Institutional logos
 

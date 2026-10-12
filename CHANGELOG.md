@@ -9,7 +9,7 @@ and this project adheres to Semantic Versioning.
 ### User documentation and visual identity
 
 - Moved institutional affiliations into the documentation sidebar, away from
-  page navigation, and replaced the triangle logo with an interwoven symbol.
+  page navigation, and restored the original transparent X-and-nodes logo.
 - Added seven runnable offline tutorials covering feature/graph/missing inputs,
   comparisons, three search strategies, report exports and figures.
 - Removed deployment setup and logo-production notes from published guides;
