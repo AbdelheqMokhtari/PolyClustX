@@ -102,7 +102,8 @@ jobs:
           requirements = package.requires or []
           assert any(req.startswith("torch") for req in requirements)
           assert not any("tensorflow" in req.lower() for req in requirements)
-          assert not any(path.startswith("SCM/") for path in files)
+          assert any(path.endswith("/licenses/THIRD_PARTY_NOTICES.md") for path in files)
+          assert not any(path.startswith(("SCM/", "IDEC/", "Completer/", "DCP/", "MFLVC/")) for path in files)
           scripts = {entry.name for entry in package.entry_points}
           assert {"pymv-cli", "pymv-display"} <= scripts
           assert {"ui", "display"} <= set(package.metadata.get_all("Provides-Extra"))
