@@ -60,6 +60,12 @@ scientific claims: document differences from the reference implementation.
    including LMGEC and SCM, uses this same layout. Keep shared numerical utilities
    in the parent `models/` package; do not duplicate them in each algorithm folder.
 2. Import/export its registered class in `src/polyclustx/models/__init__.py`.
+   The namespaced command `polyclustx your-method ...` is generated from the
+   registry. To also install a standalone command, add a `main()` function in
+   your package that calls `polyclustx.command.model_main("your_method")`, and
+   a `[project.scripts]` entry `your-method = "polyclustx.models.your_method:main"`.
+   Reinstall the checkout after changing entry points. The common parser exposes
+   constructor parameters automatically; do not duplicate the CLI implementation.
 3. Add deterministic, small offline tests in `tests/test_your_method.py`.
 4. Add a runnable example under `examples/` and link it from
    `docs/user_guide/examples.rst`.

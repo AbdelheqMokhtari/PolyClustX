@@ -25,7 +25,7 @@ def test_distribution_and_public_namespace():
     scripts = {entry.name: entry.value for entry in package.entry_points}
     assert scripts["polyclustx"] == "polyclustx.command:main"
     assert scripts["polyclustx-display"] == "polyclustx.display:launch"
-    assert scripts["polyclustx-cli"] == "polyclustx.cli:main"
+    assert "polyclustx-cli" not in scripts
     assert not any(name.startswith("pymv") for name in scripts)
     assert len(polyclustx.list_models()) == 13
     assert polyclustx.OptunaSearchExperiment.__module__.startswith("polyclustx.")

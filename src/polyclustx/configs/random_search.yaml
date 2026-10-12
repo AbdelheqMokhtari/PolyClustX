@@ -2,8 +2,8 @@
 #  polyclustx — Example: random hyper-parameter search
 # ─────────────────────────────────────────────────────────────
 #  Usage:
-#    polyclustx-cli --config configs/random_search.yaml
-#    polyclustx-cli --config configs/random_search.yaml --dataset dblp
+#    python -m polyclustx.cli --config configs/random_search.yaml
+#    python -m polyclustx.cli --config configs/random_search.yaml --dataset dblp
 
 dataset: acm
 

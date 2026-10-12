@@ -109,7 +109,10 @@ jobs:
           assert not any(path.startswith(("SCM/", "IDEC/", "Completer/", "DCP/", "MFLVC/",
                                           "conan/", "DGF/", "G-CoMVKM/", "SGLA/", "UMC/", "GMVC/")) for path in files)
           scripts = {entry.name for entry in package.entry_points}
-          assert {"polyclustx", "polyclustx-cli", "polyclustx-display"} <= scripts
+          assert {"polyclustx", "polyclustx-display", "lmgec", "scm", "idec", "completer",
+                  "dcp", "mflvc", "conan", "dgf", "g-comvkm", "sgla", "umc",
+                  "multiview-kmeans", "multiview-spectral"} <= scripts
+          assert "polyclustx-cli" not in scripts
           assert not any(name.startswith("pymv") for name in scripts)
           for dependency in ("streamlit", "pandas", "plotly", "networkx", "optuna"):
               assert any(req.startswith(dependency) and "extra ==" not in req for req in requirements)

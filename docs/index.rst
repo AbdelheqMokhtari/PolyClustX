@@ -18,7 +18,7 @@ selected model's capabilities.
 .. code-block:: bash
 
    pip install polyclustx
-   polyclustx display
+   polyclustx-display
 
 .. code-block:: python
 

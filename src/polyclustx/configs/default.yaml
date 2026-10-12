@@ -2,9 +2,9 @@
 #  polyclustx — Default experiment config
 # ─────────────────────────────────────────────────────────────
 #  Usage:
-#    polyclustx-cli --config configs/default.yaml
-#    polyclustx-cli --config default                    # shorthand
-#    polyclustx-cli --config default --dataset dblp     # override dataset
+#    python -m polyclustx.cli --config configs/default.yaml
+#    python -m polyclustx.cli --config default                    # shorthand
+#    python -m polyclustx.cli --config default --dataset dblp     # override dataset
 
 dataset: acm
 

@@ -5,7 +5,7 @@ Automatically saves experiment artifacts to a structured folder::
 
     experiments/
       2026-03-31_14-30-12_acm_lmgec/
-        config.yaml          Reproducible config (re-run with polyclustx-cli --config)
+        config.yaml          Reproducible config (re-run with python -m polyclustx.cli --config)
         results.json         Structured results (dataset, model, params, metrics)
         metrics.csv          Tabular metrics for programmatic analysis
         results.md           Well-organized Markdown report
@@ -20,9 +20,9 @@ Usage
 -----
 The tracker is used automatically when ``save=True``::
 
-    polyclustx-cli --dataset acm --save
-    polyclustx-cli --config experiment.yaml --save --name my_run
-    polyclustx-cli --dataset acm --save --save-path results/
+    python -m polyclustx.cli --dataset acm --save
+    python -m polyclustx.cli --config experiment.yaml --save --name my_run
+    python -m polyclustx.cli --dataset acm --save --save-path results/
 
 Or programmatically::
 
@@ -102,7 +102,7 @@ class ExperimentTracker:
 
         The saved config is designed to be **directly re-runnable**::
 
-            polyclustx-cli --config experiments/<name>/config.yaml
+            python -m polyclustx.cli --config experiments/<name>/config.yaml
 
         Parameters
         ----------
@@ -121,7 +121,7 @@ class ExperimentTracker:
             import yaml
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(f"# polyclustx experiment config — {self._timestamp}\n")
-                f.write(f"# Re-run: polyclustx-cli --config {filepath}\n\n")
+                f.write(f"# Re-run: python -m polyclustx.cli --config {filepath}\n\n")
                 yaml.dump(
                     config, f,
                     default_flow_style=False,
@@ -324,7 +324,7 @@ def build_experiment_config(
 ) -> dict:
     """Build a reproducible YAML config from CLI args.
 
-    The returned dict can be loaded back by ``polyclustx-cli --config``.
+    The returned dict can be loaded back by ``python -m polyclustx.cli --config``.
 
     Parameters
     ----------

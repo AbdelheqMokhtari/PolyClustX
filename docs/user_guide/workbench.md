@@ -10,7 +10,7 @@ Use Python 3.10 or newer; Python 3.11 is recommended.
 
 ```bash
 python -m pip install polyclustx
-polyclustx display
+polyclustx-display
 ```
 
 Open the local address printed in the terminal, normally http://localhost:8501.

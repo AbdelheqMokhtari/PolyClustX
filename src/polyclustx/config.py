@@ -1,5 +1,5 @@
 """
-Config file support for polyclustx-cli.
+Config file support for python -m polyclustx.cli.
 
 Load experiment configuration from YAML or JSON files with
 validation, defaults, and CLI override merging.

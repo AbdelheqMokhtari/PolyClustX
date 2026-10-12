@@ -29,7 +29,7 @@ From PyPI, once the PolyClustX distribution is published:
 
 ```bash
 python -m pip install polyclustx
-polyclustx display
+polyclustx-display
 ```
 
 Or install from the repository:
@@ -38,11 +38,11 @@ Or install from the repository:
 git clone https://github.com/AbdelheqMokhtari/PolyClustX.git
 cd PolyClustX
 python -m pip install .
-polyclustx display
+polyclustx-display
 ```
 
 Open the address printed in the terminal, normally http://localhost:8501.
-If the command is not found, use `python -m polyclustx display`.
+If the command is not found, use `python -m polyclustx.display`.
 The [installation guide](docs/user_guide/installation.rst) covers environments
 and migration from the former `pymv` package.
 
@@ -89,37 +89,61 @@ See the [data guide](docs/user_guide/data.md) and
 
 ```bash
 polyclustx models
-polyclustx models idec
 polyclustx datasets
-polyclustx run acm --model lmgec --param embedding_dim=8 --runs 3
-polyclustx search acm --model lmgec --strategy grid --vary 'temperature=[0.5,1,2]'
+lmgec --help
+lmgec acm --embedding-dim 8 --runs 3
+scm acm --embedding-dim 16 --max-iter 50
+idec acm --hidden-dims '128,64' --pretrain-epochs 20
 ```
 
-Repeat `--param name=value` for fixed settings and `--vary name=values` for
-search candidates. Search supports **grid, random and Optuna**, including
-continuous ranges with Optuna. Choose the objective with `--objective`.
-See the [CLI guide](docs/api/cli.rst).
+Each method has its own command and parameter help. Use `--variant` for a dataset
+variant, `--clusters` to override K, and `--output` to select the report directory.
+Without an explicit K, labeled datasets use their number of reference classes.
+
+Search candidates or continuous ranges:
+
+```bash
+lmgec acm --search grid --vary 'temperature=[0.5,1,2]' --objective nmi
+lmgec acm --search optuna --vary 'temperature={"low":0.1,"high":5.0}' --trials 10
+multiview-kmeans acm --no-benchmark --clusters 3 --metrics silhouette db
+```
+
+Compare several methods and datasets in **one report**:
+
+```bash
+polyclustx experiment --datasets acm dblp --models lmgec scm --runs 3
+polyclustx experiment --datasets acm --models lmgec scm --param lmgec.embedding_dim=8
+polyclustx experiment --config examples/experiment_plan.yaml
+```
+
+The [example plan](examples/experiment_plan.yaml) keeps larger studies readable:
+name configurations, set per-model parameters, choose datasets and specify repeats.
+Dataset-specific default K is handled automatically. Short commands may conflict
+with other installed tools; use a dedicated environment or `polyclustx lmgec acm`.
+
+**Interface:** `polyclustx-display` is a standalone command.
+See the [CLI guide with complete examples](docs/api/cli.rst).
 
 ## Available methods
 
 Graphs ✓ means the method uses supplied adjacency matrices. Missing views ✓
 means native support for an observation mask.
 
-| Category | Method | Graphs | Missing views | Original publication |
+| Category | Method / command | Graphs | Missing views | Original publication |
 |---|---|:---:|:---:|---|
-| Graph-aware | LMGEC | ✓ | — | [Fettal et al., WSDM 2023](https://doi.org/10.1145/3539597.3570367) |
-| Graph-aware | DGF | ✓ | — | [Zheng et al., Dual Graph Filtering](https://arxiv.org/abs/2511.20030) |
-| Graph-aware | SGLA | ✓ | — | [Li et al., ICDE 2025](https://arxiv.org/abs/2508.09452) |
-| Feature-based | MultiViewKMeans | — | — | [Bickel & Scheffer, ICDM 2004](https://doi.org/10.1109/ICDM.2004.10095) |
-| Feature-based | MultiViewSpectralClustering | — | — | [Kumar & Daumé, ICML 2011](https://icml.cc/2011/papers/272_icmlpaper.pdf) |
-| Feature-based | G-CoMVKM | — | — | [Sinaga & Yang, Electronics 2025](https://doi.org/10.3390/electronics14112129) |
-| Feature-based | IDEC | — | — | [Guo et al., IJCAI 2017](https://www.ijcai.org/proceedings/2017/243) |
-| Feature-based | CONAN | — | — | [Ke et al., BigData 2021](https://doi.org/10.1109/BigData52589.2021.9671851) |
-| Feature-based | SCM | — | — | [Luo et al., IJCAI 2024](https://www.ijcai.org/proceedings/2024/519) |
-| Feature-based | MFLVC | — | — | [Xu et al., CVPR 2022](https://github.com/SubmissionsIn/MFLVC) |
-| Feature-based | UMC | — | — | [Zhang et al., ACL 2024](https://aclanthology.org/2024.acl-long.2/) |
-| Incomplete-view | COMPLETER | — | ✓ | [Lin et al., CVPR 2021](https://github.com/XLearning-SCU/2021-CVPR-Completer) |
-| Incomplete-view | DCP | — | ✓ | [Lin et al., TPAMI](https://doi.org/10.1109/TPAMI.2022.3197238) |
+| Graph-aware | LMGEC / `lmgec` | ✓ | — | [Fettal et al., WSDM 2023](https://doi.org/10.1145/3539597.3570367) |
+| Graph-aware | DGF / `dgf` | ✓ | — | [Zheng et al., Dual Graph Filtering](https://arxiv.org/abs/2511.20030) |
+| Graph-aware | SGLA / `sgla` | ✓ | — | [Li et al., ICDE 2025](https://arxiv.org/abs/2508.09452) |
+| Feature-based | MultiViewKMeans / `multiview-kmeans` | — | — | [Bickel & Scheffer, ICDM 2004](https://doi.org/10.1109/ICDM.2004.10095) |
+| Feature-based | MultiViewSpectralClustering / `multiview-spectral` | — | — | [Kumar & Daumé, ICML 2011](https://icml.cc/2011/papers/272_icmlpaper.pdf) |
+| Feature-based | G-CoMVKM / `g-comvkm` | — | — | [Sinaga & Yang, Electronics 2025](https://doi.org/10.3390/electronics14112129) |
+| Feature-based | IDEC / `idec` | — | — | [Guo et al., IJCAI 2017](https://www.ijcai.org/proceedings/2017/243) |
+| Feature-based | CONAN / `conan` | — | — | [Ke et al., BigData 2021](https://doi.org/10.1109/BigData52589.2021.9671851) |
+| Feature-based | SCM / `scm` | — | — | [Luo et al., IJCAI 2024](https://www.ijcai.org/proceedings/2024/519) |
+| Feature-based | MFLVC / `mflvc` | — | — | [Xu et al., CVPR 2022](https://openaccess.thecvf.com/content/CVPR2022/html/Xu_Multi-Level_Feature_Learning_for_Contrastive_Multi-View_Clustering_CVPR_2022_paper.html) |
+| Feature-based | UMC / `umc` | — | — | [Zhang et al., ACL 2024](https://aclanthology.org/2024.acl-long.2/) |
+| Incomplete-view | COMPLETER / `completer` | — | ✓ | [Lin et al., CVPR 2021](https://openaccess.thecvf.com/content/CVPR2021/papers/Lin_COMPLETER_Incomplete_Multi-View_Clustering_via_Contrastive_Prediction_CVPR_2021_paper.pdf) |
+| Incomplete-view | DCP / `dcp` | — | ✓ | [Lin et al., TPAMI](https://doi.org/10.1109/TPAMI.2022.3197238) |
 
 Capabilities differ by method. Some single-view and multi-view cases are
 framework adaptations; UMC uses supplied features without pretrained encoders.

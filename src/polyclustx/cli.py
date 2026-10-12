@@ -1,5 +1,5 @@
 """
-polyclustx-cli — Command-line interface for the polyclustx library.
+python -m polyclustx.cli — Command-line interface for the polyclustx library.
 
 Run multi-view clustering experiments directly from the terminal
 without writing any Python code.
@@ -9,16 +9,16 @@ Examples
 ::
 
     # Basic experiment
-    polyclustx-cli --dataset acm
+    python -m polyclustx.cli --dataset acm
 
     # With model parameters
-    polyclustx-cli --dataset dblp --beta 2 --temperature 10 --runs 3
+    python -m polyclustx.cli --dataset dblp --beta 2 --temperature 10 --runs 3
 
     # Random search
-    polyclustx-cli --dataset acm --random-search --n-trials 20
+    python -m polyclustx.cli --dataset acm --random-search --n-trials 20
 
     # Save results to Markdown
-    polyclustx-cli --dataset acm --save --name my_experiment
+    python -m polyclustx.cli --dataset acm --save --name my_experiment
 """
 
 from __future__ import annotations
@@ -154,18 +154,18 @@ def build_parser() -> argparse.ArgumentParser:
     from polyclustx import __version__
 
     p = argparse.ArgumentParser(
-        prog="polyclustx-cli",
+        prog="python -m polyclustx.cli",
         description="Run multi-view clustering experiments from the terminal.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""\
             examples:
-              polyclustx-cli --dataset acm
-              polyclustx-cli --dataset dblp --beta 2 --temperature 10 --runs 3
-              polyclustx-cli --dataset acm --random-search --n-trials 20
-              polyclustx-cli --config configs/experiment.yaml
-              polyclustx-cli --config configs/experiment.yaml --dataset acm  # override
-              polyclustx-cli --list-datasets
-              polyclustx-cli --list-models
+              python -m polyclustx.cli --dataset acm
+              python -m polyclustx.cli --dataset dblp --beta 2 --temperature 10 --runs 3
+              python -m polyclustx.cli --dataset acm --random-search --n-trials 20
+              python -m polyclustx.cli --config configs/experiment.yaml
+              python -m polyclustx.cli --config configs/experiment.yaml --dataset acm  # override
+              python -m polyclustx.cli --list-datasets
+              python -m polyclustx.cli --list-models
         """),
     )
 
@@ -513,28 +513,28 @@ def cmd_random_search(args):
 # ── Quick-start guide ─────────────────────────────────────────────
 
 QUICK_START = """\
-\033[1mpolyclustx-cli\033[0m — Run multi-view clustering experiments from the terminal.
+\033[1mpython -m polyclustx.cli\033[0m — Run multi-view clustering experiments from the terminal.
 
 \033[1;33m⚡ Quick start:\033[0m
 
-  polyclustx-cli --dataset acm                          # run with defaults
-  polyclustx-cli --dataset dblp --beta 2 --runs 3       # custom params
-  polyclustx-cli --dataset acm --random-search           # hyper-parameter search
-  polyclustx-cli --config configs/experiment.yaml        # run from config file
+  python -m polyclustx.cli --dataset acm                          # run with defaults
+  python -m polyclustx.cli --dataset dblp --beta 2 --runs 3       # custom params
+  python -m polyclustx.cli --dataset acm --random-search           # hyper-parameter search
+  python -m polyclustx.cli --config configs/experiment.yaml        # run from config file
 
 \033[1;33m🔍 Discover:\033[0m
 
-  polyclustx-cli --version                               # show library version
-  polyclustx-cli --list-datasets                         # show available datasets
-  polyclustx-cli --list-models                           # show available models
-  polyclustx-cli --help                                  # full usage reference
+  python -m polyclustx.cli --version                               # show library version
+  python -m polyclustx.cli --list-datasets                         # show available datasets
+  python -m polyclustx.cli --list-models                           # show available models
+  python -m polyclustx.cli --help                                  # full usage reference
 
 \033[1;33m📖 Common examples:\033[0m
 
-  polyclustx-cli -d acm --beta 2 --temperature 100 --tf-idf true
-  polyclustx-cli -d acm --random-search --n-trials 30 --seed 42
-  polyclustx-cli -d dblp --runs 5 --metrics acc nmi f1 --save
-  polyclustx-cli --config experiment.yaml --dataset acm   # config + override
+  python -m polyclustx.cli -d acm --beta 2 --temperature 100 --tf-idf true
+  python -m polyclustx.cli -d acm --random-search --n-trials 30 --seed 42
+  python -m polyclustx.cli -d dblp --runs 5 --metrics acc nmi f1 --save
+  python -m polyclustx.cli --config experiment.yaml --dataset acm   # config + override
 
 \033[1;33m💡 Tips:\033[0m
 
@@ -544,7 +544,7 @@ QUICK_START = """\
   • Use -v 0 for silent, -v 1 for tables (default), -v 2 for progress, -v 3 for full debug
   • Use --config with a YAML/JSON file for reproducible experiments
   • CLI flags always override config file values
-  • Run polyclustx-cli --help for the full list of parameters
+  • Run python -m polyclustx.cli --help for the full list of parameters
 """
 
 

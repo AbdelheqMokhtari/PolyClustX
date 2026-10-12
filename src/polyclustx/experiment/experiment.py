@@ -319,7 +319,7 @@ class Experiment:
         """Build a config dict that can re-run this experiment.
 
         The output is designed to be loadable by
-        ``polyclustx-cli --config <path>/config.yaml``.
+        ``python -m polyclustx.cli --config <path>/config.yaml``.
         """
         from polyclustx.tracking import _to_python
 

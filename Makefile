@@ -72,7 +72,7 @@ list-models:     ## List registered models
 # ── Release ───────────────────────────────────────────────────────
 
 version:         ## Show the current library version
-	@polyclustx-cli --version
+	@polyclustx --version
 
 bump:            ## Bump version using commitizen (updates all version files + CHANGELOG.md)
 	@echo "Bumping version with commitizen..."
@@ -117,4 +117,4 @@ release:         ## Full release: bump -> merge develop -> main, push tags
 
 	@echo ""
 	@echo "Release completed successfully"
-	@polyclustx-cli --version
+	@polyclustx --version

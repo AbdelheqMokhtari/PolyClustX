@@ -195,16 +195,17 @@ accepted too. For a single fitted model, use
 ## Command-line use
 
 ```bash
-polyclustx-cli --dataset pascal --variant clip --n-clusters 5
-polyclustx-cli --dataset acm --no-benchmark --n-clusters 3 --metrics silhouette db ch
-polyclustx-cli --dataset acm --missing-rate 0.2 --impute mean --seed 42 --n-clusters 3
-polyclustx-cli --dataset acm --no-benchmark --n-clusters 3 \
-  --random-search --metrics db --best-metric db --seed 42
+lmgec pascal --variant clip --clusters 5
+lmgec acm --no-benchmark --clusters 3 --metrics silhouette db ch
+lmgec acm --missing-rate 0.2 --impute mean --seed 42 --clusters 3
+lmgec acm --no-benchmark --clusters 3 --search random \
+  --vary 'temperature=[0.5,1,2]' --metrics db --objective db --seed 42
+polyclustx experiment --datasets acm dblp --models lmgec scm --runs 3
+polyclustx experiment --config examples/experiment_plan.yaml
 ```
 
-For compatibility, CLI benchmark mode can infer K from labels when omitted.
-`--no-benchmark` requires a manual `--n-clusters`. The workbench always uses
-an editable dataset class-count default for benchmarks, or explicitly selected
-model K values. Real-world runs use manual K. YAML top-level keys `variant`, `missing_rate`,
-`impute`, and `no_benchmark` correspond to these switches. Use `--data-seed`
-or YAML `data_seed` when missingness and model initialization need separate seeds.
+Benchmark runs infer K from labels unless you set `--clusters`. Multi-dataset
+plans infer it separately for each dataset. Real-world runs require a manual K.
+For a single method, `--data-seed` separates missing-view simulation from model
+initialization. See the [CLI reference](../api/cli.rst) for the experiment-plan
+schema, typed parameters, search ranges and output handling.

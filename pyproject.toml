@@ -70,8 +70,20 @@ BugTracker = "https://github.com/AbdelheqMokhtari/PolyClustX/issues"
 
 [project.scripts]
 polyclustx = "polyclustx.command:main"
-polyclustx-cli = "polyclustx.cli:main"
 polyclustx-display = "polyclustx.display:launch"
+lmgec = "polyclustx.models.lmgec:main"
+scm = "polyclustx.models.scm:main"
+idec = "polyclustx.models.idec:main"
+completer = "polyclustx.models.completer:main"
+dcp = "polyclustx.models.dcp:main"
+mflvc = "polyclustx.models.mflvc:main"
+conan = "polyclustx.models.conan:main"
+dgf = "polyclustx.models.dgf:main"
+g-comvkm = "polyclustx.models.g_comvkm:main"
+sgla = "polyclustx.models.sgla:main"
+umc = "polyclustx.models.umc:main"
+multiview-kmeans = "polyclustx.models.multiview_kmeans:main"
+multiview-spectral = "polyclustx.models.multiview_spectral:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

@@ -4,6 +4,6 @@ recursive-include scripts *.py
 recursive-include notebooks *.ipynb
 recursive-include docs *.rst *.md *.py *.txt *.css *.html Makefile make.bat
 prune docs/_build
-recursive-include examples *.py
+recursive-include examples *.py *.yaml
 recursive-include tests *.py
 recursive-include src/polyclustx/display/assets *.png

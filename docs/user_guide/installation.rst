@@ -31,8 +31,6 @@ Launch
 
 .. code-block:: bash
 
-   polyclustx display
-   # Alternative launcher:
    polyclustx-display
 
 Open http://localhost:8501, or the address printed in the terminal.
@@ -76,7 +74,7 @@ Migrating from pymv
 
 PolyClustX is the new project name. Install ``polyclustx`` (or the renamed
 repository), replace ``from pymv...`` with ``from polyclustx...`` in your code,
-and launch with ``polyclustx display``. The old ``pymv`` namespace is not shipped
+and launch with ``polyclustx-display``. The old ``pymv`` namespace is not shipped
 as an alias; numerical model behavior is unchanged by the rename.
 
 Rename environment variables to ``POLYCLUSTX_DATA_DIR`` and

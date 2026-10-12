@@ -6,10 +6,22 @@ and this project adheres to Semantic Versioning.
 
 ## Unreleased
 
+### Model packages and command-line workflows
+
+- Unified every estimator under `models/<method>/<method>.py` with public exports
+  in `__init__.py`; existing `from polyclustx.models import ...` calls are unchanged.
+- Added direct method commands (for example `lmgec acm --embedding-dim 8`), typed
+  method-specific help, search flags and namespaced alternatives.
+- Added `polyclustx experiment` for multi-model/multi-dataset comparisons and
+  readable YAML/JSON plans, with dataset-specific K and a combined report.
+- Removed the `polyclustx-cli` executable. Use the standalone `polyclustx-display`
+  launcher; archived single-model recipes remain replayable through the Python module.
+- Replaced the decorative logo with a minimal transparent three-node graph.
+
 ### PolyClustX rebrand
 
 - Renamed the distribution and import package from `pymv-clustering` / `pymv`
-  to `polyclustx`; launch the interface with `polyclustx display`.
+  to `polyclustx`; launch the interface with `polyclustx-display`.
 - Updated repository links, CLI commands, environment variables, report metadata,
   examples, contributor tooling and documentation for PolyClustX.
 - Adopted a light indigo/violet/steel-blue identity, a transparent scientific logo,
