@@ -4,6 +4,11 @@
 /Completer/
 /DCP/
 /MFLVC/
+/conan/
+/DGF/
+/G-CoMVKM/
+/SGLA/
+/UMC/
 __pycache__/
 *.egg-info/
 src/*.egg-info
