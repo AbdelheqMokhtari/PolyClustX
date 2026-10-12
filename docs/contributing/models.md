@@ -10,8 +10,8 @@ evaluation labels, infer K from them, or mutate the caller's input arrays.
 import numpy as np
 from scipy import sparse
 from sklearn.cluster import KMeans
-from pymv.core import BaseModel
-from pymv.models import register_model
+from polyclustx.core import BaseModel
+from polyclustx.models import register_model
 
 @register_model(
     "concatenated_kmeans",
@@ -35,7 +35,7 @@ class ConcatenatedKMeans(BaseModel):
 
 Import the module once before calling `get_model("concatenated_kmeans")`.
 Registration is process-local. For an in-package contribution, export the class
-from `pymv.models`; this makes it discoverable by the CLI, workbench and catalog.
+from `polyclustx.models`; this makes it discoverable by the CLI, workbench and catalog.
 Registry defaults are inferred from explicit constructor arguments, excluding
 `n_clusters`; use `defaults={...}` for curated UI defaults. Parameters should be
 JSON-serializable for reproducible recipes.
@@ -55,8 +55,8 @@ scientific claims: document differences from the reference implementation.
 
 ## Where to put your contribution
 
-1. Add `src/pymv/models/your_method/` with the implementation and `__init__.py`.
-2. Import/export its registered class in `src/pymv/models/__init__.py`.
+1. Add `src/polyclustx/models/your_method/` with the implementation and `__init__.py`.
+2. Import/export its registered class in `src/polyclustx/models/__init__.py`.
 3. Add deterministic, small offline tests in `tests/test_your_method.py`.
 4. Add a runnable example under `examples/` and link it from
    `docs/user_guide/examples.rst`.
@@ -64,7 +64,7 @@ scientific claims: document differences from the reference implementation.
    `docs/background/algorithms.md`. Its capability table is generated automatically.
 6. Add the class's autodoc entry to `docs/api/models.rst`.
 7. For specialized parameter ranges, add controls in
-   `src/pymv/display/model_controls.py` and interface tests. Simple constructor
+   `src/polyclustx/display/model_controls.py` and interface tests. Simple constructor
    parameters otherwise use the inferred controls.
 
 If a method adjusts parameters for a dataset, it may implement the optional

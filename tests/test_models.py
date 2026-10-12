@@ -1,5 +1,5 @@
 """
-Tests for pymv models: LMGEC, registry, BaseModel.
+Tests for polyclustx models: LMGEC, registry, BaseModel.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import pytest
 
 class TestLMGECInit:
     def test_default_params(self):
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.models.lmgec import LMGEC
 
         m = LMGEC(n_clusters=3, embedding_dim=8)
         assert m.n_clusters == 3
@@ -26,7 +26,7 @@ class TestLMGECInit:
         assert m.max_iter == 30
 
     def test_custom_params(self):
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.models.lmgec import LMGEC
 
         m = LMGEC(
             n_clusters=5,
@@ -46,20 +46,20 @@ class TestLMGECInit:
         assert m.max_iter == 50
 
     def test_per_view_beta(self):
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.models.lmgec import LMGEC
 
         m = LMGEC(n_clusters=3, embedding_dim=4, beta=[1.0, 2.0])
         assert m.beta == [1.0, 2.0]
 
     def test_per_view_tf_idf(self):
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.models.lmgec import LMGEC
 
         m = LMGEC(n_clusters=3, embedding_dim=4, tf_idf=[True, False])
         assert m.tf_idf == [True, False]
 
     def test_is_base_model(self):
-        from pymv.core import BaseModel
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.core import BaseModel
+        from polyclustx.models.lmgec import LMGEC
 
         m = LMGEC(n_clusters=3, embedding_dim=4)
         assert isinstance(m, BaseModel)
@@ -70,7 +70,7 @@ class TestLMGECInit:
 
 class TestLMGECFit:
     def test_fit_returns_self(self, mock_dataset):
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.models.lmgec import LMGEC
 
         m = LMGEC(
             n_clusters=mock_dataset.n_clusters,
@@ -105,7 +105,7 @@ class TestLMGECFit:
         assert len(mock_model.loss_history_) == 3  # max_iter=3
 
     def test_fit_predict(self, mock_dataset):
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.models.lmgec import LMGEC
 
         m = LMGEC(
             n_clusters=mock_dataset.n_clusters,
@@ -118,7 +118,7 @@ class TestLMGECFit:
 
     def test_fit_with_preprocess(self, mock_dataset):
         """Fit with preprocess=True and real adjacency matrices."""
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.models.lmgec import LMGEC
 
         m = LMGEC(
             n_clusters=mock_dataset.n_clusters,
@@ -132,7 +132,7 @@ class TestLMGECFit:
 
     def test_fit_without_adjacency(self, mock_dataset):
         """preprocess=True but As=None → normalise without propagation."""
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.models.lmgec import LMGEC
 
         m = LMGEC(
             n_clusters=mock_dataset.n_clusters,
@@ -144,7 +144,7 @@ class TestLMGECFit:
         assert m.labels_ is not None
 
     def test_per_view_beta_fit(self, mock_dataset):
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.models.lmgec import LMGEC
 
         m = LMGEC(
             n_clusters=mock_dataset.n_clusters,
@@ -156,7 +156,7 @@ class TestLMGECFit:
         assert m.labels_ is not None
 
     def test_wrong_beta_length_raises(self, mock_dataset):
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.models.lmgec import LMGEC
 
         m = LMGEC(
             n_clusters=mock_dataset.n_clusters,
@@ -173,13 +173,13 @@ class TestLMGECFit:
 
 class TestLMGECName:
     def test_default_name(self):
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.models.lmgec import LMGEC
 
         m = LMGEC(n_clusters=3, embedding_dim=4)
         assert m.name == "LMGEC"
 
     def test_custom_name(self):
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.models.lmgec import LMGEC
 
         m = LMGEC(n_clusters=3, embedding_dim=4)
         m.name = "my_model"
@@ -191,33 +191,33 @@ class TestLMGECName:
 
 class TestModelRegistry:
     def test_list_models_contains_lmgec(self):
-        from pymv.models import list_models
+        from polyclustx.models import list_models
 
         models = list_models()
         assert "lmgec" in models
 
     def test_get_model_returns_class(self):
-        from pymv.models import get_model
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.models import get_model
+        from polyclustx.models.lmgec import LMGEC
 
         cls = get_model("lmgec")
         assert cls is LMGEC
 
     def test_get_model_case_insensitive(self):
-        from pymv.models import get_model
+        from polyclustx.models import get_model
 
         cls1 = get_model("lmgec")
         cls2 = get_model("LMGEC")
         assert cls1 is cls2
 
     def test_get_model_unknown_raises(self):
-        from pymv.models import get_model
+        from polyclustx.models import get_model
 
         with pytest.raises(ValueError, match="not registered"):
             get_model("nonexistent_model")
 
     def test_get_model_info(self):
-        from pymv.models import get_model_info
+        from polyclustx.models import get_model_info
 
         info = get_model_info("lmgec")
         assert "class" in info
@@ -225,7 +225,7 @@ class TestModelRegistry:
         assert isinstance(info["defaults"], dict)
 
     def test_defaults_contain_expected_keys(self):
-        from pymv.models import get_model_info
+        from polyclustx.models import get_model_info
 
         info = get_model_info("lmgec")
         expected = {
@@ -235,14 +235,14 @@ class TestModelRegistry:
         assert expected.issubset(info["defaults"].keys())
 
     def test_list_models_info(self):
-        from pymv.models import list_models_info
+        from polyclustx.models import list_models_info
 
         registry = list_models_info()
         assert isinstance(registry, dict)
         assert "lmgec" in registry
 
     def test_register_duplicate_raises(self):
-        from pymv.models.registry import register_model
+        from polyclustx.models.registry import register_model
 
         with pytest.raises(ValueError, match="already registered"):
             @register_model("lmgec")
@@ -254,7 +254,7 @@ class TestLMGECReproducibility:
     """LMGEC must produce identical labels for a fixed ``random_state``."""
 
     def test_same_seed_gives_same_labels(self, mock_dataset):
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.models.lmgec import LMGEC
 
         def _run():
             return LMGEC(
@@ -268,7 +268,7 @@ class TestLMGECReproducibility:
         assert np.array_equal(_run(), _run())
 
     def test_random_state_is_a_registered_default(self):
-        from pymv.models import get_model_info
+        from polyclustx.models import get_model_info
 
         assert "random_state" in get_model_info("lmgec")["defaults"]
 
@@ -279,7 +279,7 @@ class TestLMGECEmbeddingDimClamp:
     broadcast ValueError."""
 
     def test_oversized_embedding_dim_fits(self, mock_dataset):
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.models.lmgec import LMGEC
 
         m = LMGEC(
             n_clusters=mock_dataset.n_clusters,
@@ -296,7 +296,7 @@ class TestLMGECEmbeddingDimClamp:
         assert m.labels_.shape == (mock_dataset.n_samples,)
 
     def test_effective_dim_reported_when_not_clamped(self, mock_dataset):
-        from pymv.models.lmgec import LMGEC
+        from polyclustx.models.lmgec import LMGEC
 
         m = LMGEC(
             n_clusters=mock_dataset.n_clusters,
@@ -311,7 +311,7 @@ class TestLMGECEmbeddingDimClamp:
 
 class TestSCM:
     def _model(self, n_clusters=3, random_state=7):
-        from pymv.models.scm import SCM
+        from polyclustx.models.scm import SCM
 
         return SCM(
             n_clusters=n_clusters,
@@ -324,7 +324,7 @@ class TestSCM:
         )
 
     def test_registered_and_exported(self):
-        from pymv.models import SCM, get_model, list_models
+        from polyclustx.models import SCM, get_model, list_models
 
         assert get_model("scm") is SCM
         assert "scm" in list_models()

@@ -7,10 +7,10 @@ Clustering without labels
 .. code-block:: python
 
    import numpy as np
-   from pymv.data import MultiViewDataset
-   from pymv.models import LMGEC
-   from pymv.metrics import silhouette_score
-   from pymv.experiment import Experiment
+   from polyclustx.data import MultiViewDataset
+   from polyclustx.models import LMGEC
+   from polyclustx.metrics import silhouette_score
+   from polyclustx.experiment import Experiment
 
    rng = np.random.default_rng(42)
    data = MultiViewDataset(
@@ -39,14 +39,14 @@ A labeled benchmark
 
 .. code-block:: python
 
-   from pymv.data import load_data
-   from pymv.metrics import nmi_score
+   from polyclustx.data import load_data
+   from polyclustx.metrics import nmi_score
 
    data = load_data("acm")
    model = data.fit(LMGEC(n_clusters=3, embedding_dim=8, random_state=42))
    print("NMI:", nmi_score(data.labels, model.labels_))
 
-All loaders return a :class:`~pymv.data.MultiViewDataset`, with optional labels,
+All loaders return a :class:`~polyclustx.data.MultiViewDataset`, with optional labels,
 a sample order, an observation mask, and one graph entry per view. Legacy
 ``Xs, As, y = data`` unpacking still works, but loses the IDs and missing mask.
 Prefer ``data.fit(model)`` when handling incomplete or multi-relational data.

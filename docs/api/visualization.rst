@@ -3,7 +3,7 @@ Visualization
 
 Plotting utilities for cluster embeddings.
 
-.. automodule:: pymv.visualization.visualizer
+.. automodule:: polyclustx.visualization.visualizer
    :members:
    :undoc-members:
    :show-inheritance:

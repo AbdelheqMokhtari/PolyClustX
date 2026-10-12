@@ -1,5 +1,21 @@
 # Algorithm references and notices
 
+## Institutional marks
+
+`src/polyclustx/display/assets/borelli.png` (Centre Borelli) and
+`src/polyclustx/display/assets/paris_cite.png` (Université Paris Cité) were
+supplied by the repository owner. They are reproduced unchanged to identify
+research affiliations, not as a claim of institutional endorsement.
+These marks are not licensed under the software's MIT license; rights remain
+with their respective institutions. Reuse must follow institutional requirements:
+
+- https://centreborelli.ens-paris-saclay.fr/fr
+- https://u-paris.fr/charte-graphique-et-outils/
+
+See `docs/contributing/branding.md` for provenance and the generated project mark.
+
+## Algorithm adaptations
+
 CONAN, DGF and G-CoMVKM are framework-native adaptations informed by their
 reference implementations. The copyright notices and MIT license below apply
 to the respective derived portions:
@@ -36,7 +52,7 @@ COMPLETER's architecture and objective are adapted from the XLearning reference
 (https://github.com/XLearning-SCU/2021-CVPR-Completer). Their MIT notices follow.
 
 IDEC, DCP and MFLVC are reimplementations of their published clustering
-objectives using pymv's shared building blocks. Original standalone scripts,
+objectives using polyclustx's shared building blocks. Original standalone scripts,
 datasets and pretrained weights are not redistributed. Paper and reference
 implementation links, scope and deliberate differences are documented in
 docs/background/algorithms.md and docs/user_guide/clustering_models.md.

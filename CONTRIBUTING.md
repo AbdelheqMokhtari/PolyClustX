@@ -6,11 +6,11 @@ source code/data link and license first. Use the issue templates on GitHub.
 
 ## Set up a contribution
 
-1. Fork `AbdelheqMokhtari/pymv` on GitHub and clone your fork.
+1. Fork `AbdelheqMokhtari/PolyClustX` on GitHub and clone your fork.
 2. Add the upstream repository and start from `develop`:
 
    ```bash
-   git remote add upstream https://github.com/AbdelheqMokhtari/pymv.git
+   git remote add upstream https://github.com/AbdelheqMokhtari/PolyClustX.git
    git fetch upstream
    git switch -c fix/short-description upstream/develop
    python -m venv .venv

@@ -6,6 +6,21 @@ and this project adheres to Semantic Versioning.
 
 ## Unreleased
 
+### PolyClustX rebrand
+
+- Renamed the distribution and import package from `pymv-clustering` / `pymv`
+  to `polyclustx`; launch the interface with `polyclustx display`.
+- Updated repository links, CLI commands, environment variables, report metadata,
+  examples, contributor tooling and documentation for PolyClustX.
+- Adopted a light indigo/violet/steel-blue identity, a transparent scientific logo,
+  and separate Centre Borelli / Université Paris Cité affiliation marks.
+- Updated all notebooks to the new API and cleared stored outputs. Added an
+  unexecuted end-to-end comparison, visualization and search tutorial.
+
+This rename changes imports and console commands. See the installation guide
+for migration instructions. Historical release entries below retain their
+original project name.
+
 ### Added
 
 - CONAN, DGF, G-CoMVKM, SGLA and feature-input UMC, with explicit adaptation

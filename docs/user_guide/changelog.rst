@@ -4,8 +4,8 @@ Changelog
 Unreleased — integrated interface
 ---------------------------------
 
-* Integrated optional ``pymv.display`` interface in the ``pymv-clustering``
-  distribution; launch with ``pymv-display`` or ``python -m pymv.display``.
+* Integrated optional ``polyclustx.display`` interface in the ``polyclustx``
+  distribution; launch with ``polyclustx-display`` or ``python -m polyclustx.display``.
 * Freely navigable sidebar steps, lazy session datasets, editable preprocessing
   recipes, manual K sweeps, and independent experiment history.
 * Direct model parameter and random-search controls, repeated-run mean ± standard
@@ -22,8 +22,8 @@ Unreleased — integrated interface
 Migration notes
 ~~~~~~~~~~~~~~~
 
-The old ``pymv_display`` import path is replaced by ``pymv.display``. Install
-``pymv-clustering[display]`` instead of a separate interface package.
+The old ``polyclustx_display`` import path is replaced by ``polyclustx.display``. Install
+``polyclustx[display]`` instead of a separate interface package.
 
 Graph lists must match the number of feature views. Repeat a shared graph
 explicitly (``As=[A, A]``); implicit reuse of the last adjacency was removed.

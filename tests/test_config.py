@@ -1,5 +1,5 @@
 """
-Tests for pymv config loading, flattening, merging, and validation.
+Tests for polyclustx config loading, flattening, merging, and validation.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import pytest
 
 class TestLoadConfig:
     def test_load_yaml(self, sample_config):
-        from pymv.config import load_config
+        from polyclustx.config import load_config
 
         cfg = load_config(sample_config)
         assert isinstance(cfg, dict)
@@ -22,7 +22,7 @@ class TestLoadConfig:
         assert cfg["model"]["name"] == "lmgec"
 
     def test_load_json(self, tmp_path):
-        from pymv.config import load_config
+        from polyclustx.config import load_config
 
         cfg_path = tmp_path / "test.json"
         cfg_path.write_text(json.dumps({
@@ -34,13 +34,13 @@ class TestLoadConfig:
         assert cfg["dataset"] == "dblp"
 
     def test_file_not_found(self):
-        from pymv.config import load_config
+        from polyclustx.config import load_config
 
         with pytest.raises(FileNotFoundError):
             load_config("/nonexistent/path/config.yaml")
 
     def test_unsupported_format(self, tmp_path):
-        from pymv.config import load_config
+        from polyclustx.config import load_config
 
         cfg_path = tmp_path / "config.txt"
         cfg_path.write_text("hello")
@@ -54,7 +54,7 @@ class TestLoadConfig:
 
 class TestConfigToArgs:
     def test_basic_flattening(self):
-        from pymv.config import config_to_args
+        from polyclustx.config import config_to_args
 
         cfg = {
             "dataset": "acm",
@@ -86,7 +86,7 @@ class TestConfigToArgs:
         assert flat["name"] == "my_exp"
 
     def test_preprocess_false_becomes_no_preprocess(self):
-        from pymv.config import config_to_args
+        from polyclustx.config import config_to_args
 
         cfg = {
             "dataset": "acm",
@@ -99,7 +99,7 @@ class TestConfigToArgs:
         assert flat["no_preprocess"] is True
 
     def test_preprocess_true_no_flag(self):
-        from pymv.config import config_to_args
+        from polyclustx.config import config_to_args
 
         cfg = {
             "dataset": "acm",
@@ -112,7 +112,7 @@ class TestConfigToArgs:
         assert flat.get("no_preprocess") is False
 
     def test_output_path_mapped(self):
-        from pymv.config import config_to_args
+        from polyclustx.config import config_to_args
 
         cfg = {
             "dataset": "acm",
@@ -125,7 +125,7 @@ class TestConfigToArgs:
         assert flat["save_path"] == "/custom/output"
 
     def test_output_log(self):
-        from pymv.config import config_to_args
+        from polyclustx.config import config_to_args
 
         cfg = {
             "dataset": "acm",
@@ -135,7 +135,7 @@ class TestConfigToArgs:
         assert flat["log"] is True
 
     def test_search_space_preserved(self):
-        from pymv.config import config_to_args
+        from polyclustx.config import config_to_args
 
         cfg = {
             "dataset": "acm",
@@ -149,7 +149,7 @@ class TestConfigToArgs:
         assert flat["_search_space"]["embedding_dim"] == [4, 8, 16]
 
     def test_random_search_fields(self):
-        from pymv.config import config_to_args
+        from polyclustx.config import config_to_args
 
         cfg = {
             "dataset": "acm",
@@ -167,14 +167,14 @@ class TestConfigToArgs:
         assert flat["seed"] == 42
 
     def test_model_as_string(self):
-        from pymv.config import config_to_args
+        from polyclustx.config import config_to_args
 
         cfg = {"dataset": "acm", "model": "lmgec"}
         flat = config_to_args(cfg)
         assert flat["model"] == "lmgec"
 
     def test_empty_config(self):
-        from pymv.config import config_to_args
+        from polyclustx.config import config_to_args
 
         flat = config_to_args({})
         assert flat == {}
@@ -185,19 +185,19 @@ class TestConfigToArgs:
 
 class TestValidateConfig:
     def test_valid_config(self):
-        from pymv.config import validate_config
+        from polyclustx.config import validate_config
 
         errors = validate_config({"dataset": "acm"})
         assert errors == []
 
     def test_missing_dataset(self):
-        from pymv.config import validate_config
+        from polyclustx.config import validate_config
 
         errors = validate_config({"model": {"name": "lmgec"}})
         assert any("dataset" in e.lower() for e in errors)
 
     def test_model_params_without_name(self):
-        from pymv.config import validate_config
+        from polyclustx.config import validate_config
 
         errors = validate_config({
             "dataset": "acm",
@@ -211,7 +211,7 @@ class TestValidateConfig:
 
 class TestMergeConfigWithCLI:
     def test_config_fills_missing_cli_args(self):
-        from pymv.config import merge_config_with_cli
+        from polyclustx.config import merge_config_with_cli
 
         config_args = {"dataset": "dblp", "runs": 5}
         ns = argparse.Namespace(dataset=None, runs=1, verbose=1)

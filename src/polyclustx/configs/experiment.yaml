@@ -1,0 +1,27 @@
+# ─────────────────────────────────────────────────────────────
+#  polyclustx — Example: tuned experiment on ACM
+# ─────────────────────────────────────────────────────────────
+#  Usage:
+#    polyclustx-cli --config configs/experiment.yaml
+#    polyclustx-cli --config configs/experiment.yaml --runs 5
+
+dataset: acm
+
+model:
+  name: lmgec
+  params:
+    embedding_dim: 16
+    temperature: 100
+    beta: 2
+    tf_idf: true
+    preprocess: true
+    max_iter: 30
+
+experiment:
+  runs: 3
+  metrics: [acc, nmi, ari, f1]
+  verbose: 1
+
+output:
+  save: true
+  name: acm_tuned

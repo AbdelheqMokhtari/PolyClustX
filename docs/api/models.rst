@@ -1,67 +1,67 @@
 Models and registry
 ===================
 
-.. autoclass:: pymv.models.CONAN
+.. autoclass:: polyclustx.models.CONAN
    :members:
    :special-members: __init__
 
-.. autoclass:: pymv.models.DGF
+.. autoclass:: polyclustx.models.DGF
    :members:
    :special-members: __init__
 
-.. autoclass:: pymv.models.GCoMVKM
+.. autoclass:: polyclustx.models.GCoMVKM
    :members:
    :special-members: __init__
 
-.. autoclass:: pymv.models.SGLA
+.. autoclass:: polyclustx.models.SGLA
    :members:
    :special-members: __init__
 
-.. autoclass:: pymv.models.UMC
+.. autoclass:: polyclustx.models.UMC
    :members:
    :special-members: __init__
 
 
-.. autoclass:: pymv.models.LMGEC
+.. autoclass:: polyclustx.models.LMGEC
    :members:
    :special-members: __init__
 
-.. autoclass:: pymv.models.SCM
+.. autoclass:: polyclustx.models.SCM
    :members:
    :special-members: __init__
 
-.. autofunction:: pymv.models.register_model
+.. autofunction:: polyclustx.models.register_model
 
-.. autoclass:: pymv.models.MultiViewKMeans
+.. autoclass:: polyclustx.models.MultiViewKMeans
    :members:
    :special-members: __init__
 
-.. autoclass:: pymv.models.MultiViewSpectralClustering
+.. autoclass:: polyclustx.models.MultiViewSpectralClustering
    :members:
    :special-members: __init__
 
-.. autoclass:: pymv.models.IDEC
+.. autoclass:: polyclustx.models.IDEC
    :members:
    :special-members: __init__
 
-.. autoclass:: pymv.models.COMPLETER
-   :members:
-   :inherited-members:
-   :special-members: __init__
-
-.. autoclass:: pymv.models.DCP
+.. autoclass:: polyclustx.models.COMPLETER
    :members:
    :inherited-members:
    :special-members: __init__
 
-.. autoclass:: pymv.models.MFLVC
+.. autoclass:: polyclustx.models.DCP
+   :members:
+   :inherited-members:
+   :special-members: __init__
+
+.. autoclass:: polyclustx.models.MFLVC
    :members:
    :special-members: __init__
 
-.. autofunction:: pymv.models.get_model
+.. autofunction:: polyclustx.models.get_model
 
-.. autofunction:: pymv.models.get_model_info
+.. autofunction:: polyclustx.models.get_model_info
 
-.. autofunction:: pymv.models.list_models
+.. autofunction:: polyclustx.models.list_models
 
-.. autofunction:: pymv.models.list_models_info
+.. autofunction:: polyclustx.models.list_models_info

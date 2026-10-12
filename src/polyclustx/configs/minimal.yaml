@@ -1,0 +1,7 @@
+# ─────────────────────────────────────────────────────────────
+#  polyclustx — Example: minimal config (only required fields)
+# ─────────────────────────────────────────────────────────────
+#  Usage:
+#    polyclustx-cli --config configs/minimal.yaml
+
+dataset: dblp

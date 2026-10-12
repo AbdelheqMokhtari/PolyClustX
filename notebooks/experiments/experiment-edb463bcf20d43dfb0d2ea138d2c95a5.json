@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "pymv_version": "1.3.1",
+  "polyclustx_version": "1.3.1",
   "id": "edb463bcf20d43dfb0d2ea138d2c95a5",
   "kind": "experiment",
   "name": null,
@@ -40,7 +40,7 @@
       },
       "model": {
         "name": "LMGEC",
-        "module": "pymv.models.lmgec.lmgec",
+        "module": "polyclustx.models.lmgec.lmgec",
         "supports_missing_views": false,
         "description": "Linear multiview attributed graph embedding and clustering.",
         "paper": "https://doi.org/10.1145/3539597.3570367",
@@ -428,7 +428,7 @@
       },
       "model": {
         "name": "LMGEC",
-        "module": "pymv.models.lmgec.lmgec",
+        "module": "polyclustx.models.lmgec.lmgec",
         "supports_missing_views": false,
         "description": "Linear multiview attributed graph embedding and clustering.",
         "paper": "https://doi.org/10.1145/3539597.3570367",

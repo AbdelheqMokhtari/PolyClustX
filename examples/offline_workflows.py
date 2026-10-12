@@ -2,10 +2,10 @@
 
 import numpy as np
 
-from pymv.data import MultiViewDataset, impute_missing, simulate_missing_views
-from pymv.experiment import Experiment
-from pymv.metrics import silhouette_score
-from pymv.models import LMGEC, SCM
+from polyclustx.data import MultiViewDataset, impute_missing, simulate_missing_views
+from polyclustx.experiment import Experiment
+from polyclustx.metrics import silhouette_score
+from polyclustx.models import LMGEC, SCM
 
 
 def main():

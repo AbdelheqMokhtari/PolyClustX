@@ -1,4 +1,4 @@
-from pymv.progress import iterations, training_progress
+from polyclustx.progress import iterations, training_progress
 
 
 def test_callbacks_are_scoped_and_do_not_skip_iterations():
@@ -16,7 +16,7 @@ def test_callbacks_are_scoped_and_do_not_skip_iterations():
 def test_model_emits_training_events():
     import numpy as np
 
-    from pymv.models import IDEC
+    from polyclustx.models import IDEC
     events = []
     with training_progress(events.append):
         IDEC(2, hidden_dims=(4,), embedding_dim=2, max_iter=2, pretrain_epochs=1,
@@ -29,9 +29,9 @@ def test_interface_launcher_threads_and_clean_interrupt(monkeypatch):
 
     import pytest
 
-    from pymv.display import launch
+    from polyclustx.display import launch
 
-    monkeypatch.setenv("PYMV_CPU_THREADS", "3")
+    monkeypatch.setenv("POLYCLUSTX_CPU_THREADS", "3")
     monkeypatch.setenv("OMP_NUM_THREADS", "4")
     monkeypatch.delenv("MKL_NUM_THREADS", raising=False)
     calls = []

@@ -1,5 +1,5 @@
 """
-Tests for pymv CLI (pymv-cli).
+Tests for polyclustx CLI (polyclustx-cli).
 
 Uses subprocess to test the real entry point, ensuring the CLI
 behaves as a user would experience it.
@@ -16,16 +16,16 @@ import sys
 # Helper
 # ---------------------------------------------------------------------------
 
-# Build the command prefix to run pymv-cli in the test environment
+# Build the command prefix to run polyclustx-cli in the test environment
 _PYTHON = sys.executable
 
 
 def _run_cli(*args: str, timeout: int = 120) -> subprocess.CompletedProcess:
-    """Run ``pymv-cli`` via the Python entry point."""
+    """Run ``polyclustx-cli`` via the Python entry point."""
     env = os.environ.copy()
     env["CUDA_VISIBLE_DEVICES"] = ""
 
-    cmd = [_PYTHON, "-m", "pymv.cli", *args]
+    cmd = [_PYTHON, "-m", "polyclustx.cli", *args]
     return subprocess.run(
         cmd,
         capture_output=True,
@@ -42,7 +42,7 @@ class TestCLIDiscovery:
     def test_version(self):
         result = _run_cli("--version")
         assert result.returncode == 0
-        assert "pymv" in result.stdout.lower() or "pymv" in result.stderr.lower()
+        assert "polyclustx" in result.stdout.lower() or "polyclustx" in result.stderr.lower()
 
     def test_list_datasets(self):
         result = _run_cli("--list-datasets")
@@ -59,7 +59,7 @@ class TestCLIDiscovery:
     def test_no_args_shows_quick_start(self):
         result = _run_cli()
         assert result.returncode == 0
-        assert "pymv-cli" in result.stdout
+        assert "polyclustx-cli" in result.stdout
 
     def test_help(self):
         result = _run_cli("--help")

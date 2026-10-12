@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from pymv.data import MultiViewDataset, simulate_missing_views
-from pymv.experiment import Experiment
-from pymv.metrics import nmi_score
-from pymv.models import COMPLETER, DCP, IDEC, MFLVC, MultiViewKMeans, MultiViewSpectralClustering
+from polyclustx.data import MultiViewDataset, simulate_missing_views
+from polyclustx.experiment import Experiment
+from polyclustx.metrics import nmi_score
+from polyclustx.models import COMPLETER, DCP, IDEC, MFLVC, MultiViewKMeans, MultiViewSpectralClustering
 
 
 def run(output_dir="experiments/new-models"):

@@ -9,8 +9,8 @@ discarding your work.
 Use Python 3.10 or newer; Python 3.11 is recommended.
 
 ```bash
-python -m pip install pymv-clustering
-pymv display
+python -m pip install polyclustx
+polyclustx display
 ```
 
 Open the local address printed in the terminal, normally http://localhost:8501.
@@ -18,7 +18,7 @@ For environment creation, Windows activation, repository downloads and restartin
 follow the [installation tutorial](installation.rst). To choose another port:
 
 ```bash
-pymv-display --server.port=8502
+polyclustx-display --server.port=8502
 ```
 
 ## Your first experiment
@@ -30,7 +30,7 @@ pymv-display --server.port=8502
 5. Open **Experiment**, select your dataset and model, and click **Run experiment**.
 6. Read **Results**, explore **Visualizations**, then download from **Export**.
 
-```{pymv-screenshot} interface-overview.png
+```{polyclustx-screenshot} interface-overview.png
 Sidebar navigation with Dataset selected and a small synthetic dataset loaded.
 ```
 
@@ -70,7 +70,7 @@ feature statistics, missing observations, estimated memory, and graph properties
 Inspect either original or applied/prepared data. Benchmark mode starts enabled
 when labels exist; uncheck it to use internal evaluation only.
 
-```{pymv-screenshot} dataset-details.png
+```{polyclustx-screenshot} dataset-details.png
 Dataset collection, benchmark setting, class distribution and per-view statistics.
 ```
 
@@ -111,7 +111,7 @@ recipe; the original source stays unchanged. Preparation is applied once for
 each fit, and model-internal preprocessing is disabled when necessary to
 avoid applying feature transformations twice.
 
-```{pymv-screenshot} dataset-preprocessing.png
+```{polyclustx-screenshot} dataset-preprocessing.png
 Preprocessing controls, missing-view simulation, imputation and Apply changes.
 ```
 
@@ -162,7 +162,7 @@ name** (default: `MODEL_strategy_best_#1`) and click **Copy best to experiment**
 to save the winning settings. The winning K is preserved. This does not start
 a new fit. Download the search report from **Export → Individual results**.
 
-```{pymv-screenshot} hyperparameter-search.png
+```{polyclustx-screenshot} hyperparameter-search.png
 Grid or random search controls, objective, result table and named best-model action.
 ```
 
@@ -218,7 +218,7 @@ suggestion. Toggle row normalization to show proportions or counts.
 Click **Save plot to Export** below any supported figure to capture its current
 settings and plotted values. Saving the same figure again replaces that snapshot.
 
-```{pymv-screenshot} results-visualizations.png
+```{polyclustx-screenshot} results-visualizations.png
 Named runs, normalized loss comparison and a Hungarian-aligned confusion matrix.
 ```
 
@@ -243,9 +243,9 @@ Arrays are named `view_1`, `view_2`, `graph_1_1`, etc. `graph_mapping` contains
 one-based view/relation pairs; `observed_mask` marks available observations.
 Reload through Files → NPZ / MATLAB container and select those arrays explicitly.
 The interface limits source data to 256 MB for this download; Python users can use
-`pymv.display.exporting.dataset_mat(data)` directly and write the returned bytes.
+`polyclustx.display.exporting.dataset_mat(data)` directly and write the returned bytes.
 
-```{pymv-screenshot} export-center.png
+```{polyclustx-screenshot} export-center.png
 Export categories, named report and plot downloads, and prepared MATLAB dataset export.
 ```
 

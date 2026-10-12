@@ -1,7 +1,7 @@
 # Add datasets and variants
 
 Use `MultiViewDataset` for local/private data; registration is not required.
-For reusable public data, add a `DatasetSpec` to `pymv.data.registry` with its
+For reusable public data, add a `DatasetSpec` to `polyclustx.data.registry` with its
 source record, artifact filename, reader, description and view count.
 Readers return `(Xs, As, labels)`; validation and metadata happen centrally.
 
@@ -24,7 +24,7 @@ two tiny MATLAB variants in a temporary directory, loads both, prints their
 dimensions and cleans up. No downloads or registry changes are needed.
 
 ```python
-from pymv.data import dataset_from_arrays, read_arrays
+from polyclustx.data import dataset_from_arrays, read_arrays
 
 data = dataset_from_arrays(
     read_arrays("my_dataset.mat"), view_keys=["image", "text"], label_key="labels",
@@ -38,7 +38,7 @@ Use small fixtures to test optional labels, sparse matrices and graph mappings.
 
 ## 2. Add a public artifact to the catalog
 
-In `src/pymv/data/registry.py`, add entries to `_SPECS`. The following is a
+In `src/polyclustx/data/registry.py`, add entries to `_SPECS`. The following is a
 template: replace the record ID, file names and reference with your real data.
 Do not commit the dataset files to the source repository.
 
@@ -53,7 +53,7 @@ DatasetSpec(
 )
 ```
 
-Readers live in `src/pymv/data/readers.py`. Reuse a reader for standard layouts;
+Readers live in `src/polyclustx/data/readers.py`. Reuse a reader for standard layouts;
 add a new one only when the file format needs it. Return `(Xs, As, labels)`;
 use `None` for absent graphs or labels. Register actual download artifacts,
 not a link to a repository's HTML page. Include redistribution terms and the
@@ -73,7 +73,7 @@ VARIANTS.pop("my_dataset_compact")
 The existing default mapping is retained. Users can then call:
 
 ```python
-from pymv.data import list_variants, load_data
+from polyclustx.data import list_variants, load_data
 
 print(list_variants("my_dataset"))  # compact, default
 data = load_data("my_dataset", variant="compact")

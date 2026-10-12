@@ -1,12 +1,12 @@
 import numpy as np
 import pytest
 
-from pymv.command import assignments, main
-from pymv.data import MultiViewDataset
-from pymv.experiment import OptunaSearchExperiment
-from pymv.experiment.optuna_search import OptunaSampler, validate_space
-from pymv.metrics import nmi_score
-from pymv.models import MultiViewKMeans
+from polyclustx.command import assignments, main
+from polyclustx.data import MultiViewDataset
+from polyclustx.experiment import OptunaSearchExperiment
+from polyclustx.experiment.optuna_search import OptunaSampler, validate_space
+from polyclustx.metrics import nmi_score
+from polyclustx.models import MultiViewKMeans
 
 
 def test_optuna_report(tmp_path):
@@ -62,7 +62,7 @@ def test_simple_cli(capsys):
 def test_cli_runs_and_searches_offline(monkeypatch, tmp_path, capsys):
     y = np.repeat([0, 1], 8)
     data = MultiViewDataset([np.column_stack([y, np.arange(16)])], labels=y)
-    monkeypatch.setattr("pymv.data.load_data", lambda name: data)
+    monkeypatch.setattr("polyclustx.data.load_data", lambda name: data)
     for command in ("run", "search"):
         args = [command, "offline", "--model", "multiview_kmeans", "--param", "n_init=1",
                 "--output", str(tmp_path)]
@@ -76,7 +76,7 @@ def test_cli_runs_and_searches_offline(monkeypatch, tmp_path, capsys):
 
 
 def test_workspace_optuna_and_ui_range(tmp_path):
-    from pymv.display.workspace import ExperimentSpec, Workspace
+    from polyclustx.display.workspace import ExperimentSpec, Workspace
     from tests.test_display_comparisons import app_test
 
     ws = Workspace()

@@ -1,5 +1,5 @@
 """
-Tests for pymv data loading and MultiViewDataset.
+Tests for polyclustx data loading and MultiViewDataset.
 """
 
 from __future__ import annotations
@@ -12,14 +12,14 @@ import pytest
 
 class TestListDatasets:
     def test_returns_list(self):
-        from pymv.data import list_datasets
+        from polyclustx.data import list_datasets
 
         datasets = list_datasets()
         assert isinstance(datasets, list)
         assert len(datasets) > 0
 
     def test_known_datasets_present(self):
-        from pymv.data import list_datasets
+        from polyclustx.data import list_datasets
 
         datasets = list_datasets()
         for name in ("acm", "dblp"):
@@ -28,13 +28,13 @@ class TestListDatasets:
 
 class TestLoadDatasetErrors:
     def test_unknown_dataset_raises(self):
-        from pymv.data import load_dataset
+        from polyclustx.data import load_dataset
 
         with pytest.raises(ValueError, match="Unknown dataset"):
             load_dataset("nonexistent_dataset_xyz")
 
     def test_empty_string_raises(self):
-        from pymv.data import load_dataset
+        from polyclustx.data import load_dataset
 
         with pytest.raises(ValueError):
             load_dataset("")
@@ -45,7 +45,7 @@ class TestLoadDatasetErrors:
 
 class TestMultiViewDataset:
     def test_construction(self, mock_arrays):
-        from pymv.data.dataset import MultiViewDataset
+        from polyclustx.data.dataset import MultiViewDataset
 
         Xs, As, labels = mock_arrays
         ds = MultiViewDataset(Xs, As, labels, name="test")
@@ -78,7 +78,7 @@ class TestMultiViewDataset:
         assert mock_dataset.has_graphs is True
 
     def test_has_graphs_false(self, mock_arrays):
-        from pymv.data.dataset import MultiViewDataset
+        from polyclustx.data.dataset import MultiViewDataset
 
         Xs, _, labels = mock_arrays
         ds = MultiViewDataset(Xs, [None, None], labels)
@@ -114,7 +114,7 @@ class TestLoadRealDataset:
     """Validate structure of a real loaded dataset (ACM)."""
 
     def test_returns_multiview_dataset(self, acm):
-        from pymv.data.dataset import MultiViewDataset
+        from polyclustx.data.dataset import MultiViewDataset
 
         assert isinstance(acm, MultiViewDataset)
 

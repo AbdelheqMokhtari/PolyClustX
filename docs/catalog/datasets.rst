@@ -10,12 +10,12 @@ inspect loaded arrays for the exact dimensions of your chosen representation.
 
 .. code-block:: python
 
-   from pymv.data import list_variants, get_dataset_info, load_data
+   from polyclustx.data import list_variants, get_dataset_info, load_data
    print(list_variants("pascal"))
    print(get_dataset_info("pascal", variant="clip"))  # no download
    data = load_data("pascal", variant="clip")
 
-.. pymv-catalog:: datasets
+.. polyclustx-catalog:: datasets
 
 Interpretation and provenance
 -----------------------------

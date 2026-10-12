@@ -4,8 +4,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pymv.data import MultiViewDataset
-from pymv.models import LMGEC, SCM
+from polyclustx.data import MultiViewDataset
+from polyclustx.models import LMGEC, SCM
 
 
 def test_offline_documented_workflows():
@@ -31,7 +31,7 @@ def test_real_models_one_two_many_views(count, cls):
 
 
 def test_direct_propagation_fuses_relations():
-    from pymv.preprocessing import get_propagated_features
+    from polyclustx.preprocessing import get_propagated_features
     x = np.arange(12).reshape(6, 2)
     a, b = np.eye(6), np.ones((6, 6))
     expected = get_propagated_features(x, adj=.2 * a + .8 * b)

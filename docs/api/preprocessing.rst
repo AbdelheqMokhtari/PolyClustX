@@ -4,7 +4,7 @@ Preprocessing
 Feature and graph preprocessing utilities used internally by models and
 available as a public API for custom pipelines.
 
-.. automodule:: pymv.preprocessing.features
+.. automodule:: polyclustx.preprocessing.features
    :members:
    :undoc-members:
    :show-inheritance:
@@ -13,4 +13,4 @@ available as a public API for custom pipelines.
 Graph relation fusion
 ---------------------
 
-.. autofunction:: pymv.preprocessing.fuse_graphs
+.. autofunction:: polyclustx.preprocessing.fuse_graphs

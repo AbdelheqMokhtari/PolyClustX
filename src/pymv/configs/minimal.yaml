@@ -1,7 +1,0 @@
-# ─────────────────────────────────────────────────────────────
-#  pymv — Example: minimal config (only required fields)
-# ─────────────────────────────────────────────────────────────
-#  Usage:
-#    pymv-cli --config configs/minimal.yaml
-
-dataset: dblp

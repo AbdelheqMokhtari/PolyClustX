@@ -7,7 +7,7 @@ and hyper-parameter search.
 Experiment
 ----------
 
-.. autoclass:: pymv.experiment.Experiment
+.. autoclass:: polyclustx.experiment.Experiment
    :members:
    :undoc-members:
    :show-inheritance:
@@ -16,7 +16,7 @@ Experiment
 RandomSearchExperiment
 ----------------------
 
-.. autoclass:: pymv.experiment.RandomSearchExperiment
+.. autoclass:: polyclustx.experiment.RandomSearchExperiment
    :members:
    :undoc-members:
    :show-inheritance:
@@ -26,7 +26,7 @@ RandomSearchExperiment
 Grid search
 -----------
 
-.. autoclass:: pymv.experiment.GridSearchExperiment
+.. autoclass:: polyclustx.experiment.GridSearchExperiment
    :members:
    :inherited-members:
    :special-members: __init__
@@ -34,7 +34,7 @@ Grid search
 Result containers and reports
 -----------------------------
 
-.. autoclass:: pymv.experiment.OptunaSearchExperiment
+.. autoclass:: polyclustx.experiment.OptunaSearchExperiment
    :members:
    :inherited-members:
    :special-members: __init__
@@ -43,17 +43,17 @@ Runner results expose ``to_dict()``, ``json_path``, ``save_json(output_dir)``
 and ``export(path)`` for JSON, CSV or ZIP output. Automatic JSON export defaults
 to ``./experiments``; pass ``save_path=`` or ``save_json=False`` to a runner.
 
-.. autoclass:: pymv.experiment.ExperimentResult
+.. autoclass:: polyclustx.experiment.ExperimentResult
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. autoclass:: pymv.experiment.RandomSearchResult
+.. autoclass:: polyclustx.experiment.RandomSearchResult
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. autoclass:: pymv.experiment.Result
+.. autoclass:: polyclustx.experiment.Result
    :members:
    :undoc-members:
    :show-inheritance:

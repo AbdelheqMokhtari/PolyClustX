@@ -1,13 +1,13 @@
 import numpy as np
 import pytest
 
-from pymv.cli import _coerce, build_parser
-from pymv.data import MultiViewDataset
-from pymv.display.model_controls import compatible_models, parameter_controls, parse_candidates
-from pymv.display.workspace import ExperimentSpec, Workspace
-from pymv.experiment import Experiment
-from pymv.metrics import nmi_score
-from pymv.models import COMPLETER, DCP, IDEC, MFLVC, MultiViewKMeans, MultiViewSpectralClustering, get_model
+from polyclustx.cli import _coerce, build_parser
+from polyclustx.data import MultiViewDataset
+from polyclustx.display.model_controls import compatible_models, parameter_controls, parse_candidates
+from polyclustx.display.workspace import ExperimentSpec, Workspace
+from polyclustx.experiment import Experiment
+from polyclustx.metrics import nmi_score
+from polyclustx.models import COMPLETER, DCP, IDEC, MFLVC, MultiViewKMeans, MultiViewSpectralClustering, get_model
 from tests.test_display_comparisons import app_test
 from tests.test_new_deep_models import configuration
 

@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 import numpy as np
 from scipy.io import savemat
 
-from pymv.data import dataset_from_arrays, read_arrays
+from polyclustx.data import dataset_from_arrays, read_arrays
 
 
 def create_demo_files(directory):
@@ -38,7 +38,7 @@ def load_demo_variant(paths, variant="default"):
 
 
 if __name__ == "__main__":
-    with TemporaryDirectory(prefix="pymv-dataset-example-") as directory:
+    with TemporaryDirectory(prefix="polyclustx-dataset-example-") as directory:
         paths = create_demo_files(directory)
         for variant in paths:
             data = load_demo_variant(paths, variant)

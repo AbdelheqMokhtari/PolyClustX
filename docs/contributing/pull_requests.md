@@ -1,7 +1,7 @@
 # Propose a method or contribute code
 
 To request a method without implementing it, open a
-[feature request](https://github.com/AbdelheqMokhtari/pymv/issues/new) with the
+[feature request](https://github.com/AbdelheqMokhtari/PolyClustX/issues/new) with the
 paper citation, reference-code link, code license, required data settings,
 dependencies and expected behavior. Explain whether it uses graphs and whether
 it genuinely handles incomplete views.

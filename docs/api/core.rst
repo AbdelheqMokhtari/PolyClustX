@@ -1,9 +1,9 @@
 Core / Base Classes
 ===================
 
-Abstract base classes that all models in **pymv** must implement.
+Abstract base classes that all models in **polyclustx** must implement.
 
-.. automodule:: pymv.core.base_model
+.. automodule:: polyclustx.core.base_model
    :members:
    :undoc-members:
    :show-inheritance:

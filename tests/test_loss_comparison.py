@@ -5,9 +5,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-from pymv.experiment import Experiment  # noqa: E402
-from pymv.metrics import nmi_score  # noqa: E402
-from pymv.visualization import plot_loss, plot_loss_comparison  # noqa: E402
+from polyclustx.experiment import Experiment  # noqa: E402
+from polyclustx.metrics import nmi_score  # noqa: E402
+from polyclustx.visualization import plot_loss, plot_loss_comparison  # noqa: E402
 from tests.test_experiment_reports import ReportModel, dataset  # noqa: E402
 
 

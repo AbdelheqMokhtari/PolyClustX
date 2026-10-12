@@ -13,7 +13,7 @@ be finite and nonnegative.
 ```python
 import networkx as nx  # included with the display extra; otherwise install networkx
 import numpy as np
-from pymv.data import MultiViewDataset
+from polyclustx.data import MultiViewDataset
 
 graph = nx.Graph()
 graph.add_nodes_from(["sample-b", "sample-a", "sample-c"])
@@ -29,8 +29,8 @@ adjacency files under **Dataset → Add graphs to a view**.
 
 ```python
 import numpy as np
-from pymv.data import MultiViewDataset
-from pymv.models import LMGEC
+from polyclustx.data import MultiViewDataset
+from polyclustx.models import LMGEC
 
 rng = np.random.default_rng(9)
 image, text = rng.normal(size=(30, 6)), rng.normal(size=(30, 8))
@@ -52,7 +52,7 @@ An edge must appear in every relation to survive. Hadamard fusion rejects weight
 Relations must have identical shapes and sample order.
 
 ```python
-from pymv.preprocessing import fuse_graphs, get_propagated_features
+from polyclustx.preprocessing import fuse_graphs, get_propagated_features
 
 a = fuse_graphs([spatial, similarity], weights=[0.3, 0.7])
 h = get_propagated_features(image, adj=a, beta=1.0)
@@ -77,8 +77,8 @@ creates aligned features and sparse graph relations suitable for the same
 preprocessing, fusion and model APIs as loaded datasets:
 
 ```python
-from pymv.display.synthetic import SyntheticGraphSpec, SyntheticSpec, generate_synthetic
-from pymv.models import LMGEC
+from polyclustx.display.synthetic import SyntheticGraphSpec, SyntheticSpec, generate_synthetic
+from polyclustx.models import LMGEC
 
 data = generate_synthetic(SyntheticSpec(
     n_samples=120,

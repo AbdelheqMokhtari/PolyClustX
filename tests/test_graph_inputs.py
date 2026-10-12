@@ -4,9 +4,9 @@ import numpy as np
 import pytest
 from scipy import sparse
 
-from pymv.data import MultiViewDataset
-from pymv.display.graph_uploads import attach_graphs, read_graph_file
-from pymv.display.workspace import Workspace
+from polyclustx.data import MultiViewDataset
+from polyclustx.display.graph_uploads import attach_graphs, read_graph_file
+from polyclustx.display.workspace import Workspace
 
 
 def test_graph_objects_follow_sample_ids_and_parallel_edges():

@@ -10,8 +10,8 @@ from __future__ import annotations
 import pytest
 import requests
 
-from pymv.data import downloader
-from pymv.data.downloader import download_file
+from polyclustx.data import downloader
+from polyclustx.data.downloader import download_file
 
 PAYLOAD = b"0123456789" * 10  # 100 bytes
 

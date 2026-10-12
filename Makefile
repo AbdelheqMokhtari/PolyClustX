@@ -3,7 +3,7 @@
 
 PYTHON ?= python
 PORT ?= 8000
-RTD_PROJECT ?= pymv
+RTD_PROJECT ?= polyclustx
 RTD_VERSION ?= latest
 
 # ── Help ──────────────────────────────────────────────────────────
@@ -52,27 +52,27 @@ clean:           ## Remove build, cache and docs artifacts
 # ── CLI helpers ───────────────────────────────────────────────────
 
 guide:           ## Show short command-line help
-	@$(PYTHON) -m pymv.command
+	@$(PYTHON) -m polyclustx.command
 
 cli:             ## Forward arguments, e.g. make cli ARGS="models idec"
-	@$(PYTHON) -m pymv.command $(ARGS)
+	@$(PYTHON) -m polyclustx.command $(ARGS)
 
 run:             ## Run a model: make run DATASET=acm MODEL=lmgec ARGS="--runs 3"
-	@$(PYTHON) -m pymv.command run $(DATASET) --model $(or $(MODEL),multiview_kmeans) $(ARGS)
+	@$(PYTHON) -m polyclustx.command run $(DATASET) --model $(or $(MODEL),multiview_kmeans) $(ARGS)
 
 search:          ## Tune a model: pass --strategy and --vary through ARGS
-	@$(PYTHON) -m pymv.command search $(DATASET) --model $(or $(MODEL),multiview_kmeans) $(ARGS)
+	@$(PYTHON) -m polyclustx.command search $(DATASET) --model $(or $(MODEL),multiview_kmeans) $(ARGS)
 
 list-datasets:   ## List dataset families
-	@$(PYTHON) -m pymv.command datasets
+	@$(PYTHON) -m polyclustx.command datasets
 
 list-models:     ## List registered models
-	@$(PYTHON) -m pymv.command models
+	@$(PYTHON) -m polyclustx.command models
 
 # ── Release ───────────────────────────────────────────────────────
 
 version:         ## Show the current library version
-	@pymv-cli --version
+	@polyclustx-cli --version
 
 bump:            ## Bump version using commitizen (updates all version files + CHANGELOG.md)
 	@echo "Bumping version with commitizen..."
@@ -80,7 +80,7 @@ bump:            ## Bump version using commitizen (updates all version files + C
 	@echo ""
 	@echo "Version bumped. Files updated:"
 	@echo "  - pyproject.toml  (project.version + tool.commitizen.version)"
-	@echo "  - src/pymv/__init__.py  (__version__)"
+	@echo "  - src/polyclustx/__init__.py  (__version__)"
 	@echo "  - CHANGELOG.md"
 	@echo ""
 	@echo "Run  make release  to merge into main and push tags."
@@ -117,4 +117,4 @@ release:         ## Full release: bump -> merge develop -> main, push tags
 
 	@echo ""
 	@echo "Release completed successfully"
-	@pymv-cli --version
+	@polyclustx-cli --version

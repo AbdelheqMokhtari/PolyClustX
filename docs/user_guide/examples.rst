@@ -4,11 +4,17 @@ Examples
 Start with the offline tutorial below, then use the focused benchmark examples.
 All examples using catalog datasets download their data on first use.
 
-Executed offline notebooks
---------------------------
+Notebook tutorials
+------------------
 
 Download and open these notebooks in Jupyter (``python -m pip install notebook``
-if needed). They include actual executed outputs and use no dataset downloads.
+if needed). All notebooks are supplied **without executed outputs**. Run them
+yourself with a kernel that has PolyClustX installed. The tutorials below do not
+download datasets; catalog examples in other notebooks may download on first use.
+
+* :download:`From features to attributed graphs <../../notebooks/06_polyclustx_feature_to_graph_study.ipynb>`:
+  start here for Iris/Wine comparisons, repeated experiments, projection and loss
+  visualizations, multiple graph relations, grid/random/Optuna search and exports.
 
 * :download:`All-method comparison <../../notebooks/04_all_methods_comparison.ipynb>`:
   thirteen models, two datasets, repeated-run tables, graph relations, missing
@@ -55,9 +61,9 @@ The simplest workflow: load a dataset, fit a model, evaluate.
 
 .. code-block:: python
 
-   from pymv.data import load_acm
-   from pymv.models import LMGEC
-   from pymv.metrics import clustering_accuracy, nmi_score, ari_score
+   from polyclustx.data import load_acm
+   from polyclustx.models import LMGEC
+   from polyclustx.metrics import clustering_accuracy, nmi_score, ari_score
 
    Xs, As, y = load_acm()
 
@@ -94,7 +100,7 @@ Set ``preprocess=False`` to skip all internal preprocessing:
 
 .. code-block:: python
 
-   from pymv.preprocessing import get_propagated_features, preprocess_features
+   from polyclustx.preprocessing import get_propagated_features, preprocess_features
 
    # Xs and As come from Example 1. Center before row normalization;
    # do not center features that are intended for TF-IDF.
@@ -124,9 +130,9 @@ Compare multiple model configurations across multiple datasets:
 
 .. code-block:: python
 
-   from pymv.experiment import Experiment
-   from pymv.models import LMGEC
-   from pymv.metrics import clustering_accuracy, nmi_score, ari_score
+   from polyclustx.experiment import Experiment
+   from polyclustx.models import LMGEC
+   from polyclustx.metrics import clustering_accuracy, nmi_score, ari_score
 
    m1 = LMGEC(n_clusters=3, embedding_dim=16, temperature=1.0)
    m1.name = "LMGEC-T1"
@@ -156,9 +162,9 @@ Find the best configuration for a single dataset with random search:
 
 .. code-block:: python
 
-   from pymv.experiment import RandomSearchExperiment
-   from pymv.models import LMGEC
-   from pymv.metrics import clustering_accuracy, nmi_score
+   from polyclustx.experiment import RandomSearchExperiment
+   from polyclustx.models import LMGEC
+   from polyclustx.metrics import clustering_accuracy, nmi_score
 
    rs = RandomSearchExperiment(
        model_class=LMGEC,
@@ -187,9 +193,9 @@ Pass your own pre-loaded data instead of built-in loaders:
 
 .. code-block:: python
 
-   from pymv.experiment import Experiment
-   from pymv.models import LMGEC
-   from pymv.metrics import clustering_accuracy
+   from polyclustx.experiment import Experiment
+   from polyclustx.models import LMGEC
+   from polyclustx.metrics import clustering_accuracy
 
    my_data = (Xs, As, y)
 
@@ -215,9 +221,9 @@ Plot the learned consensus embedding with t-SNE or PCA:
 
 .. code-block:: python
 
-   from pymv.data import load_acm
-   from pymv.models import LMGEC
-   from pymv.visualization.visualizer import plot_clusters
+   from polyclustx.data import load_acm
+   from polyclustx.models import LMGEC
+   from polyclustx.visualization.visualizer import plot_clusters
 
    Xs, As, y = load_acm()
    model = LMGEC(n_clusters=3, embedding_dim=16)

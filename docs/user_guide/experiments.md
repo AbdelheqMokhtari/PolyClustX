@@ -21,9 +21,9 @@ geometry, not semantic correctness. Comparisons across different embedding
 spaces need care. Silhouette can be expensive for large datasets.
 
 ```python
-from pymv.experiment import Experiment, RandomSearchExperiment, GridSearchExperiment
-from pymv.models import LMGEC
-from pymv.metrics import silhouette_score, davies_bouldin_score
+from polyclustx.experiment import Experiment, RandomSearchExperiment, GridSearchExperiment
+from polyclustx.models import LMGEC
+from polyclustx.metrics import silhouette_score, davies_bouldin_score
 
 # data is a MultiViewDataset created or loaded earlier.
 comparison = Experiment(
@@ -73,9 +73,9 @@ Custom functions default to external, higher-is-better scores. Set
 ## Optuna: adaptive discrete or continuous search
 
 ```python
-from pymv.experiment import OptunaSearchExperiment
-from pymv.models import LMGEC
-from pymv.metrics import nmi_score
+from polyclustx.experiment import OptunaSearchExperiment
+from polyclustx.models import LMGEC
+from polyclustx.metrics import nmi_score
 
 search = OptunaSearchExperiment(
     LMGEC,
@@ -114,7 +114,7 @@ evaluates their Cartesian product, one fit at a time. Use dataset callables to
 load one dataset at a time instead of retaining a collection of matrices.
 
 ```python
-from pymv.data import load_data
+from polyclustx.data import load_data
 
 datasets = {
     "acm": lambda: load_data("acm"),
@@ -181,7 +181,7 @@ prediction, embedding and visualization-label arrays.
 ## Compare losses across experiments
 
 ```python
-from pymv.visualization import plot_loss_comparison
+from polyclustx.visualization import plot_loss_comparison
 
 ax = plot_loss_comparison([comparison, grid], run=1, show=False)
 ax.figure.savefig("loss-comparison.svg", bbox_inches="tight")
@@ -195,10 +195,10 @@ accepted too. For a single fitted model, use
 ## Command-line use
 
 ```bash
-pymv-cli --dataset pascal --variant clip --n-clusters 5
-pymv-cli --dataset acm --no-benchmark --n-clusters 3 --metrics silhouette db ch
-pymv-cli --dataset acm --missing-rate 0.2 --impute mean --seed 42 --n-clusters 3
-pymv-cli --dataset acm --no-benchmark --n-clusters 3 \
+polyclustx-cli --dataset pascal --variant clip --n-clusters 5
+polyclustx-cli --dataset acm --no-benchmark --n-clusters 3 --metrics silhouette db ch
+polyclustx-cli --dataset acm --missing-rate 0.2 --impute mean --seed 42 --n-clusters 3
+polyclustx-cli --dataset acm --no-benchmark --n-clusters 3 \
   --random-search --metrics db --best-metric db --seed 42
 ```
 

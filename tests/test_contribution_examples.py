@@ -1,7 +1,7 @@
 import numpy as np
 from examples.custom_datasets import create_demo_files, load_demo_variant
 
-from pymv.data import get_dataset_info, list_variants, load_data, readers, registry
+from polyclustx.data import get_dataset_info, list_variants, load_data, readers, registry
 
 
 def test_local_dataset_variants(tmp_path):
