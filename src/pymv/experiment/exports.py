@@ -60,6 +60,8 @@ def model_details(model):
     cls = model if isinstance(model, type) else type(model)
     details = {"name": cls.__name__, "module": cls.__module__,
                "supports_missing_views": bool(getattr(cls, "supports_missing_views", False))}
+    if getattr(cls, "backend", None):
+        details["backend"] = cls.backend
     from pymv.models.registry import list_models_info
 
     for info in list_models_info().values():
@@ -72,6 +74,7 @@ def model_details(model):
 def diagnostics(model):
     loss = getattr(model, "loss_history_", None)
     return json_safe({
+        "device": getattr(model, "device_", None),
         "loss_history": loss,
         "normalized_loss_history": normalized_loss(loss),
         "view_weights": getattr(model, "view_weights_", getattr(model, "alphas_", None)),

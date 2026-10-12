@@ -37,7 +37,7 @@ class Catalog(SphinxDirective):
     required_arguments = 1
 
     def run(self):
-        with mock(["tensorflow"]):
+        with mock(["torch"]):
             from pymv.data import get_dataset_info, list_datasets, list_variants
             from pymv.models import get_model_info, list_models
         if self.arguments[0] == "models":
