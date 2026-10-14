@@ -23,7 +23,7 @@ is a single ``DatasetSpec`` entry there.
 from . import registry as _registry
 from .base import get_data_home
 from .dataset import MultiViewDataset
-from .importers import dataset_from_arrays, load_files, read_arrays
+from .importers import array_roles, dataset_from_arrays, default_views, load_files, load_mat, read_arrays
 from .missing import align_views, impute_missing, simulate_missing_views
 from .registry import (
     CATALOG,
@@ -49,6 +49,9 @@ __all__ = [
     "impute_missing",
     "simulate_missing_views",
     "dataset_from_arrays",
+    "array_roles",
+    "default_views",
+    "load_mat",
     "load_files",
     "read_arrays",
     "CATALOG",

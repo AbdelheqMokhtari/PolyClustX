@@ -18,6 +18,12 @@ Data API
 Imports and alignment
 ---------------------
 
+.. autofunction:: polyclustx.data.load_mat
+
+.. autofunction:: polyclustx.data.array_roles
+
+.. autofunction:: polyclustx.data.default_views
+
 .. autofunction:: polyclustx.data.read_arrays
 
 .. autofunction:: polyclustx.data.dataset_from_arrays
@@ -34,4 +40,4 @@ Missing views
 .. autofunction:: polyclustx.data.impute_missing
 
 See :doc:`/catalog/datasets` for the complete, automatically generated catalog
-and :doc:`/user_guide/data` for explicit file mappings.
+and :doc:`/user_guide/data` for standardized MAT files and explicit view mappings.

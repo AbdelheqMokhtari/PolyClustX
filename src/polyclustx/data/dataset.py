@@ -9,7 +9,7 @@ from scipy import sparse
 
 
 def _matrix(value, name):
-    result = value.tocsr().astype(float) if sparse.issparse(value) else np.asarray(value, dtype=float)
+    result = value.tocsr().astype(float, copy=False) if sparse.issparse(value) else np.asarray(value, dtype=float)
     if result.ndim != 2 or min(result.shape) == 0:
         raise ValueError(f"{name} must be a nonempty two-dimensional matrix")
     return result
@@ -34,7 +34,12 @@ class MultiViewDataset:
                  observed_mask=None, view_names=None, modalities=None, metadata=None):
         if not isinstance(Xs, (list, tuple)) or not Xs:
             raise ValueError("Xs must contain at least one feature matrix")
-        self.Xs = [_matrix(x, f"Xs[{v}]") for v, x in enumerate(Xs)]
+        features = {}
+        self.Xs = []
+        for v, x in enumerate(Xs):
+            if id(x) not in features:
+                features[id(x)] = _matrix(x, f"Xs[{v}]")
+            self.Xs.append(features[id(x)])
         n, v = self.Xs[0].shape[0], len(self.Xs)
         if any(x.shape[0] != n for x in self.Xs):
             raise ValueError("Views must share a sample order; use align_views with sample IDs")
@@ -57,6 +62,7 @@ class MultiViewDataset:
         self.As = [None] * v if As is None else list(As)
         if len(self.As) != v:
             raise ValueError("As must contain exactly one entry per view (use None for no graph)")
+        graphs = {}
         for j, entry in enumerate(self.As):
             relations = entry if isinstance(entry, (list, tuple)) else [entry]
             converted = []
@@ -69,7 +75,9 @@ class MultiViewDataset:
                 if hasattr(adjacency, "nodes") and hasattr(adjacency, "edges"):
                     from .graphs import graph_adjacency
                     adjacency = graph_adjacency(adjacency, np.arange(n) if sample_ids is None else sample_ids)
-                a = _matrix(adjacency, f"As[{j}]")
+                if id(adjacency) not in graphs:
+                    graphs[id(adjacency)] = _matrix(adjacency, f"As[{j}]")
+                a = graphs[id(adjacency)]
                 values = a.data if sparse.issparse(a) else a
                 if a.shape != (n, n) or not np.isfinite(values).all() or (values < 0).any():
                     raise ValueError("Graphs must be finite nonnegative (n_samples, n_samples) matrices")

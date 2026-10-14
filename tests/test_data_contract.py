@@ -123,6 +123,43 @@ def test_nan_detection_is_explicit_and_partial_nan_rejected():
         dataset_from_arrays(arrays, view_keys=["a", "b"], detect_nan_rows=True)
 
 
+def test_standardized_mat_defaults_combinations_and_reused_matrices(tmp_path):
+    from polyclustx.data import load_mat
+    x = sparse.csr_matrix(np.arange(12).reshape(6, 2))
+    arrays = {"X1_features": x, "A1_links": sparse.eye(6),
+              "A2_similarity": sparse.eye(6) * 2, "labels": np.arange(6)}
+    path = tmp_path / "standard.mat"
+    savemat(path, arrays)
+    default = load_mat(path)
+    assert default.n_views == 2 and default.Xs[0] is default.Xs[1]
+    assert all(sparse.issparse(graph) for graph in default.As)
+    selection = {"plain": "X1_features", "links": ("X1_features", "A1_links"),
+                 "combined": ("X1_features", ["A2_similarity", "A1_links"])}
+    composed = load_mat(path, views=selection)
+    assert composed.view_names == list(selection) and composed.labels.tolist() == list(range(6))
+    assert composed.As[0] is None and len(composed.As[2]) == 2
+    assert composed.Xs[0] is composed.Xs[1] is composed.Xs[2]
+    assert composed.As[1] is composed.As[2][1]
+    np.testing.assert_allclose(composed.fused_graphs()[2].toarray(), np.eye(6) * 3)
+    feature_only = load_mat(path, views={"plain": "X1_features"})
+    assert feature_only.n_views == 1 and not feature_only.has_graphs
+
+
+def test_standardized_natural_order_and_shared_graph():
+    arrays = {"X10": np.ones((4, 3)), "X2": np.ones((4, 2)),
+              "A1": sparse.eye(4), "labels": np.arange(4)}
+    data = dataset_from_arrays(arrays)
+    assert data.view_names == ["X2", "X10"]
+    assert data.As[0] is data.As[1]
+
+
+@pytest.mark.parametrize("selection", [{}, {"bad": "labels"}, {"bad": ("X1", ["A1", "A1"])},
+                                      {"bad": ("X1", ["missing"])}, {"bad": ("X1", "labels")}])
+def test_invalid_view_combinations_are_rejected(selection):
+    with pytest.raises(ValueError):
+        dataset_from_arrays({"X1": np.ones((4, 2)), "A1": sparse.eye(4), "labels": np.arange(4)}, views=selection)
+
+
 def test_validation():
     with pytest.raises(ValueError, match="unique IDs"):
         align_views([np.ones((2, 1))], [[1, 1]])

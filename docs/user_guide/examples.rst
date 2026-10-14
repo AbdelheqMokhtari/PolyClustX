@@ -123,17 +123,35 @@ features: do not apply it to these standardized Wine measurements.
        datasets={"Wine": data, "Synthetic": synthetic},
        models=[
            LMGEC(n_clusters=3, embedding_dim=3, max_iter=20, random_state=42),
-           MultiViewKMeans(n_clusters=3, n_init=3, random_state=42),
+           MultiViewKMeans(n_clusters=3, random_state=42),
        ],
        metrics={"ACC": clustering_accuracy, "NMI": nmi_score}, runs=3,
        save_path="experiments/comparison",
    ).run()
-   print(results.results_tables())
    results.export("experiments/comparison.zip")
 
 This performs 12 fits and reports mean ± standard deviation for each pair.
 Both datasets have three reference classes. In Python, set K explicitly on
 each estimator; use separate jobs when datasets need different K values.
+
+The Wine portion is a readable table, not a JSON dictionary. Example output
+(timing and numerical results may vary):
+
+.. code-block:: text
+
+   Results — Wine
+   ┌────────┬──────────────────┬────────────────────┐
+   │ Metric │            LMGEC │    MultiViewKMeans │
+   ├────────┼──────────────────┼────────────────────┤
+   │ ACC    │ 0.9551 (±0.0000) │ 0.9663 (±0.0000) * │
+   │ NMI    │ 0.8352 (±0.0000) │ 0.8770 (±0.0000) * │
+   │ Alphas │   [0.481, 0.519] │                    │
+   │ Time   │            0.03s │              0.02s │
+   └────────┴──────────────────┴────────────────────┘
+
+The runner also prints the Synthetic table. Zero standard deviation is shown
+explicitly for repeated runs; a star marks the best mean. Use
+``print(results.results_tables())`` later to redisplay saved tables without refitting.
 
 6. Choose K without labels
 --------------------------

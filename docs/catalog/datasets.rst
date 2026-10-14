@@ -1,40 +1,67 @@
-Available datasets and variants
-=================================
+Available datasets and representations
+======================================
 
-This catalog is generated from the registry used by Python, the CLI, and the
-interface. Each family appears once, with its variants and download links together.
-An artifact link identifies the actual hosted file. A reference link provides
-dataset background; provisional references are suggested reading, not verified
-provenance. Reference-collection counts describe that collection's version;
-inspect loaded arrays for the exact dimensions of your chosen representation.
+The catalog contains 37 families and 66 representation files in four settings.
+Each family appears once below, with its stored features, structural relations,
+sample/class counts, reference and direct download links. A representation is an
+alternate feature encoding of the same samples, not another dataset family.
+
+Files download directly from Hugging Face: no extra client, login or MATLAB
+installation is needed. Files whose uploads are still pending become usable at
+the same links when published. Standardized files contain X* features, optional
+A* adjacency matrices and a labels vector. See :doc:`../user_guide/data` for
+loading and composing views.
 
 .. code-block:: python
 
-   from polyclustx.data import list_variants, get_dataset_info, load_data
+   from polyclustx.data import load_data, list_variants, get_dataset_info
+
    print(list_variants("pascal"))
-   print(get_dataset_info("pascal", variant="clip"))  # no download
+   print(get_dataset_info("grocery-S", variant="clip_minilm"))  # no download
    data = load_data("pascal", variant="clip")
+   print(data.feature_dims)  # actual stored widths, not source-encoder widths
+
+Graph datasets may have fewer feature matrices than composed views. ACM stores
+one keyword matrix and two adjacencies; its default composition reuses the
+keywords once per relation. You can select features without graphs, pair a
+feature with any graph, or fuse several relations in one view using ``views=``.
+
+Dataset families and variants
+-----------------------------
 
 .. polyclustx-catalog:: datasets
 
-Interpretation and provenance
------------------------------
+Notes on interpretation
+-----------------------
 
-The four settings describe graph availability and whether views have the same
-modality. Completeness is separate; missing-view simulation can be applied to
-complete multi-view datasets. Different image descriptors remain one modality,
-while image and text are distinct modalities. Custom/unknown modalities default
-to a common unspecified modality until the user supplies explicit annotations.
-Verify these annotations against your study design.
+**Same modality or different modalities.** Several visual descriptors count as
+multi-view input. Images paired with text count as multimodal input, including
+Wikipedia-test. Grocery-S and Reddit-S are separate smaller datasets; encoder
+variants are listed within each of them.
 
-Linked Zenodo records identify the distributed artifacts, not a blanket license
-grant. Consult each dataset's original publications and terms before
-redistributing it. Files are cached on first use. The hosted BBC4view file is
-known to be corrupt; the interface disables its download button.
+**Source encoders versus stored columns.** ESP-Game, IAPR-TC12, MIRFlickr and
+NUS-WIDE originate from 4096-dimensional VGG-16 image and 768-dimensional BERT
+text representations. The uploaded files contain processed 100-dimensional
+views. The loader uses their actual shapes and does not invent missing columns.
+Grocery-S CLIP+MiniLM stores 512 image and 384 text columns.
 
-Graph-bearing and feature-only variants can share a family:
-``load_data("acm")`` loads two graph views, whereas
-``load_data("acm", variant="5view")`` loads five feature views.
+**Graph counts.** Stored arcs count directed nonzero entries, not necessarily
+unique undirected edges. Existing self-loops and asymmetry are retained. The
+tables report the supplied reference statistics; inspect the Dataset page for
+properties measured on the chosen file.
 
-Old names such as ``pascal_clip`` and ``acm_5view`` remain deprecated aliases.
-Use ``list_datasets(include_aliases=True)`` when migrating older configurations.
+**References and reuse.** Background links identify benchmark collections or
+related reference implementations, not an assertion that every processed
+artifact is identical to an original benchmark. Photo and Arts provenance,
+and Grocery-S subset construction, remain unspecified. Check original dataset
+terms before redistributing files.
+
+**Missing views.** Completeness is independent of the four categories. Use
+:doc:`../user_guide/missing_views` to simulate missing observations or align
+different sample IDs. Model requirements are in :doc:`models`.
+
+Old representation names such as ``pascal_clip`` and older ``*_multimodal``
+names remain migration aliases. Prefer ``load_data("pascal", variant="clip")``.
+Legacy artifacts without a supplied Hugging Face replacement (for example ACM
+5view, BBC4view, CiteSeer and Cora) are not advertised by this catalog; use
+explicit local-file mapping for your own copies.

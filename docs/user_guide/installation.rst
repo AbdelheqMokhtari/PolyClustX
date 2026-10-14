@@ -78,9 +78,9 @@ and launch with ``polyclustx-display``. The old ``pymv`` namespace is not shippe
 as an alias; numerical model behavior is unchanged by the rename.
 
 Rename environment variables to ``POLYCLUSTX_DATA_DIR`` and
-``POLYCLUSTX_CPU_THREADS``. To reuse an existing dataset cache without moving or
-downloading data, point ``POLYCLUSTX_DATA_DIR`` at your old ``.pymv_datasets``
-directory. New JSON reports use ``polyclustx_version`` instead of
+``POLYCLUSTX_CPU_THREADS``. The standardized Hugging Face catalog uses a
+``huggingface/`` subdirectory; old differently structured artifacts are left
+untouched and are not silently reused. New JSON reports use ``polyclustx_version`` instead of
 ``pymv_version``; consumers reading that metadata key should accept either
 name for older reports. Existing report files are not rewritten.
 

@@ -46,9 +46,9 @@ the change. Run a new experiment using silhouette instead of NMI.
 
 | Source | What to do |
 | --- | --- |
-| Catalog | Select a dataset family and one of its variants, then load it. |
+| Catalog | Select a dataset family, inspect its features and relations, then load it. Variant controls appear only when alternate representations exist. |
 | Files: one file per view | Upload CSV, TSV or NPY files. Select labels separately if present. |
-| Files: NPZ / MATLAB container | Inspect the listed arrays, then choose features, labels, IDs and graphs explicitly. |
+| Files: NPZ / MATLAB container | X* features, A* graphs and labels are recognized. Name each composed view and select its feature and relations; other layouts retain explicit mapping. |
 | Synthetic | Choose samples, classes, views, feature dimensions and distributions. Optionally generate graphs. |
 
 Name synthetic or file datasets before loading. Defaults increment as
@@ -61,9 +61,30 @@ may be uploaded with feature files, but select it as labels so it is not used
 as a feature view. A numeric label column can also be selected within a view;
 column numbers in the interface start at 1.
 
-For NPZ/MAT files, do not infer a field's meaning from its name: choose each
-array and its role. To align differently sampled views, select one sample-ID
-array per view. See [loading data](data.md) and [missing views](missing_views.md).
+For standardized NPZ/MAT files, the interface recognizes X* features, A* graphs
+and the exact `labels` field. For other naming schemes, select each role
+explicitly. To align differently sampled views, select one sample-ID array per
+view. See [loading data](data.md) and [missing views](missing_views.md).
+
+### Choose feature/graph combinations
+
+After loading a catalog dataset, open **Choose feature/graph combinations**:
+
+1. Set **Number of views** and give each view a unique name.
+2. Choose its **Feature array**. You can select the same feature for several views.
+3. Choose **Graph relations**: none for feature-only input, one for a separate
+   graph view, or several for relation fusion. Graphs can also be reused.
+4. Click **Update views**, then configure preparation below and click **Apply changes**.
+
+For ACM, create two views from `X1_features`: one with `A1_PAP` (shared authors)
+and one with `A2_PLP` (shared subjects). Alternatively, make one view with both
+relations or one feature-only view. Updating composition resets preparation so
+old settings do not silently apply to different views. The selection survives
+unloading and reloading; the source file and previous results are unchanged.
+
+Standardized file uploads provide the same name/feature/graph controls before
+**Add container dataset**. The labels field is selected for evaluation, not as
+a feature. No JSON editing is required.
 
 **Add graphs to a view** accepts adjacency files (NPY, NPZ, CSV, TSV) and
 GraphML/GEXF graphs. Select the target view. Repeated uploads add relations;
@@ -73,6 +94,10 @@ graph nodes and sample IDs must agree.
 
 The Dataset page shows sample and class counts, class balance, view dimensions,
 feature statistics, missing observations, estimated memory, and graph properties.
+Catalog descriptions explain feature encoders and structural relations. Stored
+feature counts are separate from composed view counts; sparse/shared matrices
+are not counted repeatedly in the memory estimate. Actual loaded dimensions
+are shown even when they differ from source-encoder widths.
 Inspect either original or applied/prepared data. Benchmark mode starts enabled
 when labels exist; uncheck it to use internal evaluation only.
 
