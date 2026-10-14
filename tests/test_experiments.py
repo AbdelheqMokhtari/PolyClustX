@@ -259,6 +259,15 @@ class TestResult:
         assert "acm" in repr(r)
         assert "LMGEC" in repr(r)
 
+    def test_zero_standard_deviation_is_visible_for_repeated_runs(self):
+        from polyclustx.experiment.result import ExperimentResult, Result
+
+        result = ExperimentResult()
+        result.add(Result("example", "repeated", {"ACC": .9}, metric_std={"ACC": 0.0}))
+        assert "0.9000 (±0.0000)" in result.results_tables()
+        single = Result("example", "single", {"ACC": .9})
+        assert "±" not in single.format_cell("ACC", show_std=True)
+
 
 class TestRandomSearchResult:
     def test_add_trial(self):
