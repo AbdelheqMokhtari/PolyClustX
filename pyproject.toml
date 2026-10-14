@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "polyclustx"
-version = "1.4.1"
+version = "1.4.2"
 description = "A Unified Framework for Multi-View and Multimodal Representation Learning and Clustering from Feature Views to Attributed Graphs"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -98,7 +98,7 @@ polyclustx = ["configs/*.yaml"]
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "1.4.1"
+version = "1.4.2"
 tag_format = "v$version"
 version_files = [
     "pyproject.toml:version",
