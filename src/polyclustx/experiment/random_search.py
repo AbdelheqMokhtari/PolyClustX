@@ -61,6 +61,7 @@ def _resolve_dataset(dataset) -> tuple[str, Any]:
 
     from polyclustx.data import get_dataset_info, load_data
     from polyclustx.data.dataset import MultiViewDataset
+    from polyclustx.data.registry import DATASETS
 
     if isinstance(dataset, MultiViewDataset):
         name = getattr(dataset, "name", None) or "dataset"
@@ -68,6 +69,8 @@ def _resolve_dataset(dataset) -> tuple[str, Any]:
 
     if isinstance(dataset, str):
         name = dataset
+        if name.lower() in DATASETS:
+            return name, DATASETS[name.lower()]
         get_dataset_info(name)
         return name, partial(load_data, name)
 

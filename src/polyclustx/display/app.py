@@ -172,7 +172,7 @@ def _profile(data, profile=None):
         ("Views", profile["n_views"]),
         ("Classes", profile["labels"]["n_classes"] if profile["labels"] else "Unknown"),
         ("Complete", "Yes" if profile["complete"] else "No"),
-        ("Graphs", len(profile["graphs"])),
+        ("Graph matrices", profile.get("n_graphs", len(profile["graphs"]))),
         ("Estimated size", format_bytes(profile["memory_bytes"])),
     ]
     for column, (label, value) in zip(columns, values):

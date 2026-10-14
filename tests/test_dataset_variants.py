@@ -12,7 +12,8 @@ def test_variants_are_grouped():
     assert list_variants("acm") == ["default"]
     assert get_dataset_info("acm")["category"] == "attributed_graph_multiview"
     assert get_dataset_info("pascal")["category"] == "multimodal"
-    assert get_dataset_info("arts_multimodal")["category"] == "attributed_graph_multimodal"
+    with pytest.warns(DeprecationWarning):
+        assert get_dataset_info("arts_multimodal")["category"] == "attributed_graph_multimodal"
     assert "arts_multimodal" not in list_datasets(category="multimodal")
     assert "pascal" in list_datasets(category="multimodal")
     assert "acm" not in list_datasets(category="multiview")
@@ -21,6 +22,8 @@ def test_variants_are_grouped():
     assert get_dataset_info("Wiki")["n_views"] == 1
     assert get_dataset_info("Amazon_photos")["feature_dims"] == [745]
     assert get_dataset_info("wikipedia-test")["category"] == "multimodal"
+    with pytest.warns(DeprecationWarning):
+        assert get_dataset_info("grocery_multimodal", variant="small")["name"] == "grocery_s"
 
 
 def test_loading_variant_and_missing_rate(monkeypatch):

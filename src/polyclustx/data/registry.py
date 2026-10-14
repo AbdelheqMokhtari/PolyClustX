@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from numbers import Real
 from typing import Callable
 
-from scipy.io import whosmat
+from scipy.io import loadmat, whosmat
 
 from .base import get_data_home
 from .dataset import MultiViewDataset
@@ -249,6 +249,10 @@ ALIASES.update({
 
 def _resolve(name, variant=None):
     key = str(name).lower().strip().replace("-", "_")
+    if key in {"grocery_multimodal", "reddit_multimodal"} and variant == "small":
+        base = "grocery_s" if key.startswith("grocery") else "reddit_s"
+        warnings.warn(f"Use load_data({base!r}) for the smaller dataset", DeprecationWarning, stacklevel=3)
+        key, variant = base, None
     if key in ALIASES:
         base, chosen = ALIASES[key]
         if chosen != "default" and variant not in (None, "default"):
@@ -274,7 +278,7 @@ def list_variants(name):
 def _load(spec, views=None):
     download_file(spec.url, spec.path)
     if spec.reader is not None:
-        arrays = read_arrays(spec.path)
+        arrays = loadmat(spec.path)  # Custom legacy readers may need unflattened MATLAB cells.
         Xs, As, labels = spec.reader(arrays, **spec.kwargs)
         data = MultiViewDataset(Xs, As, labels, modalities=spec.modalities)
         if views is not None:
