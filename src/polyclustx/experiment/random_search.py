@@ -57,8 +57,10 @@ def _resolve_dataset(dataset) -> tuple[str, Any]:
     *   ``("acm", load_acm)`` or ``("acm", (Xs, As, y))`` — named pair
     *   ``MultiViewDataset`` — dataset object
     """
+    from functools import partial
+
+    from polyclustx.data import get_dataset_info, load_data
     from polyclustx.data.dataset import MultiViewDataset
-    from polyclustx.data.registry import DATASETS
 
     if isinstance(dataset, MultiViewDataset):
         name = getattr(dataset, "name", None) or "dataset"
@@ -66,7 +68,8 @@ def _resolve_dataset(dataset) -> tuple[str, Any]:
 
     if isinstance(dataset, str):
         name = dataset
-        return name, DATASETS[name.lower()]
+        get_dataset_info(name)
+        return name, partial(load_data, name)
 
     if isinstance(dataset, tuple) and len(dataset) == 2:
         name, entry = dataset

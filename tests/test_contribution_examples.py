@@ -1,26 +1,28 @@
 import numpy as np
 from scipy.io import savemat
 
-from polyclustx.data import get_dataset_info, list_variants, load_data, readers, registry
+from polyclustx.data import get_dataset_info, list_variants, load_data, registry
 
 
 def test_registered_variants_without_network(monkeypatch, tmp_path):
     rng = np.random.default_rng(42)
     labels = np.repeat(np.arange(3), 8)
     paths = {}
+    directory = tmp_path / "huggingface" / "contribution_toy"
+    directory.mkdir(parents=True)
     for variant, widths in {"default": (6, 4), "compact": (3, 2)}.items():
-        path = tmp_path / f"toy_{variant}.mat"
-        savemat(path, {"image": rng.normal(size=(24, widths[0])),
-                       "text": rng.normal(size=(24, widths[1])), "labels": labels})
+        path = directory / f"toy_{variant}.mat"
+        savemat(path, {"X1_image": rng.normal(size=(24, widths[0])),
+                       "X2_text": rng.normal(size=(24, widths[1])), "labels": labels})
         paths[variant] = path
-    monkeypatch.setattr(registry, "get_dataset_path", lambda _: tmp_path)
+    monkeypatch.setattr(registry, "get_data_home", lambda: tmp_path)
     calls = []
     monkeypatch.setattr(registry, "download_file", lambda url, path: calls.append((url, path)))
     for variant, path in paths.items():
         artifact = f"contribution_toy_{variant}"
         spec = registry.DatasetSpec(
-            artifact, "test-record", path.name, readers.read_feature_views,
-            kwargs={"keys": ("image", "text"), "label_key": "labels"},
+            artifact, f"https://example.org/{path.name}", path.name,
+            category="multimodal", cache_dir="contribution_toy",
             modalities=("image", "text"), reference="https://example.org/toy",
             description="Offline contribution fixture",
         )

@@ -65,7 +65,9 @@ def _normalize_datasets(datasets) -> OrderedDict:
     *   single callable              — treated as ``[callable]``
     *   single tuple ``(Xs, As, y)`` — treated as ``{"dataset": tuple}``
     """
-    from polyclustx.data.registry import DATASETS
+    from functools import partial
+
+    from polyclustx.data import get_dataset_info, load_data
 
     if isinstance(datasets, str):
         datasets = [datasets]
@@ -86,7 +88,8 @@ def _normalize_datasets(datasets) -> OrderedDict:
         for item in datasets:
             if isinstance(item, str):
                 name = item
-                out[name] = DATASETS[name.lower()]
+                get_dataset_info(name)  # Validate without downloading; accept family aliases and hyphens.
+                out[name] = partial(load_data, name)
             elif _is_dataset_obj(item):
                 name = getattr(item, "name", None) or f"dataset_{len(out)}"
                 out[name] = item

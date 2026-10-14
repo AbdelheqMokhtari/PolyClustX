@@ -41,6 +41,13 @@ def download_file(
             logger.info("Download completed.")
             return destination
         except (requests.RequestException, OSError) as exc:
+            status = (exc.response.status_code
+                      if isinstance(exc, requests.HTTPError) and exc.response is not None else None)
+            if status in {400, 401, 403, 404}:
+                tmp_path.unlink(missing_ok=True)
+                message = ("The dataset file is not available yet; its upload may still be pending"
+                           if status == 404 else "The dataset download is not accessible")
+                raise requests.HTTPError(f"{message} (HTTP {status}): {url}", response=exc.response) from exc
             if attempt == retries:
                 tmp_path.unlink(missing_ok=True)
                 raise
