@@ -15,6 +15,19 @@ External scores include ACC, NMI, ARI and F1. Internal scores include Silhouette
 Runners dispatch the correct inputs: true labels for external scores, and the
 model's learned embedding for internal scores.
 
+## Read the experiment tables
+
+`Experiment(..., runs=3).run()` prints the model-configuration table and one
+results table per dataset automatically. Scores use `mean (±standard deviation)`,
+including `±0.0000` when all repeated scores agree. A star marks the best mean
+according to the metric's direction. Narrow terminals transpose wide tables;
+notebooks retain model rows with a horizontal scrollbar. JSON is saved as a
+machine-readable report, not used as the console summary.
+
+See the [quick start](quickstart.rst) for a complete two-method example and its
+actual table output. To redisplay the results later, call
+`print(results.results_tables())`; this does not refit a model.
+
 Internal indices require between two and n−1 distinct predicted clusters.
 Undefined scores are NaN, not fabricated zeros. Internal indices describe
 geometry, not semantic correctness. Comparisons across different embedding
