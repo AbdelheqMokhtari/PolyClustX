@@ -16,6 +16,39 @@ def training_progress(callback):
         _callback.reset(token)
 
 
+@contextmanager
+def terminal_training_progress(bar, label):
+    """Show reported training stages on an existing terminal progress bar.
+
+    Preserve an enclosing observer, including interface callbacks. Estimates
+    cover the current stage only; preparing inputs and later stages are not
+    included. Without a bar, observation behaves exactly as before.
+    """
+    if bar is None:
+        yield
+        return
+
+    from tqdm import tqdm
+
+    observer = _callback.get()
+
+    def update(event):
+        if observer is not None:
+            observer(event)
+        remaining = event["remaining"]
+        eta = "pending" if remaining is None else tqdm.format_interval(remaining)
+        bar.set_postfix_str(
+            f"{label} | {event['stage']} {event['completed']}/{event['total']} | stage ETA {eta}"
+        )
+
+    bar.set_postfix_str(f"{label} | preparing and fitting")
+    try:
+        with training_progress(update):
+            yield
+    finally:
+        bar.set_postfix_str(label)
+
+
 def iterations(count, stage="Training"):
     """Yield iteration indices and estimate remaining stage time from elapsed work.
 

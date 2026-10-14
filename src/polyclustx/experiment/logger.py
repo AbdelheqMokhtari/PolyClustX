@@ -6,9 +6,8 @@ Design
 *   **Log file** — captures *everything* at DEBUG level:
     dataset loading details, per-run scores, timing, errors,
     result tables, etc.
-*   **Console** — shows only the final clean tables (config +
-    results).  All noisy progress messages go exclusively to
-    the log file.
+*   **Console** — verbosity controls tables, live progress and debug output.
+    The Python API defaults to tables only; the CLI defaults to progress.
 
 When ``experiment_dir`` is provided the log file is written
 directly inside that directory as ``experiment.log``.  Otherwise
@@ -17,7 +16,7 @@ it falls back to ``log_dir`` (default ``./logs``).
 Verbose levels (console only):
     0 — silent   (nothing printed, not even tables)
     1 — tables   (model config table + result tables)
-    2 — tables + one-liner progress per (dataset × model)
+    2 — tables + run/trial and reported training-stage progress
     3 — debug    (everything, same as the log file)
 """
 

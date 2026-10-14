@@ -41,6 +41,7 @@ import numpy as np
 from tqdm import tqdm
 
 from polyclustx.core import BaseModel
+from polyclustx.progress import terminal_training_progress
 
 from .logger import setup_experiment_logger
 from .result import RandomSearchResult, _in_notebook
@@ -426,7 +427,7 @@ class RandomSearchExperiment:
                 desc=f"{self.strategy.title()} Search",
                 unit="trial",
                 dynamic_ncols=True,
-                file=sys.stdout,
+                file=sys.stderr,
                 bar_format=(
                     "{l_bar}{bar}| {n_fmt}/{total_fmt} "
                     "[{elapsed}<{remaining}, {rate_fmt}] {postfix}"
@@ -446,6 +447,8 @@ class RandomSearchExperiment:
                 )
 
             for repeat in range(self.runs):
+                progress_label = (f"{self.dataset_name} × {model_name} | trial {i+1}/{self.n_iter} "
+                                  f"[run {repeat+1}/{self.runs}]")
                 run = {"run": repeat + 1, "started_at": timestamp(), "status": "complete", "metrics": {}}
                 t0 = time.perf_counter()
                 try:
@@ -458,7 +461,10 @@ class RandomSearchExperiment:
                     model = self.model_class(**kwargs)
                     # A custom model must not mutate the dataset used by later trials.
                     import copy
-                    copy.deepcopy(data).fit(model)
+                    with terminal_training_progress(pbar, progress_label):
+                        copy.deepcopy(data).fit(model)
+                    if pbar:
+                        pbar.set_postfix_str(f"{progress_label} | evaluating metrics")
                     run.update(parameters=model_parameters(model), **diagnostics(model))
                     run["metrics"] = dict(evaluate_metrics(
                         self.metrics, labels, model.labels_, getattr(model, "embedding_", None),
@@ -469,6 +475,8 @@ class RandomSearchExperiment:
                     logger.error("Trial %d, run %d failed: %s", i + 1, repeat + 1, exc)
                 run.update(seconds=time.perf_counter() - t0, completed_at=timestamp())
                 entry["runs"].append(run)
+                if pbar:
+                    pbar.set_postfix_str(f"{progress_label} | {run['status']}")
             entry["aggregate"] = aggregate_runs(entry["runs"])
             scores = OrderedDict((key, entry["aggregate"]["metrics"].get(key, {}).get("mean")) for key in self.metrics)
             scores = OrderedDict((key, np.nan if value is None else value) for key, value in scores.items())

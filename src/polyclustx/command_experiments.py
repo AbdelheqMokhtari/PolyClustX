@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 
@@ -34,12 +35,16 @@ def prepare_plan(plan, overrides=()):
     from polyclustx.command import assignments
     from polyclustx.models import get_model_info
 
-    unknown = set(plan) - {"name", "datasets", "models", "runs", "seed", "clusters", "metrics", "benchmark", "output"}
+    unknown = set(plan) - {"name", "datasets", "models", "runs", "seed", "clusters", "metrics", "benchmark", "output",
+                          "verbose"}
     if unknown:
         raise ValueError(f"Unknown plan fields: {sorted(unknown)}")
-    plan = {"runs": 1, "seed": 0, "benchmark": True, "output": "experiments", **plan}
+    plan = {"runs": 1, "seed": 0, "benchmark": True, "output": "experiments", "verbose": 2, **plan}
     _positive(plan["runs"], "runs")
     _positive(plan["seed"], "seed", 0)
+    _positive(plan["verbose"], "verbose", 0)
+    if plan["verbose"] > 3:
+        raise ValueError("verbose must be an integer from 0 to 3")
     if plan.get("clusters") is not None:
         _positive(plan["clusters"], "clusters")
     if not isinstance(plan["benchmark"], bool):
@@ -123,7 +128,11 @@ def run_plan(plan):
     combined.report["plan"] = plan
     combined.report["status"] = "running"
     try:
-        for spec in plan["datasets"]:
+        for index, spec in enumerate(plan["datasets"], 1):
+            if plan["verbose"] >= 2:
+                variant = f" ({spec['variant']})" if "variant" in spec else ""
+                print(f"Dataset {index}/{len(plan['datasets'])}: loading {spec['name']}{variant}",
+                      file=sys.stderr, flush=True)
             data = load_data(spec["name"], variant=spec["variant"]) if "variant" in spec else load_data(spec["name"])
             if plan["benchmark"] and data.labels is None:
                 raise ValueError(f"{spec['name']} has no labels; use --no-benchmark and choose clusters")
@@ -144,7 +153,7 @@ def run_plan(plan):
             label = spec["name"] + (":" + spec["variant"] if "variant" in spec else "")
             result = Experiment(datasets={label: data}, models=estimators, metrics=metrics,
                                 benchmark=plan["benchmark"], runs=plan["runs"], seed=plan["seed"],
-                                verbose=1, save_json=False).run()
+                                verbose=plan["verbose"], save_json=False).run()
             combined.report["experiments"].extend(result.report["experiments"])
             combined.save_json(plan["output"])
             del data, estimators, result, model
@@ -163,6 +172,8 @@ def run_plan(plan):
 
 
 def main(argv=None):
+    from polyclustx.command import add_verbosity_argument
+
     parser = argparse.ArgumentParser(prog="polyclustx experiment", description="Compare dataset × model combinations.")
     parser.add_argument("--config", help="Optional YAML/JSON plan; CLI settings override matching top-level fields")
     parser.add_argument("--datasets", nargs="+", help="Dataset names; use name:variant when needed")
@@ -175,6 +186,7 @@ def main(argv=None):
     parser.add_argument("--no-benchmark", dest="benchmark", action="store_false", default=None)
     parser.add_argument("--output")
     parser.add_argument("--name")
+    add_verbosity_argument(parser, default=None)  # Preserve a plan's own setting unless explicitly overridden.
     args = parser.parse_args(argv)
     try:
         plan = read_plan(args.config) if args.config else {}

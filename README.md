@@ -139,6 +139,16 @@ Each method has its own command and parameter help. Use `--variant` for a datase
 variant, `--clusters` to override K, and `--output` to select the report directory.
 Without an explicit K, labeled datasets use their number of reference classes.
 
+Commands show live progress by default: the dataset, model, run or search trial,
+and training-stage updates when the method reports them. Use `--verbose 1` for
+tables only, `--verbose 0` to hide fitting progress and tables, or `--verbose 3`
+for detailed logs. The short form is `-v 2`:
+
+```bash
+lmgec acm --embedding-dim 8 --runs 3 --verbose 2
+polyclustx experiment --config examples/experiment_plan.yaml -v 2
+```
+
 Search candidates or continuous ranges:
 
 ```bash
@@ -322,10 +332,10 @@ hyperparameter search, visualizations and JSON/CSV/ZIP exports.
 Labels enable benchmark metrics; without labels, use internal metrics.
 [Interface guide](https://polyclustx.readthedocs.io/en/latest/user_guide/workbench.html).
 
-The [notebooks](https://github.com/AbdelheqMokhtari/PolyClustX/tree/main/notebooks) are **unexecuted tutorials** for you to run.
-Start with [the end-to-end study](https://github.com/AbdelheqMokhtari/PolyClustX/blob/main/notebooks/06_polyclustx_feature_to_graph_study.ipynb)
-to compare methods on Iris and Wine, add graphs, visualize embeddings and
-losses, search hyperparameters and export results.
+Run the [reference notebook](https://github.com/AbdelheqMokhtari/PolyClustX/blob/main/notebooks/01_lmgec_experiments_and_optuna.ipynb)
+to list models and datasets, compare three LMGEC configurations on ACM and
+IMDB, tune LMGEC with Optuna, visualize embeddings and losses, and export
+results. The notebook is saved **without outputs** so you can run it yourself.
 
 ## Documentation
 
@@ -341,7 +351,8 @@ start with the [worked examples](https://polyclustx.readthedocs.io/en/latest/use
   <a href="https://u-paris.fr/"><img src="https://raw.githubusercontent.com/AbdelheqMokhtari/PolyClustX/v1.4.1/src/polyclustx/display/assets/paris_cite.png" height="90" alt="Université Paris Cité"></a>
 </p>
 
-Centre Borelli · Université Paris Cité.
+Abdelheq Mokhtari · Lazhar Labiod · Mohamed Nadif.
+All authors are affiliated with Centre Borelli, Université Paris Cité.
 Institutional marks remain separate from PolyClustX and do not imply endorsement.
 
 ## References

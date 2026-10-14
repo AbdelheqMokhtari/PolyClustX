@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT / "docs" / "_ext"))
 
 identity = runpy.run_path(str(ROOT / "src/polyclustx/brand.py"))
 project = identity["NAME"]
-author = "Abdelheq Mokhtari"
+author = "Abdelheq Mokhtari, Lazhar Labiod, Mohamed Nadif"
 copyright = "2026, Abdelheq Mokhtari"
 # Read the version without importing the numerical backend at configuration time.
 release = re.search(r'__version__ = "([^"]+)"', (ROOT / "src/polyclustx/__init__.py").read_text()).group(1)

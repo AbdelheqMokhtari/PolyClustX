@@ -39,6 +39,7 @@ import numpy as np
 from tqdm import tqdm
 
 from polyclustx.core import BaseModel
+from polyclustx.progress import terminal_training_progress
 
 from .logger import setup_experiment_logger
 from .result import ExperimentResult, Result, _in_notebook
@@ -206,7 +207,7 @@ class Experiment:
 
     *   **verbose=0** — nothing printed.
     *   **verbose=1** — config table + result tables only (default).
-    *   **verbose=2** — one-liner progress per (dataset × model)
+    *   **verbose=2** — run and reported training-stage progress
         + tables.
     *   **verbose=3** — full debug (every run, all params).
 
@@ -453,7 +454,7 @@ class Experiment:
                 desc="Experiment",
                 unit="run",
                 dynamic_ncols=True,
-                file=sys.stdout,
+                file=sys.stderr,
                 bar_format=(
                     "{l_bar}{bar}| {n_fmt}/{total_fmt} "
                     "[{elapsed}<{remaining}, {rate_fmt}] {postfix}"
@@ -512,10 +513,9 @@ class Experiment:
                 report["experiments"].append(entry)
 
                 for r in range(self.runs):
+                    progress_label = f"{ds_name} × {m_name} [run {r+1}/{self.runs}]"
                     if pbar:
-                        pbar.set_postfix_str(
-                            f"{ds_name} × {m_name} [run {r+1}/{self.runs}]"
-                        )
+                        pbar.set_postfix_str(progress_label)
 
                     model = copy.deepcopy(model_template)
                     if hasattr(model, "random_state"):
@@ -527,7 +527,10 @@ class Experiment:
                     run = {"run": r + 1, "status": "complete", "started_at": started_at,
                            "parameters": model_parameters(model)}
                     try:
-                        copy.deepcopy(data).fit(model)
+                        with terminal_training_progress(pbar, progress_label):
+                            copy.deepcopy(data).fit(model)
+                        if pbar:
+                            pbar.set_postfix_str(f"{progress_label} | evaluating metrics")
                         scores = evaluate_metrics(self.metrics, labels, model.labels_,
                                                   getattr(model, "embedding_", None), benchmark=self.benchmark)
                         run.update(diagnostics(model))
@@ -558,6 +561,7 @@ class Experiment:
                     )
 
                     if pbar:
+                        pbar.set_postfix_str(f"{progress_label} | {run['status']}")
                         pbar.update(1)
 
                 # Aggregate

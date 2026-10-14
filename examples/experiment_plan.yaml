@@ -22,6 +22,7 @@ models:
       max_iter: 20
 runs: 3
 seed: 42
+verbose: 2
 metrics: [acc, nmi, ari]
 benchmark: true
 output: experiments/feature-and-graph-comparison
