@@ -12,7 +12,9 @@ license = "MIT"
 license-files = ["LICENSE"]
 
 authors = [
-    { name = "Abdelheq Mokhtari", email = "mokhtari.abdelheq@gmail.com" }
+    { name = "Abdelheq Mokhtari", email = "abdelheq.mokhtari@u-pariscite.fr" },
+    { name = "Lazhar Labiod", email = "lazhar.labiod@u-pariscite.fr" },
+    { name = "Mohamed Nadif", email = "mohamed.nadif@u-pariscite.fr" },
 ]
 
 keywords = [

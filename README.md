@@ -351,7 +351,8 @@ start with the [worked examples](https://polyclustx.readthedocs.io/en/latest/use
   <a href="https://u-paris.fr/"><img src="https://raw.githubusercontent.com/AbdelheqMokhtari/PolyClustX/v1.4.1/src/polyclustx/display/assets/paris_cite.png" height="90" alt="Université Paris Cité"></a>
 </p>
 
-Centre Borelli · Université Paris Cité.
+Abdelheq Mokhtari · Lazhar Labiod · Mohamed Nadif.
+All authors are affiliated with Centre Borelli, Université Paris Cité.
 Institutional marks remain separate from PolyClustX and do not imply endorsement.
 
 ## References

@@ -80,3 +80,9 @@ Scientific scope
 Support for a data representation does not imply that every model uses all of
 its information. See :doc:`background/algorithms` for the capability table,
 original papers, source implementations and algorithm explanations.
+
+Authors and affiliation
+-----------------------
+
+Abdelheq Mokhtari, Lazhar Labiod and Mohamed Nadif.
+All authors are affiliated with Centre Borelli, Université Paris Cité.
