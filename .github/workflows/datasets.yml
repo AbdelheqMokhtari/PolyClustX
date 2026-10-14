@@ -1,6 +1,6 @@
 name: Dataset smoke test
 
-# Live loader tests depend on Zenodo and some datasets are larger than 1 GB.
+# Live loader tests depend on Hugging Face and some datasets are larger than 1 GB.
 # Keep them out of required CI and provide a manual smoke test for the small
 # ACM dataset. The complete catalog can still be checked locally with
 # `pytest -m network`.
@@ -35,5 +35,5 @@ jobs:
           pip install 'torch>=2.4,<3' --index-url https://download.pytorch.org/whl/cpu
           pip install -e ".[dev]"
 
-      - name: Load and validate ACM from Zenodo
+      - name: Load and validate ACM from Hugging Face
         run: pytest tests/test_dataloader.py -m network -rs

@@ -101,3 +101,44 @@ def test_large_pair_table_uses_names_without_internal_identifiers():
     at.run()
     assert not at.exception
     assert any("143 dataset/model combinations" in caption.value for caption in at.caption)
+
+
+def test_catalog_only_shows_real_variant_choices():
+    at = app_test(Workspace(), 0)
+    assert not at.exception
+    assert not any(widget.label == "Variant" for widget in at.selectbox)
+    assert not any(widget.label == "Available representations" for widget in at.expander)
+    next(widget for widget in at.selectbox if widget.label == "Dataset").select("pascal").run()
+    assert not at.exception
+    assert next(widget for widget in at.selectbox if widget.label == "Variant").value == "default"
+    assert any(widget.label == "Available representations" for widget in at.expander)
+
+
+def test_catalog_composition_survives_reload_and_resets_preparation(monkeypatch, tmp_path):
+    from scipy import sparse
+    from scipy.io import savemat
+
+    from polyclustx.data import load_data, registry
+    monkeypatch.setattr(registry, "get_data_home", lambda: tmp_path)
+    path = registry.CATALOG["acm"].path
+    path.parent.mkdir(parents=True)
+    savemat(path, {"X1_features": np.arange(12).reshape(6, 2), "labels": np.arange(6) % 2,
+                   "A1_PAP": sparse.eye(6), "A2_PLP": sparse.eye(6) * 2})
+    monkeypatch.setattr(registry, "download_file", lambda *args: None)
+    ws = Workspace()
+    key = ws.add_lazy_dataset("My ACM", lambda: load_data("acm"), source="catalog")
+    ws.apply_dataset(key, PreprocessingSpec(missing_rate=.2))
+    at = app_test(ws, 0)
+    at.number_input(key=f"catalog_views_{key}_0_count").set_value(1).run()
+    at.text_input(key=f"catalog_views_{key}_0_name_0").set_value("Both relations")
+    at.multiselect(key=f"catalog_views_{key}_0_graphs_0").set_value(["A1_PAP", "A2_PLP"])
+    at.button(key=f"update_views_{key}").click().run()
+    assert not at.exception
+    assert key in ws.pending_datasets and key not in ws.preprocessing
+    assert next(s for s in at.slider if s.label.startswith("Simulate")).value == 0
+    ws.unload_dataset(key)
+    selected = ws.load_dataset(key)
+    assert selected.name == "My ACM" and selected.view_names == ["Both relations"]
+    assert selected.n_views == 1 and len(selected.As[0]) == 2
+    next(b for b in at.button if b.label == "Apply changes").click().run()
+    assert not at.exception and key not in ws.pending_datasets

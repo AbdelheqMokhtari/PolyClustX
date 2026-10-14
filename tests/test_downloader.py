@@ -131,3 +131,18 @@ def test_raises_and_cleans_up_when_retries_run_out(tmp_path, monkeypatch):
 
     assert not dest.exists()
     assert not dest.with_suffix(".mat.part").exists()
+
+
+def test_pending_upload_fails_once_with_an_actionable_message(tmp_path, monkeypatch):
+    calls = []
+    response = requests.Response()
+    response.status_code = 404
+
+    def missing(*args, **kwargs):
+        calls.append(args)
+        raise requests.HTTPError("missing", response=response)
+
+    monkeypatch.setattr(requests, "get", missing)
+    with pytest.raises(requests.HTTPError, match="upload may still be pending"):
+        download_file("https://huggingface.co/example.mat", tmp_path / "missing.mat")
+    assert len(calls) == 1 and not (tmp_path / "missing.mat").exists()

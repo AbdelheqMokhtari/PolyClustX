@@ -105,6 +105,7 @@ def _render_transposed(
     title: str | None,
     index_header: str,
     pad: int,
+    transpose_index_header: str = "Parameter",
 ) -> str:
     """Transposed table: rows = params, columns = models.
 
@@ -116,7 +117,7 @@ def _render_transposed(
     # First column is the parameter name, then one column per model
     t_index = headers                          # param names
     t_headers = index                          # model names
-    t_index_header = "Parameter"
+    t_index_header = transpose_index_header
 
     t_rows: list[list[str]] = []
     for c in range(len(headers)):
@@ -192,6 +193,7 @@ def _build_table(
     index_header: str = "Model",
     best_cols: dict[int, int] | None = None,
     pad: int = 1,
+    transpose_index_header: str = "Parameter",
 ) -> str:
     """
     Render an ASCII table with box-drawing characters.
@@ -250,7 +252,7 @@ def _build_table(
         term_w = _terminal_width()
         if width > term_w:
             return _render_transposed(
-                rows, headers, index, title, index_header, pad,
+                rows, headers, index, title, index_header, pad, transpose_index_header,
             )
         return _render_horizontal(
             rows, headers, index, title, index_header, pad,
@@ -347,6 +349,7 @@ class Result:
         self.dataset_name = dataset_name
         self.model_name = model_name
         self.metric_avg = OrderedDict(metric_avg)
+        self.has_repeats = metric_std is not None
         self.metric_std = OrderedDict(metric_std) if metric_std else OrderedDict(
             {k: 0.0 for k in metric_avg}
         )
@@ -355,7 +358,7 @@ class Result:
 
     def format_cell(self, metric_name: str, show_std: bool = False) -> str:
         mean = self.metric_avg[metric_name]
-        if show_std and self.metric_std.get(metric_name, 0.0) > 0:
+        if show_std and self.has_repeats:
             return MEAN_STD_FMT.format(mean, self.metric_std[metric_name])
         return NUM_FMT.format(mean)
 
@@ -423,12 +426,6 @@ class ExperimentResult(ExportableResult):
 
     def results_tables(self) -> str:
         """Return all per-dataset result tables as a single string."""
-        show_std = any(
-            any(v > 0 for v in r.metric_std.values())
-            for rs in self._results.values()
-            for r in rs
-        )
-
         parts: list[str] = []
         for ds_name, results in self._results.items():
             if not results:
@@ -445,7 +442,7 @@ class ExperimentResult(ExportableResult):
             rows = []
             index = []
             for r in results:
-                row = [r.format_cell(m, show_std=show_std) for m in metric_names]
+                row = [r.format_cell(m, show_std=r.has_repeats) for m in metric_names]
                 if has_alphas:
                     row.append(getattr(r, "alpha_str", ""))
                 row.append(TIME_FMT.format(r.train_time))
@@ -458,6 +455,7 @@ class ExperimentResult(ExportableResult):
                 title=f"Results — {ds_name}",
                 index_header="Model",
                 best_cols=best,
+                transpose_index_header="Metric",
             )
             parts.append(table)
 

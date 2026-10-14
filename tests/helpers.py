@@ -9,7 +9,7 @@ from polyclustx.data import load_dataset
 
 
 def load_or_skip(name: str):
-    """Load a dataset by name, skipping the test if Zenodo is unreachable.
+    """Load a dataset by name, skipping if the host or upload is unavailable.
 
     Read timeouts and dropped connections say nothing about the code under
     test, so they skip rather than fail.  A dataset that downloads but does
