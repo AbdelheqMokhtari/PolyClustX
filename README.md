@@ -139,6 +139,16 @@ Each method has its own command and parameter help. Use `--variant` for a datase
 variant, `--clusters` to override K, and `--output` to select the report directory.
 Without an explicit K, labeled datasets use their number of reference classes.
 
+Commands show live progress by default: the dataset, model, run or search trial,
+and training-stage updates when the method reports them. Use `--verbose 1` for
+tables only, `--verbose 0` to hide fitting progress and tables, or `--verbose 3`
+for detailed logs. The short form is `-v 2`:
+
+```bash
+lmgec acm --embedding-dim 8 --runs 3 --verbose 2
+polyclustx experiment --config examples/experiment_plan.yaml -v 2
+```
+
 Search candidates or continuous ranges:
 
 ```bash
