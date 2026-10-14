@@ -66,7 +66,8 @@ class DatasetSpec:
 
 
 def _spec(name, folder, samples, classes, features, description, *,
-          graphs=(), modalities=None, dimensions=(), filename=None, encoders="", statistics=None):
+          graphs=(), modalities=None, dimensions=(), filename=None, encoders="", statistics=None,
+          reference_details=""):
     filename = filename or f"{folder}.mat"
     kind = "multimodal" if modalities and len(set(modalities)) > 1 else "multiview"
     category = f"attributed_graph_{kind}" if graphs else kind
@@ -78,6 +79,7 @@ def _spec(name, folder, samples, classes, features, description, *,
         description=description, feature_descriptions=tuple(features), graph_descriptions=tuple(graphs),
         modalities=tuple(modalities or ["features"] * len(features)), encoders=encoders,
         graph_statistics=statistics or {},
+        reference_details=reference_details,
         reference=(_MULTIMODAL_GRAPH_REFERENCE if graphs and kind == "multimodal"
                    else _GRAPH_REFERENCE if graphs else _REFERENCE_COLLECTION),
         reference_verified=not graphs and kind == "multiview",
@@ -192,8 +194,12 @@ _SPECS = [
                  "COCO image-caption subset selecting a category from each of ten supercategories."),
     *_image_text("coco_all", "coco-all", 23189, 43,
                  "Broader COCO image-caption subset retaining sufficiently populated categories."),
-    *[_spec(name, folder, samples, classes, ("VGG-16 image features", "BERT text features"), description,
-            dimensions=(4096, 768), modalities=("image", "text"), encoders="VGG-16 + BERT")
+    *[_spec(name, folder, samples, classes,
+            ("Image representation (VGG-16 source)", "Text representation (BERT source)"),
+            description, dimensions=(100, 100), modalities=("image", "text"),
+            encoders="VGG-16 + BERT (processed views)",
+            reference_details="Source encoders produce 4096 image and 768 text features; "
+                              "the distributed MAT files contain 100 columns per view.")
       for name, folder, samples, classes, description in (
           ("esp_game", "esp-game", 11032, 7, "Images and descriptive tags from an online labeling game."),
           ("iapr_tc12", "iapr-tc12", 7855, 6, "Photographs with textual annotations for cross-language retrieval."),

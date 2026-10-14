@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import shutil
 import tempfile
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -13,7 +14,9 @@ import streamlit as st
 
 from polyclustx.brand import BRAND, DEFINITION, DOCUMENTATION_URL, NAME, PLOT_COLORS, REPOSITORY_URL
 from polyclustx.data import (
+    array_roles,
     dataset_from_arrays,
+    default_views,
     get_dataset_info,
     list_datasets,
     list_variants,
@@ -21,6 +24,7 @@ from polyclustx.data import (
     load_files,
     read_arrays,
 )
+from polyclustx.display.data_controls import catalog_details, view_controls
 from polyclustx.display.exporting import PlotSnapshot, dataset_mat
 from polyclustx.display.model_controls import (
     ParameterControl,
@@ -183,6 +187,8 @@ def _profile(data, profile=None):
             {
                 "view": view["name"],
                 "modality": view["modality"],
+                "source array": view.get("source_feature", view["name"]),
+                "meaning": view.get("description", ""),
                 "shape": f"{view['shape'][0]} × {view['shape'][1]}",
                 "observed": view["observed"],
                 "missing": view["missing"],
@@ -216,6 +222,8 @@ def _profile(data, profile=None):
                 {
                     "view": item["view_name"],
                     "relation": item["relation"],
+                    "source array": item.get("source_graph", ""),
+                    "meaning": item.get("description", ""),
                     "nonzeros": item["edges_nonzero"],
                     "density": item["density"],
                     "symmetric": item["symmetric"],
@@ -230,13 +238,19 @@ def _profile(data, profile=None):
 
 def _catalog_loader(workspace):
     name = st.selectbox("Dataset", list_datasets())
-    variant = st.selectbox("Variant", list_variants(name))
+    variants = list_variants(name)
+    variant = (st.selectbox("Variant", variants, index=variants.index("default"), key=f"catalog_variant_{name}")
+               if len(variants) > 1 else "default")
     info = get_dataset_info(name, variant=variant)
-    st.write(info["description"])
-    st.caption(f"{info['category']} · {info['n_views']} views · downloaded files are cached locally")
-    if info["availability_note"]:
-        st.warning(info["availability_note"])
-    if st.button("Add catalog dataset", type="primary", disabled=bool(info["availability_note"])):
+    catalog_details(info)
+    if len(variants) > 1:
+        with st.expander("Available representations"):
+            st.dataframe(pd.DataFrame([
+                {"variant": choice, "encoders": details["encoders"], "dimensions": str(details["feature_dims"])}
+                for choice in variants for details in [get_dataset_info(name, variant=choice)]
+            ]), hide_index=True, width="stretch")
+    st.caption("Files download directly from Hugging Face and are cached locally; no extra installation is needed.")
+    if st.button("Add catalog dataset", type="primary"):
         try:
             with st.spinner("Loading and validating the dataset"):
                 data = load_data(name, variant=variant)
@@ -262,7 +276,7 @@ def _catalog_loader(workspace):
 def _simple_upload(workspace):
     name = _new_dataset_name(workspace, "uploaded-dataset", "simple_dataset_name")
     st.write("Upload one CSV, TSV, or NPY feature matrix for each view. Rows are samples; columns are features.")
-    st.caption("CSV/TSV headers are detected automatically. Include Y in the same upload batch if you have it.")
+    st.caption("CSV/TSV headers are detected automatically. Include labels in the same upload batch if you have them.")
     views = st.file_uploader(
         "View files and optional labels file", type=["csv", "tsv", "npy"],
         accept_multiple_files=True, key="simple_views"
@@ -290,7 +304,7 @@ def _simple_upload(workspace):
     label_key, label_column = None, None
     ready = True
     if location == "A file in this upload":
-        label_key = st.selectbox("Which file contains Y?", keys, key="simple_label_key")
+        label_key = st.selectbox("Which file contains labels?", keys, key="simple_label_key")
         view_keys.remove(label_key)
     elif location == "Upload labels separately":
         ready = labels_file is not None
@@ -334,6 +348,38 @@ def _container_upload(workspace):
     table = [{"array": key, "shape": str(value.shape), "dtype": str(value.dtype)} for key, value in arrays.items()]
     st.dataframe(pd.DataFrame(table), hide_index=True, width="stretch")
     keys = list(arrays)
+    roles = array_roles(arrays)
+    if roles["features"]:
+        st.caption("Recognized X* features, A* graphs and labels. Reuse a feature to create several graph views, "
+                   "or select multiple relations for one view.")
+        selection = {key.replace(f"{file.name}:", ""): value for key, value in default_views(arrays).items()}
+        views, modalities = view_controls(roles["features"], roles["graphs"], selection,
+                                          prefix=f"container_composition_{file.name}")
+        other_vectors = [key for key, value in arrays.items() if key not in (
+            roles["features"] + roles["graphs"] + roles["labels"]
+        ) and (value.ndim == 1 or value.ndim == 2 and 1 in value.shape)]
+        label_options = [None, *roles["labels"], *other_vectors]
+        label_key = st.selectbox("Labels (optional)", label_options, index=1 if roles["labels"] else 0,
+                                 key=f"standard_labels_{file.name}")
+        transpose = st.multiselect("Arrays stored as features × samples", roles["features"],
+                                    key=f"standard_transpose_{file.name}")
+        align = st.checkbox("Views have different rows and include sample-ID arrays", key="standard_align")
+        ids, label_id = [], None
+        if align and views:
+            for index, view in enumerate(views):
+                ids.append(st.selectbox(f"Sample IDs for {view}", keys, key=f"standard_ids_{file.name}_{index}"))
+            if label_key:
+                label_id = st.selectbox("Sample IDs for labels", keys, key="standard_label_ids")
+        if st.button("Add container dataset", type="primary", disabled=views is None):
+            try:
+                mapping = {"views": views, "label_key": label_key, "modalities": modalities, "name": name,
+                           "transpose_views": transpose, "id_keys": ids or None, "label_id_key": label_id}
+                data = dataset_from_arrays(arrays, **mapping)
+                _stage_uploaded(workspace, data, [file], mapping)
+                st.rerun()
+            except Exception as exc:
+                st.error(str(exc))
+        return
     views = st.multiselect("Feature arrays", keys, key="container_views")
     label_key = st.selectbox("Labels (optional)", [None, *keys], key="container_labels")
     transpose = st.multiselect("Arrays stored as features × samples", views, key="container_transpose")
@@ -473,6 +519,54 @@ def _synthetic_loader(workspace):
             st.error(str(exc))
 
 
+def _compose_catalog_views(workspace, dataset_id, data):
+    resource = workspace.datasets[dataset_id]
+    features = data.metadata.get("available_features", [])
+    if resource.source != "catalog" or not features:
+        return
+    revision = resource.hint.get("composition_revision", 0)
+    with st.expander("Choose feature/graph combinations"):
+        st.write("A view contains one feature matrix and zero, one or several graph relations. "
+                 "Features and graphs may be reused across views. Multiple relations are fused during preparation.")
+        selection, modalities = view_controls(
+            features, data.metadata["available_graphs"], data.metadata["view_selection"],
+            prefix=f"catalog_views_{dataset_id}_{revision}",
+            descriptions=data.metadata.get("feature_descriptions"),
+            modalities=data.metadata.get("feature_modalities"),
+        )
+        if st.button("Update views", disabled=selection is None, key=f"update_views_{dataset_id}"):
+            try:
+                family, variant = data.metadata["dataset"], data.metadata["variant"]
+                with st.spinner("Loading selected arrays from the cached MAT file"):
+                    updated = load_data(family, variant=variant, views=selection)
+                    updated.modalities = modalities
+                    updated.name = resource.name
+                    resource.loader = partial(_load_composed_dataset, family, variant,
+                                              copy.deepcopy(selection), list(modalities))
+                    resource._data = updated
+                    resource.hint = {"n_samples": updated.n_samples, "n_views": updated.n_views,
+                                     "n_clusters": updated.n_clusters, "complete": updated.is_complete,
+                                     "category": updated.category, "composition_revision": revision + 1}
+                    workspace.preprocessing.pop(dataset_id, None)
+                    workspace.pending_datasets.add(dataset_id)
+                    for setting in list(st.session_state):
+                        if any(setting.startswith(f"{prefix}{dataset_id}") for prefix in (
+                            "missing_rate_", "imputation_", "preprocessing_mode_", "preprocessing_views_",
+                            "fusion_", "weight_", "shared_", "view_",
+                        )):
+                            del st.session_state[setting]
+                st.rerun()
+            except Exception as exc:
+                st.error(str(exc))
+        st.caption("After updating views, apply preparation below before running an experiment or search.")
+
+
+def _load_composed_dataset(name, variant, selection, modalities):
+    data = load_data(name, variant=variant, views=selection)
+    data.modalities = list(modalities)
+    return data
+
+
 def render_dataset(workspace):
     st.header("Dataset")
     st.write("Load a catalog dataset, upload your own aligned views, or generate a controlled example.")
@@ -502,6 +596,7 @@ def render_dataset(workspace):
     dataset_id, data = _select_dataset(workspace, required=False)
     if data is not None:
         st.subheader(data.name or "Selected dataset")
+        _compose_catalog_views(workspace, dataset_id, data)
         with st.expander("Rename dataset"):
             new_name = st.text_input("New dataset name", resource.name, key=f"rename_{dataset_id}")
             if st.button("Save dataset name"):

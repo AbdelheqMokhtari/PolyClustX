@@ -84,6 +84,7 @@ def dataset_profile(data):
     """Return label, view, graph, missingness, and memory diagnostics."""
     views = []
     graphs = []
+    seen = set()
     memory = data.observed_mask.nbytes + data.sample_ids.nbytes
     for index, (name, matrix) in enumerate(zip(data.view_names, data.Xs)):
         profile = _matrix_profile(matrix, data.observed_mask[:, index])
@@ -94,16 +95,26 @@ def dataset_profile(data):
             observed=int(data.observed_mask[:, index].sum()),
             missing=int((~data.observed_mask[:, index]).sum()),
         )
+        feature, graph_keys = data.metadata.get("view_selection", {}).get(name, (name, []))
+        profile.update(source_feature=feature,
+                       description=data.metadata.get("feature_descriptions", {}).get(feature, ""))
         views.append(profile)
-        memory += _bytes(matrix)
+        if id(matrix) not in seen:
+            memory += _bytes(matrix)
+            seen.add(id(matrix))
         relations = data.As[index] if isinstance(data.As[index], (list, tuple)) else [data.As[index]]
         graph_rows = []
         for relation_index, graph in enumerate(relations):
             if graph is not None:
                 item = _graph_profile(graph)
                 item.update(view=index, view_name=name, relation=relation_index + 1)
+                keys = (graph_keys if len(relations) == 1 else graph_keys[relation_index:relation_index + 1])
+                item.update(source_graph=" + ".join(keys), description="; ".join(
+                    data.metadata.get("graph_descriptions", {}).get(key, key) for key in keys))
                 graph_rows.append(item)
-                memory += item["memory_bytes"]
+                if id(graph) not in seen:
+                    memory += item["memory_bytes"]
+                    seen.add(id(graph))
         graphs.extend(graph_rows)
 
     labels = None
