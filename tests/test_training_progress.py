@@ -1,4 +1,8 @@
-from polyclustx.progress import iterations, training_progress
+from types import SimpleNamespace
+
+import pytest
+
+from polyclustx.progress import iterations, terminal_training_progress, training_progress
 
 
 def test_callbacks_are_scoped_and_do_not_skip_iterations():
@@ -24,10 +28,42 @@ def test_model_emits_training_events():
     assert {e["stage"] for e in events} == {"Autoencoder pretraining", "Clustering minibatches"}
 
 
+def test_terminal_progress_keeps_existing_observer_and_restores_it():
+    events, labels = [], []
+    bar = SimpleNamespace(set_postfix_str=labels.append)
+    with training_progress(events.append):
+        with terminal_training_progress(bar, "toy / model [run 1/2]"):
+            assert list(iterations(3, "Training")) == [0, 1, 2]
+        assert list(iterations(1, "After")) == [0]
+    assert events[0]["stage"] == "Training" and events[-1]["stage"] == "After"
+    assert "preparing and fitting" in labels[0]
+    assert any("Training 3/3" in label and "stage ETA 00:00" in label for label in labels)
+    assert labels[-1] == "toy / model [run 1/2]"
+    count = len(events)
+    list(iterations(1))
+    assert len(events) == count
+
+
+def test_terminal_progress_restores_observer_after_failure():
+    events, labels = [], []
+    with training_progress(events.append):
+        with pytest.raises(RuntimeError):
+            with terminal_training_progress(SimpleNamespace(set_postfix_str=labels.append), "test"):
+                list(iterations(2, "Before"))
+                raise RuntimeError("fit failed")
+        list(iterations(1, "After"))
+    assert events[-1]["stage"] == "After" and labels[-1] == "test"
+
+
+def test_no_terminal_bar_preserves_training_observation():
+    events = []
+    with training_progress(events.append), terminal_training_progress(None, "quiet"):
+        assert list(iterations(2)) == [0, 1]
+    assert events[-1]["completed"] == 2
+
+
 def test_interface_launcher_threads_and_clean_interrupt(monkeypatch):
     import subprocess
-
-    import pytest
 
     from polyclustx.display import launch
 
