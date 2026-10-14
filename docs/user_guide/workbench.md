@@ -13,7 +13,10 @@ python -m pip install polyclustx
 polyclustx-display
 ```
 
-Open the local address printed in the terminal, normally http://localhost:8501.
+The terminal shows the PolyClustX version and an **Open in browser** address,
+normally http://127.0.0.1:8501. Open that address to use the interface; press
+**Ctrl+C** in the terminal to stop it. Framework development tips are hidden,
+while server warnings and errors remain visible.
 For environment creation, Windows activation, repository downloads and restarting,
 follow the [installation tutorial](installation.rst). To choose another port:
 

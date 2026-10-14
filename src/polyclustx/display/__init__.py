@@ -1,6 +1,23 @@
 """Interactive interface included in the standard installation."""
 
 
+def _startup_line(line):
+    """Rebrand only known startup text; keep server URLs and diagnostics intact."""
+    message = line.strip()
+    if message == "You can now view your Streamlit app in your browser.":
+        from polyclustx import __version__
+
+        return f"  PolyClustX {__version__} | Interactive interface\n"
+    if message.startswith(("URL: ", "Local URL: ")):
+        url = message.split(": ", 1)[1]
+        return f"  Open in browser: {url}\n  Press Ctrl+C to stop.\n"
+    if message == "Help agents write better Streamlit apps?" or message.startswith(
+        "Install the official Streamlit skills by running "
+    ):
+        return ""
+    return line
+
+
 def launch(arguments=None):
     """Launch Streamlit; additional CLI arguments are forwarded to Streamlit."""
     import importlib.util
@@ -22,6 +39,8 @@ def launch(arguments=None):
         raise SystemExit("POLYCLUSTX_CPU_THREADS must be a positive integer")
     for variable in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS"):
         environment.setdefault(variable, threads)
+    # Stream output promptly even though stdout is piped through our launcher.
+    environment["PYTHONUNBUFFERED"] = "1"
     command = [
         sys.executable, "-m", "streamlit", "run", str(app),
         "--server.address=127.0.0.1",
@@ -33,9 +52,26 @@ def launch(arguments=None):
         f"--theme.textColor={BRAND['text']}",
         *(sys.argv[1:] if arguments is None else arguments),
     ]
-    try:
-        code = subprocess.call(command, env=environment)
-    except KeyboardInterrupt:
-        # Ctrl+C is the documented stop action, not a launch failure.
-        code = 0
+    # Filter only the banner on stdout. Stderr is inherited unchanged so CLI
+    # errors, runtime warnings and tracebacks remain visible. Use the URL that
+    # Streamlit actually reports, including custom ports and base paths.
+    with subprocess.Popen(command, env=environment, stdout=subprocess.PIPE, text=True, bufsize=1) as process:
+        try:
+            previous_blank = False
+            for line in process.stdout:
+                rendered = _startup_line(line)
+                if not rendered or (not rendered.strip() and previous_blank):
+                    continue
+                print(rendered, end="", flush=True)
+                previous_blank = not rendered.strip()
+            code = process.wait()
+        except KeyboardInterrupt:
+            # Ctrl+C stops the child too; never leave a background server behind.
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+            code = 0
     raise SystemExit(code)

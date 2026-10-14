@@ -64,6 +64,8 @@ def test_no_terminal_bar_preserves_training_observation():
 
 def test_interface_launcher_threads_and_clean_interrupt(monkeypatch):
     import subprocess
+    from contextlib import nullcontext
+    from unittest.mock import Mock
 
     from polyclustx.display import launch
 
@@ -72,14 +74,89 @@ def test_interface_launcher_threads_and_clean_interrupt(monkeypatch):
     monkeypatch.delenv("MKL_NUM_THREADS", raising=False)
     calls = []
 
+    def interrupted_output():
+        raise KeyboardInterrupt
+        yield ""  # Keep this an iterator; interruption occurs while reading output.
+
+    process = SimpleNamespace(stdout=interrupted_output(), wait=Mock(return_value=0),
+                              terminate=Mock(), kill=Mock())
+
     def interrupted(command, **kwargs):
         calls.append((command, kwargs))
-        raise KeyboardInterrupt
+        return nullcontext(process)
 
-    monkeypatch.setattr(subprocess, "call", interrupted)
+    monkeypatch.setattr(subprocess, "Popen", interrupted)
     with pytest.raises(SystemExit) as stopped:
         launch(["--server.port=8519"])
     assert stopped.value.code == 0
     assert calls[0][1]["env"]["OMP_NUM_THREADS"] == "4"
     assert calls[0][1]["env"]["MKL_NUM_THREADS"] == "3"
+    assert calls[0][1]["env"]["PYTHONUNBUFFERED"] == "1"
     assert calls[0][0][-1] == "--server.port=8519"
+    process.terminate.assert_called_once()
+    process.wait.assert_called_once_with(timeout=5)
+    process.kill.assert_not_called()
+
+
+def test_interface_startup_is_branded_and_preserves_diagnostics(monkeypatch, capsys):
+    import subprocess
+    from contextlib import nullcontext
+    from io import StringIO
+    from unittest.mock import Mock
+
+    from polyclustx import __version__
+    from polyclustx.display import launch
+
+    process = SimpleNamespace(stdout=StringIO(
+        "\n  You can now view your Streamlit app in your browser.\n\n"
+        "  URL: http://127.0.0.1:8519/research\n\n"
+        "  Help agents write better Streamlit apps?\n"
+        "  Install the official Streamlit skills by running streamlit skills in your terminal.\n\n"
+        "WARNING: sample diagnostic\n  Network URL: http://192.0.2.1:8519/research\n"
+    ), wait=Mock(return_value=7))
+    popen = Mock(return_value=nullcontext(process))
+    monkeypatch.setattr(subprocess, "Popen", popen)
+    with pytest.raises(SystemExit) as stopped:
+        launch(["--server.port=8519", "--server.baseUrlPath=research"])
+    assert stopped.value.code == 7
+    output = capsys.readouterr().out
+    assert f"PolyClustX {__version__} | Interactive interface" in output
+    assert "Open in browser: http://127.0.0.1:8519/research" in output
+    assert "Press Ctrl+C to stop." in output
+    assert "Streamlit app" not in output and "streamlit skills" not in output
+    assert "Help agents" not in output
+    assert "WARNING: sample diagnostic" in output and "Network URL:" in output
+    options = popen.call_args.kwargs
+    assert options["stdout"] == subprocess.PIPE and "stderr" not in options
+
+
+@pytest.mark.parametrize("line", [
+    "  Local URL: https://localhost:8502/app\n",
+    "  URL: http://[::1]:8503\n",
+])
+def test_interface_startup_retains_actual_url(line):
+    from polyclustx.display import _startup_line
+
+    assert line.strip().split(": ", 1)[1] in _startup_line(line)
+
+
+def test_interface_interrupt_reaps_a_stuck_server(monkeypatch):
+    import subprocess
+    from contextlib import nullcontext
+    from unittest.mock import Mock
+
+    from polyclustx.display import launch
+
+    def interrupted_output():
+        raise KeyboardInterrupt
+        yield ""
+
+    process = SimpleNamespace(stdout=interrupted_output(), terminate=Mock(), kill=Mock(),
+                              wait=Mock(side_effect=[subprocess.TimeoutExpired("streamlit", 5), 0]))
+    monkeypatch.setattr(subprocess, "Popen", Mock(return_value=nullcontext(process)))
+    with pytest.raises(SystemExit) as stopped:
+        launch([])
+    assert stopped.value.code == 0
+    process.terminate.assert_called_once()
+    process.kill.assert_called_once()
+    assert process.wait.call_count == 2
