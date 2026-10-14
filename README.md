@@ -1,10 +1,10 @@
-<p align="center"><img src="src/polyclustx/display/assets/logo.png" width="150" alt="PolyClustX logo"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/AbdelheqMokhtari/PolyClustX/v1.4.1/src/polyclustx/display/assets/logo.png" width="150" alt="PolyClustX logo"></p>
 
 <p align="center">
-  <a href="https://github.com/AbdelheqMokhtari/PolyClustX/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/AbdelheqMokhtari/PolyClustX?color=4E4E92"></a>
+  <a href="https://pypi.org/project/polyclustx/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/polyclustx?color=4E4E92"></a>
   <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-557AA3?logo=python&logoColor=white">
-  <a href="https://github.com/AbdelheqMokhtari/PolyClustX/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/AbdelheqMokhtari/PolyClustX/actions/workflows/ci.yml/badge.svg?branch=develop"></a>
-  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-634E87"></a>
+  <a href="https://github.com/AbdelheqMokhtari/PolyClustX/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/AbdelheqMokhtari/PolyClustX/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+  <a href="https://github.com/AbdelheqMokhtari/PolyClustX/blob/v1.4.1/LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-634E87"></a>
   <a href="https://polyclustx.readthedocs.io/en/latest/"><img alt="Documentation" src="https://img.shields.io/badge/docs-Read%20the%20Docs-4E4E92"></a>
 </p>
 
@@ -25,7 +25,7 @@ many feature views, optional graphs and optional ground-truth labels.
 Python **3.10+** is required. Installation includes PyTorch, the interface and
 Optuna; Hugging Face datasets use ordinary HTTP downloads.
 
-From PyPI, once the distribution is published:
+From PyPI:
 
 ```bash
 python -m pip install polyclustx
@@ -155,7 +155,7 @@ polyclustx experiment --datasets acm --models lmgec scm --param lmgec.embedding_
 polyclustx experiment --config examples/experiment_plan.yaml
 ```
 
-The [example plan](examples/experiment_plan.yaml) keeps larger studies readable:
+The [example plan](https://github.com/AbdelheqMokhtari/PolyClustX/blob/main/examples/experiment_plan.yaml) keeps larger studies readable:
 name configurations, set per-model parameters, choose datasets and specify repeats.
 Dataset-specific default K is handled automatically. Short commands may conflict
 with other installed tools; use a dedicated environment or `polyclustx lmgec acm`.
@@ -322,8 +322,8 @@ hyperparameter search, visualizations and JSON/CSV/ZIP exports.
 Labels enable benchmark metrics; without labels, use internal metrics.
 [Interface guide](https://polyclustx.readthedocs.io/en/latest/user_guide/workbench.html).
 
-The [notebooks](notebooks/) are **unexecuted tutorials** for you to run.
-Start with [the end-to-end study](notebooks/06_polyclustx_feature_to_graph_study.ipynb)
+The [notebooks](https://github.com/AbdelheqMokhtari/PolyClustX/tree/main/notebooks) are **unexecuted tutorials** for you to run.
+Start with [the end-to-end study](https://github.com/AbdelheqMokhtari/PolyClustX/blob/main/notebooks/06_polyclustx_feature_to_graph_study.ipynb)
 to compare methods on Iris and Wine, add graphs, visualize embeddings and
 losses, search hyperparameters and export results.
 
@@ -336,9 +336,9 @@ start with the [worked examples](https://polyclustx.readthedocs.io/en/latest/use
 ## Research affiliations
 
 <p>
-  <a href="https://centreborelli.ens-paris-saclay.fr/fr"><img src="src/polyclustx/display/assets/borelli.png" height="90" alt="Centre Borelli"></a>
+  <a href="https://centreborelli.ens-paris-saclay.fr/fr"><img src="https://raw.githubusercontent.com/AbdelheqMokhtari/PolyClustX/v1.4.1/src/polyclustx/display/assets/borelli.png" height="90" alt="Centre Borelli"></a>
   &nbsp;&nbsp;
-  <a href="https://u-paris.fr/"><img src="src/polyclustx/display/assets/paris_cite.png" height="90" alt="Université Paris Cité"></a>
+  <a href="https://u-paris.fr/"><img src="https://raw.githubusercontent.com/AbdelheqMokhtari/PolyClustX/v1.4.1/src/polyclustx/display/assets/paris_cite.png" height="90" alt="Université Paris Cité"></a>
 </p>
 
 Centre Borelli · Université Paris Cité.
@@ -368,6 +368,6 @@ links identify the implementations that informed the framework adaptations.
 
 ## License
 
-The software license and third-party notices are in [LICENSE](LICENSE). Institutional logos are not
+The software license and third-party notices are in [LICENSE](https://github.com/AbdelheqMokhtari/PolyClustX/blob/v1.4.1/LICENSE). Institutional logos are not
 covered by the software's MIT license. Cite the original algorithm papers
 when publishing results.
