@@ -253,9 +253,11 @@ For unlabeled data, use an internal metric and ``benchmark=False``.
 Run 1 represents each configuration in the loss comparison. Normalized curves
 compare optimization trajectories, not the absolute value of different objectives.
 
-Notebook tutorials
+Reference notebook
 ------------------
 
-* :download:`Feature-to-graph study <../../notebooks/06_polyclustx_feature_to_graph_study.ipynb>`
-* :download:`All-method comparison <../../notebooks/04_all_methods_comparison.ipynb>`
-* :download:`Search strategies <../../notebooks/05_search_strategies.ipynb>`
+Download the :download:`LMGEC experiments and Optuna notebook <../../notebooks/01_lmgec_experiments_and_optuna.ipynb>`.
+It lists the available models and datasets, loads ACM and IMDB, compares three
+LMGEC configurations over repeated runs, tunes LMGEC with Optuna, and visualizes
+embeddings and normalized losses. JSON, CSV, ZIP and figure exports complete
+the workflow. The notebook is saved without outputs; run the cells in order.

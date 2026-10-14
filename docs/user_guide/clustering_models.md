@@ -368,6 +368,6 @@ one over `max_iter` rounds. `pretrain_epochs` counts initial full epochs.
 new samples. Training augmentations do **not** imply missing-view support.
 [Paper](https://aclanthology.org/2024.acl-long.2/) · [Original code](https://github.com/thuiar/UMC).
 
-All five methods above require complete or explicitly imputed inputs. The
-offline comparison notebooks use deliberately small networks and budgets to
-teach the API, not to reproduce published accuracy.
+All five methods above require complete or explicitly imputed inputs. Small
+networks and training budgets are useful for learning the API; reproducing
+published accuracy requires the original evaluation protocol.

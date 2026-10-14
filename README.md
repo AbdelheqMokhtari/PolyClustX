@@ -332,10 +332,10 @@ hyperparameter search, visualizations and JSON/CSV/ZIP exports.
 Labels enable benchmark metrics; without labels, use internal metrics.
 [Interface guide](https://polyclustx.readthedocs.io/en/latest/user_guide/workbench.html).
 
-The [notebooks](https://github.com/AbdelheqMokhtari/PolyClustX/tree/main/notebooks) are **unexecuted tutorials** for you to run.
-Start with [the end-to-end study](https://github.com/AbdelheqMokhtari/PolyClustX/blob/main/notebooks/06_polyclustx_feature_to_graph_study.ipynb)
-to compare methods on Iris and Wine, add graphs, visualize embeddings and
-losses, search hyperparameters and export results.
+Run the [reference notebook](https://github.com/AbdelheqMokhtari/PolyClustX/blob/main/notebooks/01_lmgec_experiments_and_optuna.ipynb)
+to list models and datasets, compare three LMGEC configurations on ACM and
+IMDB, tune LMGEC with Optuna, visualize embeddings and losses, and export
+results. The notebook is saved **without outputs** so you can run it yourself.
 
 ## Documentation
 
