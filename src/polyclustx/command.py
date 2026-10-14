@@ -22,6 +22,12 @@ def assignments(items):
     return result
 
 
+def add_verbosity_argument(parser, *, default=2):
+    """Shared CLI levels; progress is on unless the user chooses quieter output."""
+    parser.add_argument("--verbose", "-v", type=int, choices=range(4), default=default,
+                        help="0=quiet, 1=tables, 2=progress + tables (default), 3=debug + progress")
+
+
 def main(argv=None):
     from polyclustx import __version__
     from polyclustx.models import list_models
@@ -60,6 +66,7 @@ def main(argv=None):
         p.add_argument("--metrics", nargs="+", help="For example: acc nmi ari, or silhouette db")
         p.add_argument("--no-benchmark", action="store_true", help="Ignore ground-truth labels")
         p.add_argument("--output", default="experiments", help="Directory for JSON reports")
+        add_verbosity_argument(p)
         if action == "search":
             p.add_argument("--strategy", choices=["random", "grid", "optuna"], default="random")
             p.add_argument("--vary", action="append", required=True, metavar="NAME=VALUES",
@@ -99,6 +106,9 @@ def main(argv=None):
         if args.missing_rate:
             load_options.update(missing_rate=args.missing_rate,
                                 random_state=args.seed if args.data_seed is None else args.data_seed)
+        if args.verbose >= 2:
+            variant = f" ({args.variant})" if args.variant else ""
+            print(f"Loading dataset: {args.dataset}{variant}", file=sys.stderr, flush=True)
         data = load_data(args.dataset, **load_options)
         if args.impute:
             from polyclustx.data import impute_missing
@@ -116,7 +126,8 @@ def main(argv=None):
         metrics = _resolve_metrics(args.metrics or (["acc", "nmi", "ari"] if benchmark else ["silhouette"]))
         if args.command == "run":
             result = Experiment(datasets=[data], models=[info["class"](**params)], metrics=metrics,
-                                runs=args.runs, benchmark=benchmark, save_path=args.output).run()
+                                runs=args.runs, benchmark=benchmark, save_path=args.output,
+                                verbose=args.verbose).run()
         else:
             space = {key: [value] for key, value in params.items()}
             space.update(assignments(args.vary))
@@ -125,7 +136,8 @@ def main(argv=None):
             objective = _METRIC_ALIASES.get(args.objective, args.objective) if args.objective else metrics[0].__name__
             result = RandomSearchExperiment(info["class"], space, data, metrics, objective,
                                             strategy=args.strategy, n_iter=args.trials, seed=args.seed,
-                                            runs=args.runs, benchmark=benchmark, save_path=args.output).run()
+                                            runs=args.runs, benchmark=benchmark, save_path=args.output,
+                                            verbose=args.verbose).run()
         print(f"Report: {result.json_path}")
         if args.command == "run" and any(run["status"] == "failed"
                                           for experiment in result.report["experiments"]
@@ -193,6 +205,7 @@ def model_main(model_name, argv=None):
     parser.add_argument("--trials", type=int, default=20)
     parser.add_argument("--objective")
     parser.add_argument("--param", action="append", default=[], metavar="NAME=VALUE")
+    add_verbosity_argument(parser)
     group = parser.add_argument_group("model parameters", "Defaults match the Python estimator.")
     for name, default in info["defaults"].items():
         if name in {"n_clusters", "random_state"}:
@@ -227,7 +240,8 @@ def model_main(model_name, argv=None):
                 parser.error(f"Supply {name} only once (dedicated flag or --param)")
             params[name] = value
     forwarded = ["search" if args.search else "run", dataset, "--model", model_name,
-                 "--runs", str(args.runs), "--seed", str(args.seed), "--output", args.output]
+                 "--runs", str(args.runs), "--seed", str(args.seed), "--output", args.output,
+                 "--verbose", str(args.verbose)]
     for name in ("variant", "clusters", "objective", "missing_rate", "data_seed", "impute"):
         value = getattr(args, name)
         if value is not None:

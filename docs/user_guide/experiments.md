@@ -84,6 +84,15 @@ sequence for each configuration. This makes repetitions reproducible without
 repeating an identical initialization. Exact numerical reproducibility can still
 depend on the model, hardware and numerical libraries.
 
+Set `verbose=2` on `Experiment`, `GridSearchExperiment`,
+`RandomSearchExperiment` or `OptunaSearchExperiment` to see run/trial progress
+and the training stages reported by the model. The Python default remains
+`verbose=1` (tables only); `0` suppresses both and `3` adds detailed logs.
+Stage-time estimates exclude later stages and evaluation. Progress reporting
+does not change model parameters or the number of training iterations.
+CLI commands enable progress by default and accept the same levels through
+`--verbose 2` or `-v 2`.
+
 Custom functions default to external, higher-is-better scores. Set
 `fn.requires_features = True` for an internal function and
 `fn.higher_is_better = False` for minimization.

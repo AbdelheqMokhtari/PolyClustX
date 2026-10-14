@@ -69,6 +69,47 @@ Missing-view simulation and imputation are explicit:
 Only use incomplete data directly with a model that supports it. See
 :doc:`/user_guide/missing_views`.
 
+Progress and verbosity
+----------------------
+
+Progress is enabled by default for method commands, ``polyclustx run``,
+``polyclustx search`` and multi-model experiments. Set ``--verbose`` or ``-v``:
+
+===== ========================================================
+Level Output
+===== ========================================================
+0     No fitting progress or result tables
+1     Configuration and result tables only
+2     Live progress and result tables (CLI default)
+3     Progress, tables and detailed experiment logs
+===== ========================================================
+
+.. code-block:: bash
+
+   lmgec acm --runs 3 --verbose 2
+   lmgec acm --search grid --vary 'embedding_dim=[4,8]' -v 2
+   polyclustx experiment --config examples/experiment_plan.yaml --verbose 2
+   lmgec acm --verbose 1
+
+The status identifies the dataset, model, run and search trial. During fitting,
+methods that report training events also show their current stage, completed
+iterations and estimated remaining **stage** time. Estimates exclude later
+stages and metric evaluation, and can change with convergence. Preparation,
+graph construction and initialization may take time before the first training
+update; the initial status says ``preparing and fitting``. Methods without
+iteration notifications still show run/trial progress. No iteration budgets
+are shortened for progress reporting.
+
+Progress is written to standard error; tables and the report location remain
+on standard output. At level 0, the report location and command errors remain
+visible. Dataset downloads can still show their own download progress.
+
+In an experiment plan, set a top-level ``verbose: 2``. The command-line setting
+overrides the plan; an omitted setting defaults to 2. The Python experiment
+API retains its tables-only default of ``verbose=1``; use ``verbose=2`` there
+for the same live fitting feedback. The legacy ``python -m polyclustx.cli``
+keeps its existing default and also accepts ``--verbose 2``.
+
 Search hyperparameters
 ----------------------
 
@@ -143,7 +184,7 @@ dataset-specific variant or K, replace a dataset name with a mapping:
        clusters: 3
 
 Top-level fields are ``name``, ``datasets``, ``models``, ``runs``,
-``seed``, ``clusters``, ``metrics``, ``benchmark`` and ``output``.
+``seed``, ``clusters``, ``metrics``, ``benchmark``, ``output`` and ``verbose``.
 Unspecified benchmark K comes from that dataset's labels. Relative output
 paths are relative to your working directory, not the plan file.
 JSON mappings are also accepted. Plans contain data only—no executable Python.

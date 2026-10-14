@@ -12,4 +12,4 @@ from .experiment import Experiment, GridSearchExperiment, OptunaSearchExperiment
 from .models import get_model, list_models, register_model  # noqa: F401
 from .tracking import ExperimentTracker  # noqa: F401
 
-__version__ = "1.4.2"
+__version__ = "1.4.3"
